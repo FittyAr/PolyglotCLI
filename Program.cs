@@ -106,7 +106,8 @@ namespace PolyglotCLI
             var ocrService = new OcrService(client, ocrPrompt, visionModel);
             var translatorService = new TranslatorService(client, translationPrompt, textModel, options.TargetLanguage);
             var pageRenderer = new PdfPageRenderer();
-            var markdownWriter = new MarkdownWriter();
+            var translatedWriter = new MarkdownWriter();
+            var originalWriter = new MarkdownWriter();
 
             // Create output directory if it doesn't exist
             string absoluteOutputDir = Path.GetFullPath(options.OutputDirectory);
@@ -224,6 +225,7 @@ namespace PolyglotCLI
                 string fileName = Path.GetFileName(filePath);
                 string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
                 string outputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_{options.TargetLanguage}.md");
+                string originalOutputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_original.md");
 
                 Console.WriteLine($"\nTranslating: {fileName}");
 
@@ -237,7 +239,8 @@ namespace PolyglotCLI
 
                 try
                 {
-                    markdownWriter.Initialize(outputPath, fileName, options.TargetLanguage);
+                    translatedWriter.Initialize(outputPath, fileName, options.TargetLanguage);
+                    originalWriter.Initialize(originalOutputPath, fileName, "Original");
 
                     foreach (var state in pageStates)
                     {
@@ -268,8 +271,9 @@ namespace PolyglotCLI
                             }
                         }
 
-                        // Save translation incrementally page-by-page/chunk-by-chunk
-                        markdownWriter.AppendPage(pageNum, state.TranslatedText ?? string.Empty);
+                        // Save original text and translation incrementally page-by-page/chunk-by-chunk
+                        originalWriter.AppendPage(pageNum, state.OcrText ?? string.Empty);
+                        translatedWriter.AppendPage(pageNum, state.TranslatedText ?? string.Empty);
                     }
 
                     // Phase 4: Retry Loop for Failed Pages of this file
@@ -314,6 +318,7 @@ namespace PolyglotCLI
                                         state.OcrText = await ocrService.PerformOcrAsync(pngBytes, pageNum);
                                         state.OcrFailed = false;
                                         state.OcrErrorMessage = null;
+                                        originalWriter.UpdatePage(pageNum, state.OcrText ?? string.Empty);
                                     }
                                     catch (Exception ocrEx)
                                     {
@@ -332,6 +337,7 @@ namespace PolyglotCLI
                                         state.OcrText = await ocrService.PerformOcrAsync(imgBytes, 1);
                                         state.OcrFailed = false;
                                         state.OcrErrorMessage = null;
+                                        originalWriter.UpdatePage(pageNum, state.OcrText ?? string.Empty);
                                     }
                                     catch (Exception imgEx)
                                     {
@@ -354,6 +360,7 @@ namespace PolyglotCLI
                                             state.OcrText = matched.OcrText;
                                             state.OcrFailed = false;
                                             state.OcrErrorMessage = null;
+                                            originalWriter.UpdatePage(pageNum, state.OcrText ?? string.Empty);
                                         }
                                     }
                                     catch (Exception ex)
@@ -376,7 +383,7 @@ namespace PolyglotCLI
                                     state.TranslationErrorMessage = null;
 
                                     // Update page content in the output file
-                                    markdownWriter.UpdatePage(pageNum, state.TranslatedText ?? string.Empty);
+                                    translatedWriter.UpdatePage(pageNum, state.TranslatedText ?? string.Empty);
                                 }
                                 catch (Exception transEx)
                                 {
@@ -387,7 +394,7 @@ namespace PolyglotCLI
                                     state.TranslationErrorMessage = transEx.Message;
                                     
                                     // Update markdown file to log the latest failure error
-                                    markdownWriter.UpdatePage(pageNum, $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*");
+                                    translatedWriter.UpdatePage(pageNum, $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*");
                                 }
                             }
                         }
@@ -416,6 +423,7 @@ namespace PolyglotCLI
                         Console.ResetColor();
                     }
 
+                    Console.WriteLine($"Original text saved to: {originalOutputPath}");
                     Console.WriteLine($"Output saved to: {outputPath}");
                 }
                 catch (Exception ex)

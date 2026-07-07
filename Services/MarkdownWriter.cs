@@ -21,8 +21,16 @@ namespace PolyglotCLI
 
             // Create or overwrite the file with header details
             var header = new StringBuilder();
-            header.AppendLine($"# Translation of: {documentTitle}");
-            header.AppendLine($"- **Target Language:** {targetLanguage}");
+            if (targetLanguage.Equals("Original", StringComparison.OrdinalIgnoreCase))
+            {
+                header.AppendLine($"# Original Text of: {documentTitle}");
+                header.AppendLine($"- **Language:** Original");
+            }
+            else
+            {
+                header.AppendLine($"# Translation of: {documentTitle}");
+                header.AppendLine($"- **Target Language:** {targetLanguage}");
+            }
             header.AppendLine($"- **Date:** {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             header.AppendLine("- - -");
             header.AppendLine();
