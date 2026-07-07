@@ -13,6 +13,7 @@ namespace PolyglotCLI
         public string OutputDirectory { get; set; } = "output";
         public string LastScanDirectory { get; set; } = ".";
         public bool Debug { get; set; } = false;
+        public string? AdditionalPrompt { get; set; }
 
         public static AppConfig Load(string? configPath = null)
         {

@@ -11,6 +11,7 @@ namespace PolyglotCLI
         public static Task<CommandLineOptions?> RunAsync(AppConfig config)
         {
             CommandLineOptions? resultOptions = null;
+            var filesSource = new List<SelectableFile>();
 
             Application.Init();
 
@@ -27,7 +28,7 @@ namespace PolyglotCLI
             {
                 X = 0,
                 Y = 0,
-                Width = Dim.Percent(35),
+                Width = Dim.Percent(38),
                 Height = Dim.Fill(2)
             };
 
@@ -35,12 +36,12 @@ namespace PolyglotCLI
             var textApi = new TextField(config.ApiUrl) { X = 1, Y = 2, Width = Dim.Fill(2) };
 
             var labelModel = new Label("Translation Model Name:") { X = 1, Y = 4 };
-            var textModel = new TextField(config.DefaultModel ?? "") { X = 1, Y = 5, Width = Dim.Fill(10) };
-            var btnSelectModel = new Button("Select") { X = Pos.Right(textModel) + 1, Y = 5 };
+            var textModel = new TextField(config.DefaultModel ?? "") { X = 1, Y = 5, Width = Dim.Fill(14) };
+            var btnSelectModel = new Button("Sel [F2]") { X = Pos.Right(textModel) + 1, Y = 5 };
 
             var labelVisionModel = new Label("Vision/OCR Model Name:") { X = 1, Y = 7 };
-            var textVisionModel = new TextField(config.DefaultVisionModel ?? "") { X = 1, Y = 8, Width = Dim.Fill(10) };
-            var btnSelectVisionModel = new Button("Select") { X = Pos.Right(textVisionModel) + 1, Y = 8 };
+            var textVisionModel = new TextField(config.DefaultVisionModel ?? "") { X = 1, Y = 8, Width = Dim.Fill(14) };
+            var btnSelectVisionModel = new Button("Sel [F3]") { X = Pos.Right(textVisionModel) + 1, Y = 8 };
 
             var labelLang = new Label("Target Language:") { X = 1, Y = 10 };
             var textLang = new TextField(config.TargetLanguage ?? "Spanish") { X = 1, Y = 11, Width = Dim.Fill(2) };
@@ -55,7 +56,19 @@ namespace PolyglotCLI
                 Checked = config.Debug
             };
 
-            var btnSavePresets = new Button("Save Presets") { X = 1, Y = 18 };
+            var btnSavePresets = new Button("Save Presets [F4]") { X = 1, Y = 18 };
+
+            var labelAddPrompt = new Label("Additional Prompt:") { X = 1, Y = 20 };
+            var btnImprovePrompt = new Button("Improve [F5]") { X = Pos.Right(labelAddPrompt) + 1, Y = 20 };
+            var textAddPrompt = new TextView()
+            {
+                X = 1,
+                Y = 21,
+                Width = Dim.Fill(3),
+                Height = Dim.Fill(1),
+                WordWrap = true
+            };
+            textAddPrompt.Text = config.AdditionalPrompt ?? "";
 
             leftFrame.Add(
                 labelApi, textApi,
@@ -64,8 +77,23 @@ namespace PolyglotCLI
                 labelLang, textLang,
                 labelOutputDir, textOutputDir,
                 checkDebug,
-                btnSavePresets
+                btnSavePresets,
+                labelAddPrompt, btnImprovePrompt, textAddPrompt
             );
+
+            var scrollBar = new ScrollBarView(textAddPrompt, true);
+            scrollBar.ChangedPosition += () => {
+                textAddPrompt.TopRow = scrollBar.Position;
+                textAddPrompt.SetNeedsDisplay();
+            };
+            textAddPrompt.DrawContent += (e) => {
+                scrollBar.Size = textAddPrompt.Lines;
+                scrollBar.Position = textAddPrompt.TopRow;
+                scrollBar.LayoutSubviews();
+                scrollBar.SetNeedsDisplay();
+            };
+
+            leftFrame.Add(scrollBar);
 
             // Right Panel: Document Scanning & Selection
             var rightFrame = new FrameView("Documents Scanner")
@@ -77,8 +105,8 @@ namespace PolyglotCLI
             };
 
             var labelScanDir = new Label("Directory to Scan:") { X = 1, Y = 1 };
-            var textScanDir = new TextField(config.LastScanDirectory ?? ".") { X = 1, Y = 2, Width = Dim.Fill(12) };
-            var btnScan = new Button("Scan") { X = Pos.Right(textScanDir) + 1, Y = 2 };
+            var textScanDir = new TextField(config.LastScanDirectory ?? ".") { X = 1, Y = 2, Width = Dim.Fill(16) };
+            var btnScan = new Button("Scan [F6]") { X = Pos.Right(textScanDir) + 1, Y = 2 };
 
             var labelFiles = new Label("Documents Found (Space/Double-Click to select):") { X = 1, Y = 4 };
             var tableHeader = new Label("Sel | File Name            | Type | Mode                 | Pages    ") { X = 1, Y = 5, ColorScheme = Colors.Base };
@@ -87,7 +115,7 @@ namespace PolyglotCLI
                 X = 1,
                 Y = 6,
                 Width = Dim.Fill(2),
-                Height = Dim.Percent(55)
+                Height = Dim.Fill(2)
             };
 
             var labelShortcuts = new Label("Keys: [Space] Toggle Sel | [T] Toggle Mode | [P] Set Pages")
@@ -98,63 +126,288 @@ namespace PolyglotCLI
                 ColorScheme = Colors.Menu
             };
 
-            // Bottom-Right Frame: PDF options (hidden/disabled when not viewing a PDF)
-            var pdfOptionsFrame = new FrameView("PDF Options")
-            {
-                X = 1,
-                Y = Pos.Bottom(labelShortcuts) + 1,
-                Width = Dim.Fill(2),
-                Height = Dim.Fill(1),
-                Visible = false
-            };
-
-            var labelPdfMode = new Label("OCR Mode:") { X = 1, Y = 0 };
-            var radioPdfMode = new RadioGroup(new NStack.ustring[] { "Text Extraction", "Image/OCR" })
-            {
-                X = 1,
-                Y = 1
-            };
-
-            var labelPdfPages = new Label("Page Range (e.g. 1-5, all):") { X = 1, Y = 3 };
-            var textPdfPages = new TextField("all") { X = 1, Y = 4, Width = Dim.Fill(2) };
-
-            pdfOptionsFrame.Add(labelPdfMode, radioPdfMode, labelPdfPages, textPdfPages);
-
             rightFrame.Add(
                 labelScanDir, textScanDir, btnScan,
-                labelFiles, tableHeader, listFiles, labelShortcuts,
-                pdfOptionsFrame
+                labelFiles, tableHeader, listFiles, labelShortcuts
             );
 
             // Bottom Actions
-            var btnStart = new Button("Start Translation")
+            var btnStart = new Button("Start Translation [F9]")
             {
-                X = Pos.Center() - 15,
+                X = Pos.Center() - 20,
                 Y = Pos.AnchorEnd(1)
             };
 
-            var btnCancel = new Button("Quit")
+            var btnCancel = new Button("Quit [F12]")
             {
-                X = Pos.Center() + 10,
+                X = Pos.Center() + 15,
                 Y = Pos.AnchorEnd(1)
             };
 
             win.Add(leftFrame, rightFrame, btnStart, btnCancel);
             Application.Top.Add(win);
 
-            // Add F1 help key shortcut
-            win.KeyPress += (View.KeyEventEventArgs args) => {
-                if (args.KeyEvent.Key == Key.F1)
+            // Add key shortcuts for all UI buttons globally via RootKeyEvent
+            Application.RootKeyEvent += (KeyEvent keyEvent) => {
+                if (keyEvent.Key == Key.F1)
                 {
                     ShowHelpModal();
-                    args.Handled = true;
+                    return true;
                 }
+                if (keyEvent.Key == Key.F2)
+                {
+                    ShowModelSelectionModal(textModel, "Translation");
+                    return true;
+                }
+                if (keyEvent.Key == Key.F3)
+                {
+                    ShowModelSelectionModal(textVisionModel, "Vision/OCR");
+                    return true;
+                }
+                if (keyEvent.Key == Key.F4)
+                {
+                    SavePresets();
+                    return true;
+                }
+                if (keyEvent.Key == Key.F5)
+                {
+                    ImprovePromptWithAi();
+                    return true;
+                }
+                if (keyEvent.Key == Key.F6)
+                {
+                    PerformScan();
+                    return true;
+                }
+                if (keyEvent.Key == Key.F9)
+                {
+                    StartTranslation();
+                    return true;
+                }
+                if (keyEvent.Key == Key.F12)
+                {
+                    QuitApp();
+                    return true;
+                }
+                return false;
             };
 
-            // Data Sources
-            var filesSource = new List<SelectableFile>();
-            int lastSelectedIndex = -1;
-            bool updatingPdfOptions = false;
+            // Help Modal Dialog
+            void ShowHelpModal()
+            {
+                var dialog = new Dialog("Keyboard Shortcuts & Help", 60, 15);
+                var content = new Label(
+                    "Use the following function keys or click the buttons:\n\n" +
+                    "  [F1]  : Show this shortcuts help dialog\n" +
+                    "  [F2]  : Select translation model\n" +
+                    "  [F3]  : Select vision/OCR model\n" +
+                    "  [F4]  : Save current settings as presets\n" +
+                    "  [F5]  : Improve prompt with AI\n" +
+                    "  [F6]  : Scan documents directory\n" +
+                    "  [F9]  : Start translation of selected files\n" +
+                    "  [F12] : Quit application\n\n" +
+                    "  [Space] / Double-Click : Toggle selection of document\n" +
+                    "  [T] / [M]             : Toggle OCR Mode (Text/Image) for PDF\n" +
+                    "  [P]                   : Set Page Range for PDF"
+                )
+                {
+                    X = 1,
+                    Y = 1,
+                    Width = Dim.Fill(),
+                    Height = Dim.Fill()
+                };
+                
+                var btnClose = new Button("Close", is_default: true);
+                btnClose.Clicked += () => Application.RequestStop();
+                dialog.AddButton(btnClose);
+                dialog.Add(content);
+                
+                Application.Run(dialog);
+            }
+
+            // AI Prompt Improver modal flow
+            void ImprovePromptWithAi()
+            {
+                string rawInput = textAddPrompt.Text?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(rawInput))
+                {
+                    MessageBox.ErrorQuery("Error", "Please write some text in the Additional Prompt box first.", "OK");
+                    return;
+                }
+
+                string url = textApi.Text?.ToString()?.Trim() ?? "";
+                string model = textModel.Text?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
+                {
+                    MessageBox.ErrorQuery("Error", "API URL and Translation Model Name are required to connect to LM Studio.", "OK");
+                    return;
+                }
+
+                var dProgress = new Dialog("AI Prompt Improver", 40, 5);
+                var lblStatus = new Label("Connecting to LM Studio...") { X = Pos.Center(), Y = 1 };
+                dProgress.Add(lblStatus);
+                
+                string? improvedResult = null;
+                string? errorMessage = null;
+
+                dProgress.Loaded += () => {
+                    Task.Run(async () => {
+                        try
+                        {
+                            string promptTemplate = "";
+                            string promptPath = Path.Combine("prompts", "prompt_improver_prompt.md");
+                            if (File.Exists(promptPath))
+                            {
+                                promptTemplate = await File.ReadAllTextAsync(promptPath);
+                            }
+                            else
+                            {
+                                promptTemplate = "You are an expert translation prompt engineer. Rewrite the following translation instructions to be highly effective for an LLM. Output only the improved text, no intro, no markdown codeblocks:\n\n{user_input}";
+                            }
+
+                            string systemMessage = promptTemplate.Replace("{user_input}", rawInput);
+
+                            using var httpClient = new System.Net.Http.HttpClient();
+                            httpClient.Timeout = TimeSpan.FromSeconds(20);
+
+                            var requestBody = new
+                            {
+                                model = model,
+                                messages = new[]
+                                {
+                                    new { role = "user", content = systemMessage }
+                                },
+                                temperature = 0.3
+                            };
+
+                            string jsonString = System.Text.Json.JsonSerializer.Serialize(requestBody);
+                            var content = new System.Net.Http.StringContent(jsonString, System.Text.Encoding.UTF8, "application/json");
+
+                            var response = await httpClient.PostAsync($"{url.TrimEnd('/')}/chat/completions", content);
+                            if (response.IsSuccessStatusCode)
+                            {
+                                string responseJson = await response.Content.ReadAsStringAsync();
+                                using var doc = System.Text.Json.JsonDocument.Parse(responseJson);
+                                var choices = doc.RootElement.GetProperty("choices");
+                                if (choices.GetArrayLength() > 0)
+                                {
+                                    string text = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+                                    improvedResult = text.Trim();
+                                }
+                            }
+                            else
+                            {
+                                errorMessage = $"API returned status code: {response.StatusCode}";
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            errorMessage = ex.Message;
+                        }
+                        finally
+                        {
+                            Application.MainLoop.Invoke(() => {
+                                Application.RequestStop();
+                            });
+                        }
+                    });
+                };
+
+                Application.Run(dProgress);
+
+                if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    MessageBox.ErrorQuery("Error", $"Failed to improve prompt: {errorMessage}", "OK");
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(improvedResult))
+                {
+                    MessageBox.ErrorQuery("Error", "No output returned from AI.", "OK");
+                    return;
+                }
+
+                var dPreview = new Dialog("AI Improved Prompt Preview", 75, 20);
+                
+                var lblOrig = new Label("Original Prompt:") { X = 1, Y = 1 };
+                var textOrig = new TextView()
+                {
+                    X = 1,
+                    Y = 2,
+                    Width = Dim.Percent(47),
+                    Height = Dim.Fill(2),
+                    ReadOnly = true,
+                    Text = rawInput,
+                    WordWrap = true
+                };
+
+                var lblNew = new Label("AI Improved Prompt:") { X = Pos.Right(textOrig) + 2, Y = 1 };
+                var textNew = new TextView()
+                {
+                    X = Pos.Right(textOrig) + 2,
+                    Y = 2,
+                    Width = Dim.Fill(3),
+                    Height = Dim.Fill(2),
+                    ReadOnly = true,
+                    Text = improvedResult,
+                    WordWrap = true
+                };
+
+                bool apply = false;
+                var btnApply = new Button("Apply Changes", is_default: true);
+                var btnDiscard = new Button("Discard");
+
+                btnApply.Clicked += () => {
+                    apply = true;
+                    Application.RequestStop();
+                };
+
+                btnDiscard.Clicked += () => {
+                    apply = false;
+                    Application.RequestStop();
+                };
+
+                dPreview.AddButton(btnApply);
+                dPreview.AddButton(btnDiscard);
+                
+                dPreview.Add(lblOrig, textOrig, lblNew, textNew);
+
+                var scrollBarOrig = new ScrollBarView(textOrig, true);
+                scrollBarOrig.ChangedPosition += () => {
+                    textOrig.TopRow = scrollBarOrig.Position;
+                    textOrig.SetNeedsDisplay();
+                };
+                textOrig.DrawContent += (e) => {
+                    scrollBarOrig.Size = textOrig.Lines;
+                    scrollBarOrig.Position = textOrig.TopRow;
+                    scrollBarOrig.LayoutSubviews();
+                    scrollBarOrig.SetNeedsDisplay();
+                };
+
+                var scrollBarNew = new ScrollBarView(textNew, true);
+                scrollBarNew.ChangedPosition += () => {
+                    textNew.TopRow = scrollBarNew.Position;
+                    textNew.SetNeedsDisplay();
+                };
+                textNew.DrawContent += (e) => {
+                    scrollBarNew.Size = textNew.Lines;
+                    scrollBarNew.Position = textNew.TopRow;
+                    scrollBarNew.LayoutSubviews();
+                    scrollBarNew.SetNeedsDisplay();
+                };
+
+                dPreview.Add(scrollBarOrig, scrollBarNew);
+
+                Application.Run(dPreview);
+
+                if (apply)
+                {
+                    textAddPrompt.Text = improvedResult;
+                    MessageBox.Query("Success", "Prompt updated successfully!", "OK");
+                }
+            }
+
+            // (Declaration moved to top of RunAsync)
 
             // Helper to update file list view
             void UpdateFileList()
@@ -167,49 +420,7 @@ namespace PolyglotCLI
                 listFiles.SetSource(displayList);
             }
 
-            // Helper to save PDF options of previously selected file
-            void SaveLastSelectedPdfOptions()
-            {
-                if (lastSelectedIndex >= 0 && lastSelectedIndex < filesSource.Count)
-                {
-                    var file = filesSource[lastSelectedIndex];
-                    if (Path.GetExtension(file.FullPath).ToLowerInvariant() == ".pdf")
-                    {
-                        file.Mode = (radioPdfMode.SelectedItem == 1) ? "image" : "text";
-                        file.PageRange = textPdfPages.Text?.ToString()?.Trim() ?? "all";
-                    }
-                }
-            }
-
-            // Helper to update PDF options UI panel based on highlighted item
-            void UpdatePdfOptionsPanel()
-            {
-                if (updatingPdfOptions) return;
-                updatingPdfOptions = true;
-
-                int idx = listFiles.SelectedItem;
-                if (idx >= 0 && idx < filesSource.Count)
-                {
-                    var file = filesSource[idx];
-                    string ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
-                    if (ext == ".pdf")
-                    {
-                        pdfOptionsFrame.Visible = true;
-                        radioPdfMode.SelectedItem = file.Mode.Equals("image", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-                        textPdfPages.Text = file.PageRange;
-                    }
-                    else
-                    {
-                        pdfOptionsFrame.Visible = false;
-                    }
-                }
-                else
-                {
-                    pdfOptionsFrame.Visible = false;
-                }
-
-                updatingPdfOptions = false;
-            }
+            // (Helpers for obsolete PDF options panel removed)
 
             // Perform directory scanning
             void PerformScan()
@@ -226,9 +437,7 @@ namespace PolyglotCLI
                     return;
                 }
 
-                SaveLastSelectedPdfOptions();
                 filesSource.Clear();
-                lastSelectedIndex = -1;
 
                 try
                 {
@@ -255,7 +464,6 @@ namespace PolyglotCLI
                     }
 
                     UpdateFileList();
-                    UpdatePdfOptionsPanel();
 
                     if (filesSource.Count == 0)
                     {
@@ -268,32 +476,7 @@ namespace PolyglotCLI
                 }
             }
 
-            // Help Modal Dialog
-            void ShowHelpModal()
-            {
-                var dialog = new Dialog("Keyboard Shortcuts", 60, 11);
-                var content = new Label(
-                    "Use the following shortcuts to control the application:\n\n" +
-                    "  [Space] / Double-Click : Toggle selection of document\n" +
-                    "  [T] / [M]             : Toggle OCR Mode (Text vs Image) for highlighted PDF\n" +
-                    "  [P]                   : Set Page Range for highlighted PDF\n" +
-                    "  [F1]                  : Show this help dialog\n" +
-                    "  [Ctrl+Q]              : Exit application"
-                )
-                {
-                    X = 1,
-                    Y = 1,
-                    Width = Dim.Fill(),
-                    Height = Dim.Fill()
-                };
-                
-                var btnClose = new Button("Close", is_default: true);
-                btnClose.Clicked += () => Application.RequestStop();
-                dialog.AddButton(btnClose);
-                dialog.Add(content);
-                
-                Application.Run(dialog);
-            }
+            // (Obsolete ShowHelpModal removed, new version defined above)
 
             // Sync model detection logic via selection modal
             void ShowModelSelectionModal(TextField targetField, string roleName)
@@ -400,19 +583,16 @@ namespace PolyglotCLI
             }
 
             // Wire events
-            btnScan.Clicked += () => {
-                PerformScan();
-            };
+            btnScan.Clicked += () => PerformScan();
+            btnSelectModel.Clicked += () => ShowModelSelectionModal(textModel, "Translation");
+            btnSelectVisionModel.Clicked += () => ShowModelSelectionModal(textVisionModel, "Vision/OCR");
+            btnSavePresets.Clicked += () => SavePresets();
+            btnImprovePrompt.Clicked += () => ImprovePromptWithAi();
+            btnCancel.Clicked += () => QuitApp();
+            btnStart.Clicked += () => StartTranslation();
 
-            btnSelectModel.Clicked += () => {
-                ShowModelSelectionModal(textModel, "Translation");
-            };
-
-            btnSelectVisionModel.Clicked += () => {
-                ShowModelSelectionModal(textVisionModel, "Vision/OCR");
-            };
-
-            btnSavePresets.Clicked += () => {
+            void SavePresets()
+            {
                 config.ApiUrl = textApi.Text?.ToString()?.Trim() ?? "";
                 config.DefaultModel = textModel.Text?.ToString()?.Trim();
                 config.DefaultVisionModel = textVisionModel.Text?.ToString()?.Trim();
@@ -420,10 +600,53 @@ namespace PolyglotCLI
                 config.OutputDirectory = textOutputDir.Text?.ToString()?.Trim() ?? "output";
                 config.LastScanDirectory = textScanDir.Text?.ToString()?.Trim() ?? ".";
                 config.Debug = checkDebug.Checked;
+                config.AdditionalPrompt = textAddPrompt.Text?.ToString()?.Trim();
                 
                 config.Save();
                 MessageBox.Query("Success", "Presets saved successfully to config.json!", "OK");
-            };
+            }
+
+            void StartTranslation()
+            {
+                var selected = filesSource.FindAll(f => f.IsSelected);
+                if (selected.Count == 0)
+                {
+                    MessageBox.ErrorQuery("No Files Selected", "You must select at least one file to translate.", "OK");
+                    return;
+                }
+
+                var finalOptions = new CommandLineOptions
+                {
+                    ApiUrl = textApi.Text?.ToString()?.Trim() ?? "",
+                    ModelName = string.IsNullOrWhiteSpace(textModel.Text?.ToString()) ? null : textModel.Text?.ToString()?.Trim(),
+                    VisionModelName = string.IsNullOrWhiteSpace(textVisionModel.Text?.ToString()) ? null : textVisionModel.Text?.ToString()?.Trim(),
+                    TargetLanguage = textLang.Text?.ToString()?.Trim() ?? "Spanish",
+                    OutputDirectory = textOutputDir.Text?.ToString()?.Trim() ?? "output",
+                    Debug = checkDebug.Checked,
+                    AdditionalPrompt = textAddPrompt.Text?.ToString()?.Trim(),
+                    DocumentTargets = new List<DocumentTarget>()
+                };
+
+                foreach (var f in selected)
+                {
+                    finalOptions.DocumentTargets.Add(new DocumentTarget
+                    {
+                        FilePath = f.FullPath,
+                        Mode = f.Mode,
+                        PageRange = f.PageRange
+                    });
+                    finalOptions.Files.Add(f.FullPath);
+                }
+
+                resultOptions = finalOptions;
+                Application.RequestStop();
+            }
+
+            void QuitApp()
+            {
+                resultOptions = null;
+                Application.RequestStop();
+            }
 
             // Toggle file selection on Space key or Double-Click
             listFiles.OpenSelectedItem += (ListViewItemEventArgs args) => {
@@ -457,10 +680,6 @@ namespace PolyglotCLI
                     {
                         file.Mode = file.Mode.Equals("image", StringComparison.OrdinalIgnoreCase) ? "text" : "image";
                         
-                        updatingPdfOptions = true;
-                        radioPdfMode.SelectedItem = file.Mode.Equals("image", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-                        updatingPdfOptions = false;
-
                         int savedIndex = listFiles.SelectedItem;
                         UpdateFileList();
                         listFiles.SelectedItem = savedIndex;
@@ -476,10 +695,6 @@ namespace PolyglotCLI
                         {
                             file.PageRange = newPageRange.Trim();
                             
-                            updatingPdfOptions = true;
-                            textPdfPages.Text = file.PageRange;
-                            updatingPdfOptions = false;
-
                             int savedIndex = listFiles.SelectedItem;
                             UpdateFileList();
                             listFiles.SelectedItem = savedIndex;
@@ -487,81 +702,6 @@ namespace PolyglotCLI
                         args.Handled = true;
                     }
                 }
-            };
-
-            listFiles.SelectedItemChanged += (ListViewItemEventArgs args) => {
-                SaveLastSelectedPdfOptions();
-                lastSelectedIndex = listFiles.SelectedItem;
-                UpdatePdfOptionsPanel();
-            };
-
-            radioPdfMode.SelectedItemChanged += (args) => {
-                if (updatingPdfOptions) return;
-                int idx = listFiles.SelectedItem;
-                if (idx >= 0 && idx < filesSource.Count)
-                {
-                    var file = filesSource[idx];
-                    file.Mode = (args.SelectedItem == 1) ? "image" : "text";
-                    
-                    int savedIndex = listFiles.SelectedItem;
-                    UpdateFileList();
-                    listFiles.SelectedItem = savedIndex;
-                }
-            };
-
-            textPdfPages.TextChanged += (oldText) => {
-                if (updatingPdfOptions) return;
-                int idx = listFiles.SelectedItem;
-                if (idx >= 0 && idx < filesSource.Count)
-                {
-                    var file = filesSource[idx];
-                    file.PageRange = textPdfPages.Text?.ToString()?.Trim() ?? "all";
-                    
-                    int savedIndex = listFiles.SelectedItem;
-                    UpdateFileList();
-                    listFiles.SelectedItem = savedIndex;
-                }
-            };
-
-            btnCancel.Clicked += () => {
-                resultOptions = null;
-                Application.RequestStop();
-            };
-
-            btnStart.Clicked += () => {
-                var selected = filesSource.FindAll(f => f.IsSelected);
-                if (selected.Count == 0)
-                {
-                    MessageBox.ErrorQuery("No Files Selected", "You must select at least one file to translate.", "OK");
-                    return;
-                }
-
-                SaveLastSelectedPdfOptions();
-
-                var finalOptions = new CommandLineOptions
-                {
-                    ApiUrl = textApi.Text?.ToString()?.Trim() ?? "",
-                    ModelName = string.IsNullOrWhiteSpace(textModel.Text?.ToString()) ? null : textModel.Text?.ToString()?.Trim(),
-                    VisionModelName = string.IsNullOrWhiteSpace(textVisionModel.Text?.ToString()) ? null : textVisionModel.Text?.ToString()?.Trim(),
-                    TargetLanguage = textLang.Text?.ToString()?.Trim() ?? "Spanish",
-                    OutputDirectory = textOutputDir.Text?.ToString()?.Trim() ?? "output",
-                    Debug = checkDebug.Checked,
-                    DocumentTargets = new List<DocumentTarget>()
-                };
-
-                foreach (var f in selected)
-                {
-                    finalOptions.DocumentTargets.Add(new DocumentTarget
-                    {
-                        FilePath = f.FullPath,
-                        Mode = f.Mode,
-                        PageRange = f.PageRange
-                    });
-                    finalOptions.Files.Add(f.FullPath);
-                }
-
-                resultOptions = finalOptions;
-                Application.RequestStop();
             };
 
             // Perform scan of starting directory on startup if it exists

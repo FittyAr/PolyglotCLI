@@ -16,6 +16,7 @@ namespace PolyglotCLI
         public string OutputDirectory { get; set; } = "output";
         public string PageRange { get; set; } = "all";
         public bool Debug { get; set; } = false;
+        public string? AdditionalPrompt { get; set; }
 
         public static CommandLineOptions? Parse(string[] args, AppConfig config)
         {
@@ -23,7 +24,8 @@ namespace PolyglotCLI
             {
                 ApiUrl = config.ApiUrl,
                 ModelName = config.DefaultModel,
-                VisionModelName = config.DefaultVisionModel
+                VisionModelName = config.DefaultVisionModel,
+                AdditionalPrompt = config.AdditionalPrompt
             };
             var filesList = new List<string>();
 
@@ -84,6 +86,13 @@ namespace PolyglotCLI
                         if (i + 1 < args.Length)
                         {
                             options.PageRange = args[++i];
+                        }
+                        break;
+                    case "-ap":
+                    case "--add-prompt":
+                        if (i + 1 < args.Length)
+                        {
+                            options.AdditionalPrompt = args[++i];
                         }
                         break;
                     case "-d":
@@ -220,6 +229,7 @@ namespace PolyglotCLI
             Console.WriteLine("  -o, --output-dir <path>    Directory where translated markdown files will be saved. Default: output.");
             Console.WriteLine("  -p, --pages <range>        Page range to process (e.g. '1-5', '12', '1,3,5'). Default: all.");
             Console.WriteLine("  -d, --debug                Debug mode. Only processes first 2 pages. Default: false.");
+            Console.WriteLine("  -ap, --add-prompt <prompt>  Additional translation prompt guidance.");
         }
     }
 

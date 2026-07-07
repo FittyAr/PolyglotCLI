@@ -43,6 +43,10 @@ namespace PolyglotCLI
                 var promptLoader = new PromptLoader();
                 ocrPrompt = promptLoader.LoadOcrPrompt();
                 translationPrompt = promptLoader.LoadTranslationPrompt();
+                if (!string.IsNullOrWhiteSpace(options.AdditionalPrompt))
+                {
+                    translationPrompt += "\n\nAdditional instructions from user:\n" + options.AdditionalPrompt;
+                }
                 Console.WriteLine("Loaded prompts successfully.");
             }
             catch (Exception ex)
