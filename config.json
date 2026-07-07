@@ -1,0 +1,5 @@
+{
+  "ApiUrl": "http://172.22.144.1:1234/v1",
+  "DefaultModel": "qwen/qwen3.5-9b",
+  "DefaultVisionModel": "qwen/qwen3.5-9b"
+}

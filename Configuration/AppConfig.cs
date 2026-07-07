@@ -1,0 +1,43 @@
+using System;
+using System.IO;
+using System.Text.Json;
+
+namespace PolyglotCLI
+{
+    public class AppConfig
+    {
+        public string ApiUrl { get; set; } = "http://172.22.144.1:1234/v1";
+        public string? DefaultModel { get; set; }
+        public string? DefaultVisionModel { get; set; }
+
+        public static AppConfig Load(string? configPath = null)
+        {
+            configPath ??= Path.Combine(AppContext.BaseDirectory, "config.json");
+            
+            // Fallback to project root directory config if not found in output directory
+            if (!File.Exists(configPath))
+            {
+                configPath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
+            }
+
+            if (!File.Exists(configPath))
+            {
+                return new AppConfig();
+            }
+
+            try
+            {
+                string jsonString = File.ReadAllText(configPath);
+                var config = JsonSerializer.Deserialize<AppConfig>(jsonString);
+                return config ?? new AppConfig();
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"Warning: Failed to load config.json, using defaults. Error: {ex.Message}");
+                Console.ResetColor();
+                return new AppConfig();
+            }
+        }
+    }
+}

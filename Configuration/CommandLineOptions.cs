@@ -1,0 +1,212 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+
+namespace PolyglotCLI
+{
+    public class CommandLineOptions
+    {
+        public List<string> Files { get; set; } = new List<string>();
+        public string Mode { get; set; } = "text"; // "text" or "image"
+        public string ApiUrl { get; set; } = "http://172.22.144.1:1234/v1";
+        public string? ModelName { get; set; }
+        public string? VisionModelName { get; set; }
+        public string TargetLanguage { get; set; } = "Spanish";
+        public string OutputDirectory { get; set; } = "output";
+        public string PageRange { get; set; } = "all";
+        public bool Debug { get; set; } = false;
+
+        public static CommandLineOptions? Parse(string[] args, AppConfig config)
+        {
+            var options = new CommandLineOptions
+            {
+                ApiUrl = config.ApiUrl,
+                ModelName = config.DefaultModel,
+                VisionModelName = config.DefaultVisionModel
+            };
+            var filesList = new List<string>();
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                switch (args[i])
+                {
+                    case "-f":
+                    case "--files":
+                        while (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                        {
+                            filesList.Add(args[++i]);
+                        }
+                        break;
+                    case "-m":
+                    case "--mode":
+                        if (i + 1 < args.Length)
+                        {
+                            options.Mode = args[++i].ToLowerInvariant();
+                        }
+                        break;
+                    case "-a":
+                    case "--api":
+                        if (i + 1 < args.Length)
+                        {
+                            options.ApiUrl = args[++i];
+                        }
+                        break;
+                    case "--model":
+                        if (i + 1 < args.Length)
+                        {
+                            options.ModelName = args[++i];
+                        }
+                        break;
+                    case "-vmodel":
+                    case "--vision-model":
+                        if (i + 1 < args.Length)
+                        {
+                            options.VisionModelName = args[++i];
+                        }
+                        break;
+                    case "-t":
+                    case "--target-lang":
+                        if (i + 1 < args.Length)
+                        {
+                            options.TargetLanguage = args[++i];
+                        }
+                        break;
+                    case "-o":
+                    case "--output-dir":
+                        if (i + 1 < args.Length)
+                        {
+                            options.OutputDirectory = args[++i];
+                        }
+                        break;
+                    case "-p":
+                    case "--pages":
+                        if (i + 1 < args.Length)
+                        {
+                            options.PageRange = args[++i];
+                        }
+                        break;
+                    case "-d":
+                    case "--debug":
+                        options.Debug = true;
+                        break;
+                    default:
+                        // Treat unflagged arguments as input files if filesList is empty
+                        if (!args[i].StartsWith("-"))
+                        {
+                            filesList.Add(args[i]);
+                        }
+                        break;
+                }
+            }
+
+            options.Files = filesList;
+
+            if (options.Validate())
+            {
+                return options;
+            }
+
+            return null;
+        }
+
+        private bool Validate()
+        {
+            if (Files.Count == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Error: No PDF files specified. Use --files / -f to pass PDF files.");
+                Console.ResetColor();
+                PrintUsage();
+                return false;
+            }
+
+            foreach (var file in Files)
+            {
+                if (!File.Exists(file))
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Error: Input file '{file}' does not exist.");
+                    Console.ResetColor();
+                    return false;
+                }
+            }
+
+            if (Mode != "text" && Mode != "image")
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error: Invalid mode '{Mode}'. Supported modes are 'text' or 'image'.");
+                Console.ResetColor();
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(ApiUrl) || !Uri.TryCreate(ApiUrl, UriKind.Absolute, out _))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error: Invalid LM Studio API URL '{ApiUrl}'.");
+                Console.ResetColor();
+                return false;
+            }
+
+            return true;
+        }
+
+        public static HashSet<int>? ParsePageRange(string rangeStr, int totalPages)
+        {
+            if (string.IsNullOrWhiteSpace(rangeStr) || rangeStr.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                return null; // Null means all pages
+            }
+
+            var pages = new HashSet<int>();
+            string[] parts = rangeStr.Split(',');
+            foreach (var part in parts)
+            {
+                string trimmed = part.Trim();
+                if (trimmed.Contains('-'))
+                {
+                    string[] rangeParts = trimmed.Split('-');
+                    if (rangeParts.Length == 2 && 
+                        int.TryParse(rangeParts[0], out int start) && 
+                        int.TryParse(rangeParts[1], out int end))
+                    {
+                        int min = Math.Min(start, end);
+                        int max = Math.Max(start, end);
+                        for (int i = min; i <= max; i++)
+                        {
+                            if (i >= 1 && i <= totalPages)
+                            {
+                                pages.Add(i);
+                            }
+                        }
+                    }
+                }
+                else if (int.TryParse(trimmed, out int pageNum))
+                {
+                    if (pageNum >= 1 && pageNum <= totalPages)
+                    {
+                        pages.Add(pageNum);
+                    }
+                }
+            }
+
+            return pages;
+        }
+
+        public static void PrintUsage()
+        {
+            Console.WriteLine("Usage:");
+            Console.WriteLine("  dotnet run -- --files <file1.pdf> <file2.pdf> [options]");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  -f, --files <paths>        Path(s) to the PDF file(s) to translate.");
+            Console.WriteLine("  -m, --mode <text|image>    PDF content type. 'text' (extract text) or 'image' (OCR first). Default: text.");
+            Console.WriteLine("  -a, --api <url>            LM Studio Base API URL. Default: http://172.22.144.1:1234/v1");
+            Console.WriteLine("  --model <name>             Name of the translation LLM loaded in LM Studio.");
+            Console.WriteLine("  -vmodel, --vision-model <name> Name of the vision model for OCR loaded in LM Studio.");
+            Console.WriteLine("  -t, --target-lang <lang>   Target language for translation. Default: Spanish.");
+            Console.WriteLine("  -o, --output-dir <path>    Directory where translated markdown files will be saved. Default: output.");
+            Console.WriteLine("  -p, --pages <range>        Page range to process (e.g. '1-5', '12', '1,3,5'). Default: all.");
+            Console.WriteLine("  -d, --debug                Debug mode. Only processes first 2 pages. Default: false.");
+        }
+    }
+}
