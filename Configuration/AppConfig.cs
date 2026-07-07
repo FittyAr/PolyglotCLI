@@ -9,6 +9,10 @@ namespace PolyglotCLI
         public string ApiUrl { get; set; } = "http://172.22.144.1:1234/v1";
         public string? DefaultModel { get; set; }
         public string? DefaultVisionModel { get; set; }
+        public string TargetLanguage { get; set; } = "Spanish";
+        public string OutputDirectory { get; set; } = "output";
+        public string LastScanDirectory { get; set; } = ".";
+        public bool Debug { get; set; } = false;
 
         public static AppConfig Load(string? configPath = null)
         {
@@ -37,6 +41,33 @@ namespace PolyglotCLI
                 Console.WriteLine($"Warning: Failed to load config.json, using defaults. Error: {ex.Message}");
                 Console.ResetColor();
                 return new AppConfig();
+            }
+        }
+
+        public void Save(string? configPath = null)
+        {
+            configPath ??= Path.Combine(AppContext.BaseDirectory, "config.json");
+            
+            if (!File.Exists(configPath))
+            {
+                var rootConfig = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
+                if (File.Exists(rootConfig))
+                {
+                    configPath = rootConfig;
+                }
+            }
+
+            try
+            {
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                string jsonString = JsonSerializer.Serialize(this, options);
+                File.WriteAllText(configPath, jsonString);
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"Warning: Failed to save config.json. Error: {ex.Message}");
+                Console.ResetColor();
             }
         }
     }

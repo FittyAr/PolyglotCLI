@@ -7,6 +7,7 @@ namespace PolyglotCLI
     public class CommandLineOptions
     {
         public List<string> Files { get; set; } = new List<string>();
+        public List<DocumentTarget> DocumentTargets { get; set; } = new List<DocumentTarget>();
         public string Mode { get; set; } = "text"; // "text" or "image"
         public string ApiUrl { get; set; } = "http://172.22.144.1:1234/v1";
         public string? ModelName { get; set; }
@@ -100,6 +101,18 @@ namespace PolyglotCLI
             }
 
             options.Files = filesList;
+
+            // Populate DocumentTargets list for backward compatibility with command line arguments
+            options.DocumentTargets = new List<DocumentTarget>();
+            foreach (var file in options.Files)
+            {
+                options.DocumentTargets.Add(new DocumentTarget
+                {
+                    FilePath = file,
+                    Mode = options.Mode,
+                    PageRange = options.PageRange
+                });
+            }
 
             if (options.Validate())
             {
@@ -208,5 +221,12 @@ namespace PolyglotCLI
             Console.WriteLine("  -p, --pages <range>        Page range to process (e.g. '1-5', '12', '1,3,5'). Default: all.");
             Console.WriteLine("  -d, --debug                Debug mode. Only processes first 2 pages. Default: false.");
         }
+    }
+
+    public class DocumentTarget
+    {
+        public string FilePath { get; set; } = string.Empty;
+        public string Mode { get; set; } = "text"; // "text" or "image" (specific to PDF)
+        public string PageRange { get; set; } = "all";
     }
 }

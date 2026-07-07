@@ -78,7 +78,19 @@ namespace PolyglotCLI
             string textModel = options.ModelName ?? loadedModel;
             string visionModel = options.VisionModelName ?? loadedModel;
 
-            string firstRequiredModel = (options.Mode == "image") ? visionModel : textModel;
+            bool requiresVisionModel = false;
+            foreach (var target in options.DocumentTargets)
+            {
+                string ext = Path.GetExtension(target.FilePath).ToLowerInvariant();
+                bool isImage = ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff";
+                if (target.Mode.Equals("image", StringComparison.OrdinalIgnoreCase) || isImage)
+                {
+                    requiresVisionModel = true;
+                    break;
+                }
+            }
+
+            string firstRequiredModel = requiresVisionModel ? visionModel : textModel;
             if (!string.IsNullOrEmpty(firstRequiredModel))
             {
                 Console.ForegroundColor = ConsoleColor.Cyan;
@@ -90,10 +102,8 @@ namespace PolyglotCLI
             var ocrService = new OcrService(client, ocrPrompt, visionModel);
             var translatorService = new TranslatorService(client, translationPrompt, textModel, options.TargetLanguage);
             var pageRenderer = new PdfPageRenderer();
-            var textExtractor = new PdfTextExtractor();
             var markdownWriter = new MarkdownWriter();
 
-            // Create output directory if it doesn't exist
             // Create output directory if it doesn't exist
             string absoluteOutputDir = Path.GetFullPath(options.OutputDirectory);
             if (!Directory.Exists(absoluteOutputDir))
@@ -106,137 +116,59 @@ namespace PolyglotCLI
             Console.WriteLine("==================================================");
             Console.WriteLine("        PHASE 1: TEXT EXTRACTION & OCR            ");
             Console.WriteLine("==================================================");
-            Console.WriteLine($"Running extraction in {options.Mode.ToUpperInvariant()} mode.");
+            
+            if (options.Debug)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("DEBUG MODE ACTIVE: Limiting processing to first 2 pages/chunks.");
+                Console.ResetColor();
+                foreach (var t in options.DocumentTargets)
+                {
+                    t.PageRange = "1-2";
+                }
+            }
 
             var documentStateCache = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<PageProcessState>>();
+            var extractorFactory = new DocumentExtractorFactory();
 
-            foreach (var pdfPath in options.Files)
+            foreach (var target in options.DocumentTargets)
             {
-                string fileName = Path.GetFileName(pdfPath);
-                Console.WriteLine($"\nProcessing: {fileName}");
+                string filePath = target.FilePath;
+                string fileName = Path.GetFileName(filePath);
+                Console.WriteLine($"\nProcessing: {fileName} (Mode: {target.Mode.ToUpperInvariant()})");
                 
-                var pageStates = new System.Collections.Generic.List<PageProcessState>();
                 try
                 {
-                    textExtractor.Open(pdfPath);
-                    int totalPages = textExtractor.PageCount;
-                    Console.WriteLine($"Total pages in document: {totalPages}");
-
-                    // Resolve page list to process
-                    System.Collections.Generic.HashSet<int>? pageFilter = null;
-                    if (options.Debug)
+                    var extractor = extractorFactory.GetExtractor(filePath);
+                    var pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer);
+                    
+                    int successCount = 0;
+                    foreach (var s in pageStates)
                     {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("DEBUG MODE ACTIVE: Processing only first 2 pages.");
-                        Console.ResetColor();
-                        pageFilter = new System.Collections.Generic.HashSet<int> { 1 };
-                        if (totalPages >= 2)
-                        {
-                            pageFilter.Add(2);
-                        }
+                        if (!s.OcrFailed) successCount++;
                     }
-                    else
-                    {
-                        pageFilter = CommandLineOptions.ParsePageRange(options.PageRange, totalPages);
-                    }
-
-                    var resolvedPages = new System.Collections.Generic.List<int>();
-                    for (int p = 1; p <= totalPages; p++)
-                    {
-                        if (pageFilter == null || pageFilter.Contains(p))
-                        {
-                            resolvedPages.Add(p);
-                        }
-                    }
-
-                    Console.WriteLine($"Pages to process ({resolvedPages.Count}): {string.Join(", ", resolvedPages)}");
-
-                    // Initialize states
-                    foreach (int pageNum in resolvedPages)
-                    {
-                        pageStates.Add(new PageProcessState { PageNumber = pageNum });
-                    }
-
-                    foreach (var state in pageStates)
-                    {
-                        int pageNum = state.PageNumber;
-                        Console.WriteLine($"\n--- [Page {pageNum} of {totalPages}] ---");
-
-                        if (options.Mode == "image")
-                        {
-                            try
-                            {
-                                // Render page to image
-                                Console.Write("Rendering page to PNG image... ");
-                                byte[] pngBytes = pageRenderer.RenderPageToPng(pdfPath, pageNum);
-                                Console.ForegroundColor = ConsoleColor.Green;
-                                Console.WriteLine("Done.");
-                                Console.ResetColor();
-
-                                // Run OCR
-                                state.OcrText = await ocrService.PerformOcrAsync(pngBytes, pageNum);
-                                state.OcrFailed = false;
-                            }
-                            catch (Exception ocrEx)
-                            {
-                                Console.ForegroundColor = ConsoleColor.Red;
-                                Console.WriteLine($"OCR Error on page {pageNum}: {ocrEx.Message}");
-                                Console.ResetColor();
-                                state.OcrFailed = true;
-                                state.OcrErrorMessage = ocrEx.Message;
-                                state.OcrText = $"*Failed to perform OCR on page {pageNum} due to error: {ocrEx.Message}*";
-                            }
-                        }
-                        else
-                        {
-                            // Text mode
-                            try
-                            {
-                                Console.Write("Extracting text from page... ");
-                                state.OcrText = textExtractor.ExtractTextFromPage(pageNum);
-                                Console.ForegroundColor = ConsoleColor.Green;
-                                Console.WriteLine("Done.");
-                                Console.ResetColor();
-                                state.OcrFailed = false;
-
-                                if (string.IsNullOrWhiteSpace(state.OcrText))
-                                {
-                                    Console.ForegroundColor = ConsoleColor.Yellow;
-                                    Console.WriteLine("Warning: Page contains no selectable text. Try image mode.");
-                                    Console.ResetColor();
-                                }
-                            }
-                            catch (Exception extractEx)
-                            {
-                                Console.ForegroundColor = ConsoleColor.Red;
-                                Console.WriteLine($"Extraction Error on page {pageNum}: {extractEx.Message}");
-                                Console.ResetColor();
-                                state.OcrFailed = true;
-                                state.OcrErrorMessage = extractEx.Message;
-                                state.OcrText = $"*Failed to extract text on page {pageNum} due to error: {extractEx.Message}*";
-                            }
-                        }
-                    }
+                    Console.WriteLine($"Extracted {successCount}/{pageStates.Count} pages/chunks successfully.");
+                    
+                    documentStateCache[filePath] = pageStates;
                 }
                 catch (Exception ex)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"Fatal Error reading file {fileName}: {ex.Message}");
                     Console.ResetColor();
-                    pageStates.Add(new PageProcessState 
-                    { 
-                        PageNumber = 1, 
-                        OcrFailed = true, 
-                        OcrErrorMessage = ex.Message,
-                        OcrText = $"*Failed to read file due to fatal error: {ex.Message}*" 
-                    });
+                    
+                    var failedStates = new System.Collections.Generic.List<PageProcessState>
+                    {
+                        new PageProcessState 
+                        { 
+                            PageNumber = 1, 
+                            OcrFailed = true, 
+                            OcrErrorMessage = ex.Message,
+                            OcrText = $"*Failed to read file due to fatal error: {ex.Message}*" 
+                        }
+                    };
+                    documentStateCache[filePath] = failedStates;
                 }
-                finally
-                {
-                    textExtractor.Close();
-                }
-
-                documentStateCache[pdfPath] = pageStates;
             }
 
             // Phase 2: Model Transition
@@ -244,7 +176,7 @@ namespace PolyglotCLI
             Console.WriteLine("==================================================");
             Console.WriteLine("        PHASE 2: MODEL TRANSITION                 ");
             Console.WriteLine("==================================================");
-            if (options.Mode == "image" && textModel != visionModel)
+            if (requiresVisionModel && textModel != visionModel)
             {
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"Unloading OCR Vision model ({visionModel}) from VRAM before loading Translation Text model ({textModel})...");
@@ -282,18 +214,19 @@ namespace PolyglotCLI
             Console.WriteLine("        PHASE 3: TRANSLATION & SAVING             ");
             Console.WriteLine("==================================================");
 
-            foreach (var pdfPath in options.Files)
+            foreach (var target in options.DocumentTargets)
             {
-                string fileName = Path.GetFileName(pdfPath);
-                string fileNameWithoutExt = Path.GetFileNameWithoutExtension(pdfPath);
+                string filePath = target.FilePath;
+                string fileName = Path.GetFileName(filePath);
+                string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
                 string outputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_{options.TargetLanguage}.md");
 
                 Console.WriteLine($"\nTranslating: {fileName}");
 
-                if (!documentStateCache.TryGetValue(pdfPath, out var pageStates) || pageStates.Count == 0)
+                if (!documentStateCache.TryGetValue(filePath, out var pageStates) || pageStates.Count == 0)
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Skipping translation for {fileName}: No pages were processed.");
+                    Console.WriteLine($"Skipping translation for {fileName}: No content was extracted.");
                     Console.ResetColor();
                     continue;
                 }
@@ -306,7 +239,7 @@ namespace PolyglotCLI
                     {
                         int pageNum = state.PageNumber;
 
-                        // Check if OCR failed
+                        // Check if OCR/Extraction failed
                         if (state.OcrFailed)
                         {
                             state.TranslatedText = state.OcrText;
@@ -323,15 +256,15 @@ namespace PolyglotCLI
                             catch (Exception transEx)
                             {
                                 Console.ForegroundColor = ConsoleColor.Red;
-                                Console.WriteLine($"Translation Error on page {pageNum}: {transEx.Message}");
+                                Console.WriteLine($"Translation Error on page/chunk {pageNum}: {transEx.Message}");
                                 Console.ResetColor();
                                 state.TranslationFailed = true;
                                 state.TranslationErrorMessage = transEx.Message;
-                                state.TranslatedText = $"*Failed to translate page {pageNum} due to error: {transEx.Message}*";
+                                state.TranslatedText = $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*";
                             }
                         }
 
-                        // Save translation incrementally page-by-page
+                        // Save translation incrementally page-by-page/chunk-by-chunk
                         markdownWriter.AppendPage(pageNum, state.TranslatedText ?? string.Empty);
                     }
 
@@ -354,7 +287,7 @@ namespace PolyglotCLI
                         }
 
                         Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine($"\n[RETRY] Attempt {attempt} of {maxRetries} for {failedPages.Count} failed pages in {fileName}...");
+                        Console.WriteLine($"\n[RETRY] Attempt {attempt} of {maxRetries} for {failedPages.Count} failed pages/chunks in {fileName}...");
                         Console.ResetColor();
 
                         // Short delay before retrying
@@ -364,15 +297,16 @@ namespace PolyglotCLI
                         {
                             int pageNum = state.PageNumber;
 
-                            // 1. Retry OCR if it failed
+                            // 1. Retry OCR/Extraction if it failed
                             if (state.OcrFailed)
                             {
-                                Console.WriteLine($"[RETRY] Page {pageNum}: Retrying OCR...");
-                                if (options.Mode == "image")
+                                Console.WriteLine($"[RETRY] Page/Chunk {pageNum}: Retrying extraction...");
+                                string ext = Path.GetExtension(filePath).ToLowerInvariant();
+                                if (ext == ".pdf" && target.Mode.Equals("image", StringComparison.OrdinalIgnoreCase))
                                 {
                                     try
                                     {
-                                        byte[] pngBytes = pageRenderer.RenderPageToPng(pdfPath, pageNum);
+                                        byte[] pngBytes = pageRenderer.RenderPageToPng(filePath, pageNum);
                                         state.OcrText = await ocrService.PerformOcrAsync(pngBytes, pageNum);
                                         state.OcrFailed = false;
                                         state.OcrErrorMessage = null;
@@ -386,29 +320,51 @@ namespace PolyglotCLI
                                         state.OcrErrorMessage = ocrEx.Message;
                                     }
                                 }
+                                else if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff")
+                                {
+                                    try
+                                    {
+                                        byte[] imgBytes = File.ReadAllBytes(filePath);
+                                        state.OcrText = await ocrService.PerformOcrAsync(imgBytes, 1);
+                                        state.OcrFailed = false;
+                                        state.OcrErrorMessage = null;
+                                    }
+                                    catch (Exception imgEx)
+                                    {
+                                        Console.ForegroundColor = ConsoleColor.Red;
+                                        Console.WriteLine($"[RETRY] Image OCR failed again: {imgEx.Message}");
+                                        Console.ResetColor();
+                                        state.OcrFailed = true;
+                                        state.OcrErrorMessage = imgEx.Message;
+                                    }
+                                }
                                 else
                                 {
                                     try
                                     {
-                                        state.OcrText = textExtractor.ExtractTextFromPage(pageNum);
-                                        state.OcrFailed = false;
-                                        state.OcrErrorMessage = null;
+                                        var extractor = extractorFactory.GetExtractor(filePath);
+                                        var reExtracted = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer);
+                                        var matched = reExtracted.Find(s => s.PageNumber == pageNum);
+                                        if (matched != null && !matched.OcrFailed)
+                                        {
+                                            state.OcrText = matched.OcrText;
+                                            state.OcrFailed = false;
+                                            state.OcrErrorMessage = null;
+                                        }
                                     }
-                                    catch (Exception extractEx)
-                                     {
+                                    catch (Exception ex)
+                                    {
                                         Console.ForegroundColor = ConsoleColor.Red;
-                                        Console.WriteLine($"[RETRY] Page {pageNum} extraction failed again: {extractEx.Message}");
+                                        Console.WriteLine($"[RETRY] Re-extraction of {fileName} failed: {ex.Message}");
                                         Console.ResetColor();
-                                        state.OcrFailed = true;
-                                        state.OcrErrorMessage = extractEx.Message;
-                                     }
+                                    }
                                 }
                             }
 
-                            // 2. Retry translation if OCR is now successful but translation is marked failed
+                            // 2. Retry translation if extraction is now successful but translation is marked failed
                             if (!state.OcrFailed && state.TranslationFailed)
                             {
-                                Console.WriteLine($"[RETRY] Page {pageNum}: Retrying Translation...");
+                                Console.WriteLine($"[RETRY] Page/Chunk {pageNum}: Retrying Translation...");
                                 try
                                 {
                                     state.TranslatedText = await translatorService.TranslateTextAsync(state.OcrText ?? string.Empty, pageNum);
@@ -421,13 +377,13 @@ namespace PolyglotCLI
                                 catch (Exception transEx)
                                 {
                                     Console.ForegroundColor = ConsoleColor.Red;
-                                    Console.WriteLine($"[RETRY] Page {pageNum} translation failed again: {transEx.Message}");
+                                    Console.WriteLine($"[RETRY] Page/Chunk {pageNum} translation failed again: {transEx.Message}");
                                     Console.ResetColor();
                                     state.TranslationFailed = true;
                                     state.TranslationErrorMessage = transEx.Message;
                                     
                                     // Update markdown file to log the latest failure error
-                                    markdownWriter.UpdatePage(pageNum, $"*Failed to translate page {pageNum} due to error: {transEx.Message}*");
+                                    markdownWriter.UpdatePage(pageNum, $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*");
                                 }
                             }
                         }
@@ -446,13 +402,13 @@ namespace PolyglotCLI
                     if (finalFailed.Count > 0)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"\nCompleted translating {fileName} with errors in pages: {string.Join(", ", finalFailed)}");
+                        Console.WriteLine($"\nCompleted translating {fileName} with errors in pages/chunks: {string.Join(", ", finalFailed)}");
                         Console.ResetColor();
                     }
                     else
                     {
                         Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"\nSuccessfully completed translating {fileName} (all pages succeeded)!");
+                        Console.WriteLine($"\nSuccessfully completed translating {fileName} (all pages/chunks succeeded)!");
                         Console.ResetColor();
                     }
 
