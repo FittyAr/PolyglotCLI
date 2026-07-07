@@ -425,15 +425,18 @@ namespace PolyglotCLI
             // Perform directory scanning
             void PerformScan()
             {
-                string dirPath = textScanDir.Text?.ToString()?.Trim() ?? ".";
+                string dirPath = textScanDir.Text?.ToString()?.Trim() ?? "";
                 if (string.IsNullOrEmpty(dirPath))
                 {
-                    dirPath = ".";
+                    MessageBox.ErrorQuery("Validation Error", "Directory to Scan cannot be empty.", "OK");
+                    textScanDir.SetFocus();
+                    return;
                 }
 
                 if (!Directory.Exists(dirPath))
                 {
-                    MessageBox.ErrorQuery("Directory Not Found", $"The directory '{dirPath}' does not exist.", "OK");
+                    MessageBox.ErrorQuery("Validation Error", $"The directory to scan '{dirPath}' does not exist on the system.", "OK");
+                    textScanDir.SetFocus();
                     return;
                 }
 
@@ -591,8 +594,140 @@ namespace PolyglotCLI
             btnCancel.Clicked += () => QuitApp();
             btnStart.Clicked += () => StartTranslation();
 
+            bool ValidateInputs(bool checkSelectedFiles)
+            {
+                // 1. LM Studio API URL
+                string apiUrl = textApi.Text?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(apiUrl))
+                {
+                    MessageBox.ErrorQuery("Validation Error", "LM Studio API URL cannot be empty.", "OK");
+                    textApi.SetFocus();
+                    return false;
+                }
+                if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out var uriResult) || 
+                    (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))
+                {
+                    MessageBox.ErrorQuery("Validation Error", "LM Studio API URL must be a valid HTTP or HTTPS URL (e.g., http://localhost:1234/v1).", "OK");
+                    textApi.SetFocus();
+                    return false;
+                }
+
+                // 2. Translation Model Name
+                string translationModel = textModel.Text?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(translationModel))
+                {
+                    MessageBox.ErrorQuery("Validation Error", "Translation Model Name cannot be empty.\nUse the [Sel] button to fetch available models from LM Studio.", "OK");
+                    textModel.SetFocus();
+                    return false;
+                }
+
+                // 3. Vision/OCR Model Name
+                string visionModel = textVisionModel.Text?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(visionModel))
+                {
+                    bool needsVision = false;
+                    if (checkSelectedFiles)
+                    {
+                        foreach (var f in filesSource)
+                        {
+                            if (f.IsSelected)
+                            {
+                                string ext = Path.GetExtension(f.FullPath).ToLowerInvariant();
+                                if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff" ||
+                                    (ext == ".pdf" && f.Mode.Equals("image", StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    needsVision = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        needsVision = true;
+                    }
+
+                    if (needsVision)
+                    {
+                        MessageBox.ErrorQuery("Validation Error", "Vision/OCR Model Name cannot be empty.\nIt is required to translate images or PDFs in OCR mode.", "OK");
+                        textVisionModel.SetFocus();
+                        return false;
+                    }
+                }
+
+                // 4. Target Language
+                string targetLang = textLang.Text?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(targetLang))
+                {
+                    MessageBox.ErrorQuery("Validation Error", "Target Language cannot be empty (e.g., 'Spanish', 'French').", "OK");
+                    textLang.SetFocus();
+                    return false;
+                }
+                if (!System.Text.RegularExpressions.Regex.IsMatch(targetLang, @"^[a-zA-Z\s\-]+$"))
+                {
+                    MessageBox.ErrorQuery("Validation Error", "Target Language must contain only letters, spaces, or hyphens (e.g., 'English' or 'Brazilian-Portuguese').", "OK");
+                    textLang.SetFocus();
+                    return false;
+                }
+
+                // 5. Output Directory
+                string outDir = textOutputDir.Text?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(outDir))
+                {
+                    MessageBox.ErrorQuery("Validation Error", "Output Directory cannot be empty.", "OK");
+                    textOutputDir.SetFocus();
+                    return false;
+                }
+                char[] invalidChars = Path.GetInvalidPathChars();
+                if (outDir.IndexOfAny(invalidChars) >= 0)
+                {
+                    MessageBox.ErrorQuery("Validation Error", "Output Directory contains invalid path characters.", "OK");
+                    textOutputDir.SetFocus();
+                    return false;
+                }
+
+                // 6. Directory to Scan
+                string scanDir = textScanDir.Text?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(scanDir))
+                {
+                    MessageBox.ErrorQuery("Validation Error", "Directory to Scan cannot be empty.", "OK");
+                    textScanDir.SetFocus();
+                    return false;
+                }
+                if (!Directory.Exists(scanDir))
+                {
+                    MessageBox.ErrorQuery("Validation Error", $"The directory to scan '{scanDir}' does not exist on the system.", "OK");
+                    textScanDir.SetFocus();
+                    return false;
+                }
+
+                // 7. Check selected files on Start Translation
+                if (checkSelectedFiles)
+                {
+                    int selectedCount = 0;
+                    foreach (var f in filesSource)
+                    {
+                        if (f.IsSelected) selectedCount++;
+                    }
+
+                    if (selectedCount == 0)
+                    {
+                        MessageBox.ErrorQuery("Validation Error", "No documents have been selected.\nPlease select at least one document from the list using the [Space] key.", "OK");
+                        listFiles.SetFocus();
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
             void SavePresets()
             {
+                if (!ValidateInputs(false))
+                {
+                    return;
+                }
+
                 config.ApiUrl = textApi.Text?.ToString()?.Trim() ?? "";
                 config.DefaultModel = textModel.Text?.ToString()?.Trim();
                 config.DefaultVisionModel = textVisionModel.Text?.ToString()?.Trim();
@@ -608,13 +743,12 @@ namespace PolyglotCLI
 
             void StartTranslation()
             {
-                var selected = filesSource.FindAll(f => f.IsSelected);
-                if (selected.Count == 0)
+                if (!ValidateInputs(true))
                 {
-                    MessageBox.ErrorQuery("No Files Selected", "You must select at least one file to translate.", "OK");
                     return;
                 }
 
+                var selected = filesSource.FindAll(f => f.IsSelected);
                 var finalOptions = new CommandLineOptions
                 {
                     ApiUrl = textApi.Text?.ToString()?.Trim() ?? "",
