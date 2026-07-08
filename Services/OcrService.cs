@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace PolyglotCLI
@@ -19,25 +20,40 @@ namespace PolyglotCLI
         public async Task<string> PerformOcrAsync(byte[] imageBytes, int pageNumber)
         {
             string userPrompt = $"Please transcribe the text from page {pageNumber}. Extract everything exactly as written.";
-            
-            // We assume PNG format as rendered by PdfPageRenderer
             string mimeType = "image/png";
 
+            AppLogger.Info($"OCR Process page {pageNumber}: Starting vision request ({imageBytes.Length / 1024.0:F2} KB)...");
             Console.Write($"Running OCR for page {pageNumber}... ");
             
-            string transcribedText = await _client.SendVisionRequestAsync(
-                _systemPrompt, 
-                userPrompt, 
-                imageBytes, 
-                mimeType, 
-                _modelName
-            );
+            var stopwatch = Stopwatch.StartNew();
+            try
+            {
+                string transcribedText = await _client.SendVisionRequestAsync(
+                    _systemPrompt, 
+                    userPrompt, 
+                    imageBytes, 
+                    mimeType, 
+                    _modelName
+                );
+                stopwatch.Stop();
+                AppLogger.Info($"OCR Process page {pageNumber}: Succeeded in {stopwatch.ElapsedMilliseconds}ms. Length: {transcribedText.Length} chars.");
+                
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Done.");
+                Console.ResetColor();
 
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Done.");
-            Console.ResetColor();
-
-            return transcribedText;
+                return transcribedText;
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                AppLogger.Error($"OCR Process page {pageNumber}: Failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
+                
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Failed.");
+                Console.ResetColor();
+                throw;
+            }
         }
     }
 }

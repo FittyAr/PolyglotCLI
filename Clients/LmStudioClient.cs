@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -18,13 +19,19 @@ namespace PolyglotCLI
             _apiUrl = apiUrl.TrimEnd('/');
             _httpClient = new HttpClient();
             _httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            AppLogger.Debug($"Created LmStudioClient for {_apiUrl} with timeout of {timeoutSeconds}s.");
         }
 
         public async Task<string> GetFirstLoadedModelAsync()
         {
+            AppLogger.Debug("GET /models: Fetching loaded models list...");
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 var response = await _httpClient.GetAsync($"{_apiUrl}/models");
+                stopwatch.Stop();
+                AppLogger.Debug($"GET /models: Response received in {stopwatch.ElapsedMilliseconds}ms. Status: {response.StatusCode}");
+
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
@@ -32,15 +39,22 @@ namespace PolyglotCLI
                     var dataElement = doc.RootElement.GetProperty("data");
                     if (dataElement.GetArrayLength() > 0)
                     {
-                        return dataElement[0].GetProperty("id").GetString() ?? string.Empty;
+                        string firstModel = dataElement[0].GetProperty("id").GetString() ?? string.Empty;
+                        AppLogger.Debug($"GET /models: Found loaded model: '{firstModel}'");
+                        return firstModel;
                     }
+                    AppLogger.Debug("GET /models: No models currently loaded in LM Studio.");
+                }
+                else
+                {
+                    string errContent = await response.Content.ReadAsStringAsync();
+                    AppLogger.Warn($"GET /models: Failed (Code: {response.StatusCode}). Content: {errContent}");
                 }
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"Warning: Failed to fetch loaded models from LM Studio: {ex.Message}");
-                Console.ResetColor();
+                stopwatch.Stop();
+                AppLogger.Error($"GET /models: Connection request failed in {stopwatch.ElapsedMilliseconds}ms.", ex);
             }
 
             return string.Empty;
@@ -50,12 +64,16 @@ namespace PolyglotCLI
         {
             if (string.IsNullOrWhiteSpace(modelName))
             {
+                AppLogger.Debug("SendTextRequestAsync: Model name not specified. Fetching default active model...");
                 modelName = await GetFirstLoadedModelAsync();
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
-                    modelName = "default-model"; // fallback
+                    modelName = "default-model";
                 }
             }
+
+            AppLogger.Info($"POST /chat/completions: Sending text request to model '{modelName}' (Temp: {Temperature})");
+            AppLogger.Debug($"System prompt length: {systemPrompt.Length} chars, User prompt length: {userPrompt.Length} chars");
 
             var payload = new
             {
@@ -71,35 +89,55 @@ namespace PolyglotCLI
             string jsonPayload = JsonSerializer.Serialize(payload);
             using var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync($"{_apiUrl}/chat/completions", httpContent);
-            if (!response.IsSuccessStatusCode)
+            var stopwatch = Stopwatch.StartNew();
+            try
             {
-                string errorContent = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"LM Studio request failed with status code {response.StatusCode}. Details: {errorContent}");
-            }
+                var response = await _httpClient.PostAsync($"{_apiUrl}/chat/completions", httpContent);
+                stopwatch.Stop();
+                AppLogger.Info($"POST /chat/completions: Finished in {stopwatch.ElapsedMilliseconds}ms. Status: {response.StatusCode}");
 
-            string responseJson = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(responseJson);
-            
-            string contentResult = doc.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("message")
-                .GetProperty("content")
-                .GetString() ?? string.Empty;
+                if (!response.IsSuccessStatusCode)
+                {
+                    string errorContent = await response.Content.ReadAsStringAsync();
+                    var exception = new HttpRequestException($"LM Studio request failed with status code {response.StatusCode}. Details: {errorContent}");
+                    AppLogger.Error($"POST /chat/completions: Request failed.", exception);
+                    throw exception;
+                }
+
+                string responseJson = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(responseJson);
                 
-            return contentResult;
+                string contentResult = doc.RootElement
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString() ?? string.Empty;
+
+                AppLogger.Debug($"POST /chat/completions: Successful. Response text length: {contentResult.Length} chars.");
+                return contentResult;
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                AppLogger.Error($"POST /chat/completions: Call failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
+                throw;
+            }
         }
 
         public async Task<string> SendVisionRequestAsync(string systemPrompt, string userPrompt, byte[] imageBytes, string imageMimeType, string? modelName)
         {
             if (string.IsNullOrWhiteSpace(modelName))
             {
+                AppLogger.Debug("SendVisionRequestAsync: Model name not specified. Fetching default active model...");
                 modelName = await GetFirstLoadedModelAsync();
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
-                    modelName = "default-model"; // fallback
+                    modelName = "default-model";
                 }
             }
+
+            AppLogger.Info($"POST /chat/completions (Vision): Sending request to model '{modelName}' (Temp: {Temperature})");
+            AppLogger.Debug($"Image size: {imageBytes.Length / 1024.0:F2} KB, Mime: {imageMimeType}");
 
             string base64Image = Convert.ToBase64String(imageBytes);
             var imageUrl = $"data:{imageMimeType};base64,{base64Image}";
@@ -130,25 +168,45 @@ namespace PolyglotCLI
             string jsonPayload = JsonSerializer.Serialize(payload);
             using var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync($"{_apiUrl}/chat/completions", httpContent);
-            if (!response.IsSuccessStatusCode)
+            var stopwatch = Stopwatch.StartNew();
+            try
             {
-                string errorContent = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"LM Studio vision request failed with status code {response.StatusCode}. Details: {errorContent}");
+                var response = await _httpClient.PostAsync($"{_apiUrl}/chat/completions", httpContent);
+                stopwatch.Stop();
+                AppLogger.Info($"POST /chat/completions (Vision): Finished in {stopwatch.ElapsedMilliseconds}ms. Status: {response.StatusCode}");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    string errorContent = await response.Content.ReadAsStringAsync();
+                    var exception = new HttpRequestException($"LM Studio vision request failed with status code {response.StatusCode}. Details: {errorContent}");
+                    AppLogger.Error($"POST /chat/completions (Vision): Vision request failed.", exception);
+                    throw exception;
+                }
+
+                string responseJson = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(responseJson);
+
+                string contentResult = doc.RootElement
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString() ?? string.Empty;
+
+                AppLogger.Debug($"POST /chat/completions (Vision): Successful. Response text length: {contentResult.Length} chars.");
+                return contentResult;
             }
-
-            string responseJson = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(responseJson);
-
-            return doc.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("message")
-                .GetProperty("content")
-                .GetString() ?? string.Empty;
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                AppLogger.Error($"POST /chat/completions (Vision): Call failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
+                throw;
+            }
         }
 
         public async Task<bool> UnloadModelAsync(string modelIdentifier)
         {
+            AppLogger.Info($"VRAM Unload: Requesting unload of model '{modelIdentifier}'...");
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 string baseAddress = _apiUrl;
@@ -160,6 +218,7 @@ namespace PolyglotCLI
                 var response = await _httpClient.GetAsync($"{baseAddress}/api/v1/models");
                 if (!response.IsSuccessStatusCode)
                 {
+                    AppLogger.Warn($"VRAM Unload: Failed to fetch active models (Status: {response.StatusCode}).");
                     return false;
                 }
 
@@ -168,6 +227,7 @@ namespace PolyglotCLI
 
                 if (!doc.RootElement.TryGetProperty("models", out var modelsElement))
                 {
+                    AppLogger.Warn("VRAM Unload: No active models node found in response.");
                     return false;
                 }
 
@@ -185,6 +245,7 @@ namespace PolyglotCLI
                                 string? instanceId = instance.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
                                 if (!string.IsNullOrEmpty(instanceId))
                                 {
+                                    AppLogger.Info($"VRAM Unload: Unloading model instance '{instanceId}'...");
                                     var payload = new { instance_id = instanceId };
                                     string jsonPayload = JsonSerializer.Serialize(payload);
                                     using var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
@@ -192,8 +253,13 @@ namespace PolyglotCLI
                                     var unloadResponse = await _httpClient.PostAsync($"{baseAddress}/api/v1/models/unload", httpContent);
                                     if (unloadResponse.IsSuccessStatusCode)
                                     {
-                                        Console.WriteLine($"[VRAM] Unloaded model instance '{instanceId}' from LM Studio.");
+                                        AppLogger.Info($"VRAM Unload: Successfully unloaded '{instanceId}'.");
                                         anyUnloaded = true;
+                                    }
+                                    else
+                                    {
+                                        string err = await unloadResponse.Content.ReadAsStringAsync();
+                                        AppLogger.Warn($"VRAM Unload: Unload call failed for '{instanceId}'. Details: {err}");
                                     }
                                 }
                             }
@@ -201,19 +267,22 @@ namespace PolyglotCLI
                     }
                 }
 
+                stopwatch.Stop();
+                AppLogger.Debug($"VRAM Unload: Finished in {stopwatch.ElapsedMilliseconds}ms. Unloaded: {anyUnloaded}");
                 return anyUnloaded;
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"Warning: Failed to auto-unload model '{modelIdentifier}': {ex.Message}");
-                Console.ResetColor();
+                stopwatch.Stop();
+                AppLogger.Error($"VRAM Unload: Failed to unload model '{modelIdentifier}' in {stopwatch.ElapsedMilliseconds}ms.", ex);
                 return false;
             }
         }
 
         public async Task UnloadAllExceptAsync(string modelToKeep)
         {
+            AppLogger.Info($"VRAM Cleanup: Ensuring only model '{modelToKeep}' remains loaded...");
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 string baseAddress = _apiUrl;
@@ -225,6 +294,7 @@ namespace PolyglotCLI
                 var response = await _httpClient.GetAsync($"{baseAddress}/api/v1/models");
                 if (!response.IsSuccessStatusCode)
                 {
+                    AppLogger.Warn($"VRAM Cleanup: Failed to fetch models list (Status: {response.StatusCode}).");
                     return;
                 }
 
@@ -241,7 +311,6 @@ namespace PolyglotCLI
                     string? key = modelItem.TryGetProperty("key", out var keyProp) ? keyProp.GetString() : null;
                     if (string.IsNullOrEmpty(key)) continue;
 
-                    // If it is NOT the model we want to keep, unload it
                     if (!string.Equals(key, modelToKeep, StringComparison.OrdinalIgnoreCase))
                     {
                         if (modelItem.TryGetProperty("loaded_instances", out var instancesElement) && 
@@ -252,6 +321,7 @@ namespace PolyglotCLI
                                 string? instanceId = instance.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
                                 if (!string.IsNullOrEmpty(instanceId))
                                 {
+                                    AppLogger.Info($"VRAM Cleanup: Unloading non-matching active model '{key}' (instance: '{instanceId}')...");
                                     var payload = new { instance_id = instanceId };
                                     string jsonPayload = JsonSerializer.Serialize(payload);
                                     using var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
@@ -259,27 +329,32 @@ namespace PolyglotCLI
                                     var unloadResponse = await _httpClient.PostAsync($"{baseAddress}/api/v1/models/unload", httpContent);
                                     if (unloadResponse.IsSuccessStatusCode)
                                     {
-                                        Console.ForegroundColor = ConsoleColor.Cyan;
-                                        Console.WriteLine($"[VRAM Startup] Unloaded active model instance '{instanceId}' to free memory.");
-                                        Console.ResetColor();
+                                        AppLogger.Info($"VRAM Cleanup: Successfully unloaded instance '{instanceId}'.");
+                                    }
+                                    else
+                                    {
+                                        string err = await unloadResponse.Content.ReadAsStringAsync();
+                                        AppLogger.Warn($"VRAM Cleanup: Unload instance '{instanceId}' failed. Details: {err}");
                                     }
                                 }
                             }
                         }
                     }
                 }
+                stopwatch.Stop();
+                AppLogger.Debug($"VRAM Cleanup: Completed in {stopwatch.ElapsedMilliseconds}ms.");
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"Warning: Startup model cleanup failed: {ex.Message}");
-                Console.ResetColor();
+                stopwatch.Stop();
+                AppLogger.Error($"VRAM Cleanup: Model cleanup failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
             }
         }
 
         public void Dispose()
         {
             _httpClient.Dispose();
+            AppLogger.Debug("LmStudioClient: Disposed.");
         }
     }
 }

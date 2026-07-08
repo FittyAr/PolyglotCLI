@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace PolyglotCLI
 {
@@ -10,46 +11,53 @@ namespace PolyglotCLI
     {
         public static async Task<int> ExecuteAsync(CommandLineOptions options, AppConfig config)
         {
+            var totalPipelineStopwatch = Stopwatch.StartNew();
+            AppLogger.Info("==================================================");
+            AppLogger.Info("         STARTING TRANSLATION PIPELINE            ");
+            AppLogger.Info("==================================================");
+            AppLogger.Info($"Target Language: {options.TargetLanguage}");
+            AppLogger.Info($"Output Directory: {options.OutputDirectory}");
+            AppLogger.Info($"Debug Mode: {options.Debug}");
+            AppLogger.Info($"API URL: {options.ApiUrl}");
+            AppLogger.Info($"Translation Model: {options.ModelName}");
+            AppLogger.Info($"Vision/OCR Model: {options.VisionModelName}");
+            AppLogger.Info($"Files to process: {string.Join(", ", options.Files)}");
+
             // 1. Load Prompts
             string ocrPrompt;
             string translationPrompt;
             try
             {
+                AppLogger.Info("Loading prompt files...");
                 var promptLoader = new PromptLoader();
                 ocrPrompt = promptLoader.LoadOcrPrompt();
                 translationPrompt = promptLoader.LoadTranslationPrompt();
                 if (!string.IsNullOrWhiteSpace(options.AdditionalPrompt))
                 {
                     translationPrompt += "\n\nAdditional instructions from user:\n" + options.AdditionalPrompt;
+                    AppLogger.Debug($"Appended Additional Prompt ({options.AdditionalPrompt.Length} chars).");
                 }
-                Console.WriteLine("Loaded prompts successfully.");
+                AppLogger.InfoConsole("Loaded prompts successfully.", ConsoleColor.Green);
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Error: {ex.Message}");
-                Console.ResetColor();
+                AppLogger.ErrorConsole("Failed to load prompt files.", ex);
                 return 1;
             }
 
             // 2. Initialize LM Studio Client and detect models
-            Console.WriteLine($"Connecting to LM Studio API at: {options.ApiUrl} ...");
+            AppLogger.Info($"Connecting and validating API server at: {options.ApiUrl}");
             using var checkClient = new LmStudioClient(options.ApiUrl, config.ModelCheckTimeoutSeconds);
             
             string loadedModel = await checkClient.GetFirstLoadedModelAsync();
             if (string.IsNullOrWhiteSpace(loadedModel))
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Warning: Could not detect any loaded models in LM Studio.");
-                Console.WriteLine("Please ensure LM Studio is running, local server is started, and a model is loaded.");
-                Console.WriteLine("Continuing request, relying on LM Studio API default model routing.");
-                Console.ResetColor();
+                AppLogger.WarnConsole("Warning: Could not detect any loaded models in LM Studio.");
+                AppLogger.Info("Please ensure LM Studio is running, local server is started, and a model is loaded.");
             }
             else
             {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"Detected loaded model: {loadedModel}");
-                Console.ResetColor();
+                AppLogger.InfoConsole($"Detected loaded model in backend: {loadedModel}", ConsoleColor.Cyan);
             }
 
             // Configure services
@@ -72,9 +80,7 @@ namespace PolyglotCLI
             string firstRequiredModel = requiresVisionModel ? visionModel : textModel;
             if (!string.IsNullOrEmpty(firstRequiredModel))
             {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"[VRAM] Checking loaded models. Ensuring only '{firstRequiredModel}' is loaded for start...");
-                Console.ResetColor();
+                AppLogger.Info($"VRAM Management: Cleaning up loaded models except '{firstRequiredModel}'...");
                 await checkClient.UnloadAllExceptAsync(firstRequiredModel);
             }
 
@@ -105,15 +111,11 @@ namespace PolyglotCLI
                     
                     reviewClient.Temperature = config.ReviewTemperature;
                     reviewService = new ReviewService(reviewClient, reviewPrompt, reviewModel);
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine($"Post-translation review enabled (model: {reviewModel}).");
-                    Console.ResetColor();
+                    AppLogger.InfoConsole($"Post-translation review enabled (model: {reviewModel}).", ConsoleColor.Cyan);
                 }
                 catch (Exception revEx)
                 {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Warning: Could not load review prompt, review disabled: {revEx.Message}");
-                    Console.ResetColor();
+                    AppLogger.WarnConsole($"Warning: Could not load review prompt, review disabled: {revEx.Message}");
                 }
             }
 
@@ -121,20 +123,18 @@ namespace PolyglotCLI
             string absoluteOutputDir = Path.GetFullPath(options.OutputDirectory);
             if (!Directory.Exists(absoluteOutputDir))
             {
+                AppLogger.Info($"Creating output directory: {absoluteOutputDir}");
                 Directory.CreateDirectory(absoluteOutputDir);
             }
 
             // 3. Phase 1: Text Extraction & OCR for all files/pages
-            Console.WriteLine();
-            Console.WriteLine("==================================================");
-            Console.WriteLine("        PHASE 1: TEXT EXTRACTION & OCR            ");
-            Console.WriteLine("==================================================");
+            AppLogger.InfoConsole("\n==================================================", ConsoleColor.White);
+            AppLogger.InfoConsole("        PHASE 1: TEXT EXTRACTION & OCR            ", ConsoleColor.White);
+            AppLogger.InfoConsole("==================================================", ConsoleColor.White);
             
             if (options.Debug)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("DEBUG MODE ACTIVE: Limiting processing to first 2 pages/chunks.");
-                Console.ResetColor();
+                AppLogger.WarnConsole("DEBUG MODE ACTIVE: Limiting processing to first 2 pages/chunks.");
                 foreach (var t in options.DocumentTargets)
                 {
                     t.PageRange = "1-2";
@@ -148,11 +148,13 @@ namespace PolyglotCLI
             {
                 string filePath = target.FilePath;
                 string fileName = Path.GetFileName(filePath);
-                Console.WriteLine($"\nProcessing: {fileName} (Mode: {target.Mode.ToUpperInvariant()})");
+                AppLogger.InfoConsole($"\nProcessing file: {fileName} (Mode: {target.Mode.ToUpperInvariant()})", ConsoleColor.Cyan);
                 
                 try
                 {
                     var extractor = extractorFactory.GetExtractor(filePath);
+                    AppLogger.Info($"Running extractor {extractor.GetType().Name} for {fileName}");
+                    
                     var pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer);
                     
                     int successCount = 0;
@@ -160,29 +162,26 @@ namespace PolyglotCLI
                     {
                         if (!s.OcrFailed) successCount++;
                     }
-                    Console.WriteLine($"Extracted {successCount}/{pageStates.Count} pages/chunks successfully.");
+                    AppLogger.InfoConsole($"Extracted {successCount}/{pageStates.Count} pages/chunks successfully.", ConsoleColor.Green);
                     
                     int textLength = 0;
                     foreach (var s in pageStates)
                     {
                         textLength += s.OcrText?.Trim().Length ?? 0;
                     }
+                    AppLogger.Debug($"Total extracted text length for {fileName}: {textLength} characters.");
+
                     if (textLength == 0 && target.Mode.Equals("text", StringComparison.OrdinalIgnoreCase) && Path.GetExtension(filePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine($"[WARNING] No selectable text was found in '{fileName}'.");
-                        Console.WriteLine($"          If this is a scanned document (image-only PDF), please run again with OCR mode set to 'Image'.");
-                        Console.WriteLine($"          In the interactive menu, select the file and press [T] or [M] to toggle OCR mode.");
-                        Console.ResetColor();
+                        AppLogger.WarnConsole($"[WARNING] No selectable text was found in '{fileName}'.");
+                        AppLogger.Warn("Scanned document warning: document appears to contain images only. User should run OCR mode.");
                     }
                     
                     documentStateCache[filePath] = pageStates;
                 }
                 catch (Exception ex)
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"Fatal Error reading file {fileName}: {ex.Message}");
-                    Console.ResetColor();
+                    AppLogger.ErrorConsole($"Fatal error extracting text from {fileName}", ex);
                     
                     var failedStates = new List<PageProcessState>
                     {
@@ -199,47 +198,38 @@ namespace PolyglotCLI
             }
 
             // Phase 2: Model Transition
-            Console.WriteLine();
-            Console.WriteLine("==================================================");
-            Console.WriteLine("        PHASE 2: MODEL TRANSITION                 ");
-            Console.WriteLine("==================================================");
+            AppLogger.InfoConsole("\n==================================================", ConsoleColor.White);
+            AppLogger.InfoConsole("        PHASE 2: MODEL TRANSITION                 ", ConsoleColor.White);
+            AppLogger.InfoConsole("==================================================", ConsoleColor.White);
             if (requiresVisionModel && textModel != visionModel)
             {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"Unloading OCR Vision model ({visionModel}) from VRAM before loading Translation Text model ({textModel})...");
-                Console.ResetColor();
-
+                AppLogger.InfoConsole($"Transitioning models: Unloading OCR Vision model ({visionModel}) to free VRAM...", ConsoleColor.Cyan);
                 try
                 {
                     bool unloaded = await translatorClient.UnloadModelAsync(visionModel);
                     if (unloaded)
                     {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"Successfully unloaded model '{visionModel}'.");
-                        Console.ResetColor();
+                        AppLogger.InfoConsole($"Successfully unloaded model '{visionModel}'.", ConsoleColor.Green);
                     }
                     else
                     {
-                        Console.WriteLine($"Model '{visionModel}' was not active or could not be found.");
+                        AppLogger.Info($"Model '{visionModel}' was not active in LM Studio or could not be found.");
                     }
                 }
                 catch (Exception unloadEx)
                 {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Warning: Failed to unload model '{visionModel}': {unloadEx.Message}");
-                    Console.ResetColor();
+                    AppLogger.WarnConsole($"Warning: Failed to unload model '{visionModel}': {unloadEx.Message}");
                 }
             }
             else
             {
-                Console.WriteLine($"Model '{textModel}' is loaded for translation.");
+                AppLogger.Info($"No transition needed. Model '{textModel}' is loaded for translation.");
             }
 
             // Phase 3: Translation & Markdown Saving
-            Console.WriteLine();
-            Console.WriteLine("==================================================");
-            Console.WriteLine("        PHASE 3: TRANSLATION & SAVING             ");
-            Console.WriteLine("==================================================");
+            AppLogger.InfoConsole("\n==================================================", ConsoleColor.White);
+            AppLogger.InfoConsole("        PHASE 3: TRANSLATION & SAVING             ", ConsoleColor.White);
+            AppLogger.InfoConsole("==================================================", ConsoleColor.White);
 
             foreach (var target in options.DocumentTargets)
             {
@@ -249,18 +239,17 @@ namespace PolyglotCLI
                 string outputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_{options.TargetLanguage}.md");
                 string originalOutputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_original.md");
 
-                Console.WriteLine($"\nTranslating: {fileName}");
+                AppLogger.InfoConsole($"\nTranslating: {fileName}", ConsoleColor.Cyan);
 
                 if (!documentStateCache.TryGetValue(filePath, out var pageStates) || pageStates.Count == 0)
                 {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Skipping translation for {fileName}: No content was extracted.");
-                    Console.ResetColor();
+                    AppLogger.WarnConsole($"Skipping translation for {fileName}: No extracted pages/chunks found.");
                     continue;
                 }
 
                 try
                 {
+                    AppLogger.Debug($"Initializing output files: {outputPath} and {originalOutputPath}");
                     translatedWriter.Initialize(outputPath, fileName, options.TargetLanguage);
                     originalWriter.Initialize(originalOutputPath, fileName, "Original");
 
@@ -268,9 +257,9 @@ namespace PolyglotCLI
                     {
                         int pageNum = state.PageNumber;
 
-                        // Check if OCR/Extraction failed
                         if (state.OcrFailed)
                         {
+                            AppLogger.Warn($"Skipping page {pageNum}: OCR/Extraction failed. Propagating error.");
                             state.TranslatedText = state.OcrText;
                             state.TranslationFailed = true;
                             state.TranslationErrorMessage = state.OcrErrorMessage;
@@ -284,16 +273,16 @@ namespace PolyglotCLI
                             }
                             catch (Exception transEx)
                             {
-                                Console.ForegroundColor = ConsoleColor.Red;
-                                Console.WriteLine($"Translation Error on page/chunk {pageNum}: {transEx.Message}");
-                                Console.ResetColor();
+                                // Fix layout: print a newline first to separate from the unfinished Console.Write inside TranslatorService
+                                Console.WriteLine();
+                                AppLogger.ErrorConsole($"Translation Error on page/chunk {pageNum}", transEx);
+                                
                                 state.TranslationFailed = true;
                                 state.TranslationErrorMessage = transEx.Message;
                                 state.TranslatedText = $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*";
                             }
                         }
 
-                        // Save original text and translation incrementally page-by-page/chunk-by-chunk
                         originalWriter.AppendPage(pageNum, state.OcrText ?? string.Empty);
                         translatedWriter.AppendPage(pageNum, state.TranslatedText ?? string.Empty);
                     }
@@ -313,24 +302,19 @@ namespace PolyglotCLI
 
                         if (failedPages.Count == 0)
                         {
-                            break; // No failed pages, exit retry loop
+                            break;
                         }
 
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine($"\n[RETRY] Attempt {attempt} of {maxRetries} for {failedPages.Count} failed pages/chunks in {fileName}...");
-                        Console.ResetColor();
-
-                        // Short delay before retrying
+                        AppLogger.WarnConsole($"\n[RETRY] Attempt {attempt} of {maxRetries} for {failedPages.Count} failed pages/chunks in {fileName}...");
                         await Task.Delay(2000);
 
                         foreach (var state in failedPages)
                         {
                             int pageNum = state.PageNumber;
 
-                            // 1. Retry OCR/Extraction if it failed
                             if (state.OcrFailed)
                             {
-                                Console.WriteLine($"[RETRY] Page/Chunk {pageNum}: Retrying extraction...");
+                                AppLogger.Info($"[RETRY] Page/Chunk {pageNum}: Retrying extraction...");
                                 string ext = Path.GetExtension(filePath).ToLowerInvariant();
                                 if (ext == ".pdf" && target.Mode.Equals("image", StringComparison.OrdinalIgnoreCase))
                                 {
@@ -341,12 +325,12 @@ namespace PolyglotCLI
                                         state.OcrFailed = false;
                                         state.OcrErrorMessage = null;
                                         originalWriter.UpdatePage(pageNum, state.OcrText ?? string.Empty);
+                                        AppLogger.Info($"[RETRY] Page {pageNum}: Extraction successful on retry.");
                                     }
                                     catch (Exception ocrEx)
                                     {
-                                        Console.ForegroundColor = ConsoleColor.Red;
-                                        Console.WriteLine($"[RETRY] Page {pageNum} OCR failed again: {ocrEx.Message}");
-                                        Console.ResetColor();
+                                        Console.WriteLine(); // fix line break
+                                        AppLogger.ErrorConsole($"[RETRY] Page {pageNum} OCR extraction retry failed", ocrEx);
                                         state.OcrFailed = true;
                                         state.OcrErrorMessage = ocrEx.Message;
                                     }
@@ -360,12 +344,12 @@ namespace PolyglotCLI
                                         state.OcrFailed = false;
                                         state.OcrErrorMessage = null;
                                         originalWriter.UpdatePage(pageNum, state.OcrText ?? string.Empty);
+                                        AppLogger.Info($"[RETRY] Image OCR retry successful.");
                                     }
                                     catch (Exception imgEx)
                                     {
-                                        Console.ForegroundColor = ConsoleColor.Red;
-                                        Console.WriteLine($"[RETRY] Image OCR failed again: {imgEx.Message}");
-                                        Console.ResetColor();
+                                        Console.WriteLine(); // fix line break
+                                        AppLogger.ErrorConsole($"[RETRY] Image OCR retry failed", imgEx);
                                         state.OcrFailed = true;
                                         state.OcrErrorMessage = imgEx.Message;
                                     }
@@ -383,39 +367,33 @@ namespace PolyglotCLI
                                             state.OcrFailed = false;
                                             state.OcrErrorMessage = null;
                                             originalWriter.UpdatePage(pageNum, state.OcrText ?? string.Empty);
+                                            AppLogger.Info($"[RETRY] Page {pageNum}: Re-extraction successful.");
                                         }
                                     }
                                     catch (Exception ex)
                                     {
-                                        Console.ForegroundColor = ConsoleColor.Red;
-                                        Console.WriteLine($"[RETRY] Re-extraction of {fileName} failed: {ex.Message}");
-                                        Console.ResetColor();
+                                        AppLogger.ErrorConsole($"[RETRY] Re-extraction of {fileName} failed", ex);
                                     }
                                 }
                             }
 
-                            // 2. Retry translation if extraction is now successful but translation is marked failed
                             if (!state.OcrFailed && state.TranslationFailed)
                             {
-                                Console.WriteLine($"[RETRY] Page/Chunk {pageNum}: Retrying Translation...");
+                                AppLogger.Info($"[RETRY] Page/Chunk {pageNum}: Retrying translation...");
                                 try
                                 {
                                     state.TranslatedText = await translatorService.TranslateTextAsync(state.OcrText ?? string.Empty, pageNum);
                                     state.TranslationFailed = false;
                                     state.TranslationErrorMessage = null;
-
-                                    // Update page content in the output file
                                     translatedWriter.UpdatePage(pageNum, state.TranslatedText ?? string.Empty);
+                                    AppLogger.Info($"[RETRY] Page {pageNum}: Translation successful on retry.");
                                 }
                                 catch (Exception transEx)
                                 {
-                                    Console.ForegroundColor = ConsoleColor.Red;
-                                    Console.WriteLine($"[RETRY] Page/Chunk {pageNum} translation failed again: {transEx.Message}");
-                                    Console.ResetColor();
+                                    Console.WriteLine(); // fix line break
+                                    AppLogger.ErrorConsole($"[RETRY] Page/Chunk {pageNum} translation retry failed", transEx);
                                     state.TranslationFailed = true;
                                     state.TranslationErrorMessage = transEx.Message;
-                                    
-                                    // Update markdown file to log the latest failure error
                                     translatedWriter.UpdatePage(pageNum, $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*");
                                 }
                             }
@@ -425,16 +403,13 @@ namespace PolyglotCLI
                     // Phase 4.5: Post-Translation Review (if enabled)
                     if (reviewService != null)
                     {
-                        Console.WriteLine();
-                        Console.ForegroundColor = ConsoleColor.Cyan;
-                        Console.WriteLine($"[REVIEW] Running post-translation review for {fileName}...");
-                        Console.ResetColor();
+                        AppLogger.InfoConsole($"\n[REVIEW] Running post-translation review for {fileName}...", ConsoleColor.Cyan);
 
                         foreach (var state in pageStates)
                         {
                             if (state.OcrFailed || state.TranslationFailed)
                             {
-                                continue; // Skip failed pages
+                                continue;
                             }
 
                             try
@@ -447,17 +422,13 @@ namespace PolyglotCLI
                                 state.ReviewedText = reviewed;
                                 state.ReviewFailed = false;
 
-                                // Update translated text with reviewed version
                                 state.TranslatedText = reviewed;
                                 translatedWriter.UpdatePage(state.PageNumber, reviewed);
                             }
                             catch (Exception revEx)
                             {
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                Console.WriteLine($"[REVIEW] Page {state.PageNumber} review failed (keeping original translation): {revEx.Message}");
-                                Console.ResetColor();
-                                state.ReviewFailed = true;
-                                state.ReviewErrorMessage = revEx.Message;
+                                Console.WriteLine(); // fix line break
+                                AppLogger.WarnConsole($"[REVIEW] Page {state.PageNumber} review failed (keeping current translation): {revEx.Message}");
                             }
                         }
                     }
@@ -474,39 +445,33 @@ namespace PolyglotCLI
 
                     if (finalFailed.Count > 0)
                     {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"\nCompleted translating {fileName} with errors in pages/chunks: {string.Join(", ", finalFailed)}");
-                        Console.ResetColor();
+                        AppLogger.ErrorConsole($"\nCompleted translating {fileName} with errors in pages/chunks: {string.Join(", ", finalFailed)}");
                     }
                     else
                     {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"\nSuccessfully completed translating {fileName} (all pages/chunks succeeded)!");
-                        Console.ResetColor();
+                        AppLogger.InfoConsole($"\nSuccessfully completed translating {fileName} (all pages/chunks succeeded)!", ConsoleColor.Green);
                     }
 
-                    Console.WriteLine($"Original text saved to: {originalOutputPath}");
-                    Console.WriteLine($"Output saved to: {outputPath}");
+                    AppLogger.Info($"Original text saved to: {originalOutputPath}");
+                    AppLogger.Info($"Output saved to: {outputPath}");
 
                     // Phase 5: Output Format Conversion
                     if (!string.IsNullOrWhiteSpace(config.OutputFormats) && !config.OutputFormats.Trim().Equals("md", StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.WriteLine($"Converting output to additional formats...");
+                        AppLogger.InfoConsole("Converting output to additional formats...", ConsoleColor.Cyan);
                         OutputFormatConverter.ConvertToFormats(outputPath, config.OutputFormats);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"Fatal Error during translation/saving for {fileName}: {ex.Message}");
-                    Console.ResetColor();
+                    AppLogger.ErrorConsole($"Fatal Error during translation processing for {fileName}", ex);
                 }
             }
 
-            Console.WriteLine();
-            Console.WriteLine("==================================================");
-            Console.WriteLine("           Translation Process Finished           ");
-            Console.WriteLine("==================================================");
+            totalPipelineStopwatch.Stop();
+            AppLogger.Info("==================================================");
+            AppLogger.Info($"Translation Process Finished in {totalPipelineStopwatch.Elapsed.TotalSeconds:F2} seconds.");
+            AppLogger.Info("==================================================");
             return 0;
         }
     }

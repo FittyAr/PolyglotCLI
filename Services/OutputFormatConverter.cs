@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Diagnostics;
 using Markdig;
 
 namespace PolyglotCLI
@@ -17,6 +18,9 @@ namespace PolyglotCLI
                 throw new FileNotFoundException($"Markdown file not found: {markdownPath}");
             }
 
+            AppLogger.Info($"Format Conversion: Translating Markdown '{markdownPath}' to HTML '{outputPath}'...");
+            var stopwatch = Stopwatch.StartNew();
+
             string markdown = File.ReadAllText(markdownPath, Encoding.UTF8);
 
             var pipeline = new MarkdownPipelineBuilder()
@@ -29,6 +33,9 @@ namespace PolyglotCLI
             string fullHtml = WrapInHtmlDocument(title, htmlBody);
 
             File.WriteAllText(outputPath, fullHtml, Encoding.UTF8);
+            stopwatch.Stop();
+
+            AppLogger.Info($"Format Conversion: HTML saved in {stopwatch.ElapsedMilliseconds}ms at {outputPath}");
             Console.WriteLine($"  → HTML saved to: {outputPath}");
         }
 
@@ -38,9 +45,11 @@ namespace PolyglotCLI
         /// </summary>
         public static bool TryConvertWithPandoc(string markdownPath, string outputPath, string format)
         {
+            AppLogger.Info($"Format Conversion (Pandoc): Attempting to convert '{markdownPath}' to '{format}' -> '{outputPath}'...");
+            var stopwatch = Stopwatch.StartNew();
             try
             {
-                var startInfo = new System.Diagnostics.ProcessStartInfo
+                var startInfo = new ProcessStartInfo
                 {
                     FileName = "pandoc",
                     Arguments = $"\"{markdownPath}\" -o \"{outputPath}\" --from=markdown --to={format}",
@@ -50,28 +59,37 @@ namespace PolyglotCLI
                     CreateNoWindow = true
                 };
 
-                using var process = System.Diagnostics.Process.Start(startInfo);
-                if (process == null) return false;
+                using var process = Process.Start(startInfo);
+                if (process == null)
+                {
+                    AppLogger.Warn("Format Conversion (Pandoc): Failed to start process (process was null).");
+                    return false;
+                }
 
                 process.WaitForExit(60000); // 60 second timeout
+                stopwatch.Stop();
 
                 if (process.ExitCode == 0 && File.Exists(outputPath))
                 {
+                    AppLogger.Info($"Format Conversion (Pandoc): Conversion to {format} succeeded in {stopwatch.ElapsedMilliseconds}ms.");
                     Console.WriteLine($"  → {format.ToUpperInvariant()} saved to: {outputPath}");
                     return true;
                 }
                 else
                 {
                     string error = process.StandardError.ReadToEnd();
+                    AppLogger.Error($"Format Conversion (Pandoc): pandoc to {format} conversion failed (Exit code: {process.ExitCode}). Error details: {error.Trim()}");
+                    
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine($"  [WARNING] pandoc conversion to {format} failed: {error}");
                     Console.ResetColor();
                     return false;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // pandoc not found or not installed
+                stopwatch.Stop();
+                AppLogger.Warn($"Format Conversion (Pandoc): pandoc tool is not installed or failed to execute after {stopwatch.ElapsedMilliseconds}ms. Exception: {ex.Message}");
                 return false;
             }
         }
@@ -86,6 +104,8 @@ namespace PolyglotCLI
             {
                 return;
             }
+
+            AppLogger.Info($"Format Conversion: Initiating conversions for: {outputFormats}");
 
             string[] formats = outputFormats.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
             string basePath = Path.ChangeExtension(markdownPath, null);
@@ -115,6 +135,8 @@ namespace PolyglotCLI
                         {
                             // Fallback: generate HTML instead
                             string htmlFallback = $"{basePath}.html";
+                            AppLogger.Warn($"Format Conversion: pandoc not available for {fmt.ToUpperInvariant()}. Falling back to HTML format...");
+                            
                             Console.ForegroundColor = ConsoleColor.Yellow;
                             Console.WriteLine($"  [INFO] pandoc not available for {fmt.ToUpperInvariant()} conversion. Generating HTML instead.");
                             Console.ResetColor();
@@ -127,6 +149,7 @@ namespace PolyglotCLI
                     }
                     else
                     {
+                        AppLogger.Warn($"Format Conversion: Unknown requested output format '{fmt}'. Skipping.");
                         Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.WriteLine($"  [WARNING] Unknown output format '{fmt}'. Skipping.");
                         Console.ResetColor();
@@ -134,6 +157,7 @@ namespace PolyglotCLI
                 }
                 catch (Exception ex)
                 {
+                    AppLogger.Error($"Format Conversion: Exception during format conversion to '{fmt}'.", ex);
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"  [ERROR] Failed to convert to {fmt}: {ex.Message}");
                     Console.ResetColor();

@@ -8,34 +8,46 @@ namespace PolyglotCLI
         static async Task<int> Main(string[] args)
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
+            AppLogger.Info("Program Main started.");
+            
             Console.WriteLine("==================================================");
             Console.WriteLine("                  PolyglotCLI                     ");
             Console.WriteLine("==================================================");
 
             // Load Configuration
+            AppLogger.Info("Loading config.json...");
             var config = AppConfig.Load();
+            AppLogger.Info($"Loaded configuration API URL: '{config.ApiUrl}'");
 
             // 1. Parse command line options or launch interactive menu
             CommandLineOptions? options;
             if (args.Length == 0)
             {
+                AppLogger.Info("No command-line arguments specified. Launching interactive menu...");
                 options = await InteractiveMenu.RunAsync(config);
                 if (options == null)
                 {
+                    AppLogger.Info("Interactive menu cancelled by user. Exiting.");
                     return 0; // Cancelled by user
                 }
+                AppLogger.Info("Interactive menu completed. Running translation task.");
             }
             else
             {
+                AppLogger.Info($"Parsing {args.Length} command-line arguments: {string.Join(" ", args)}");
                 options = CommandLineOptions.Parse(args, config);
                 if (options == null)
                 {
+                    AppLogger.Error("CommandLineOptions parsing failed. Exiting.");
                     return 1;
                 }
+                AppLogger.Info("CommandLineOptions parsing succeeded.");
             }
 
             // 2. Delegate execution orchestration to TranslationOrchestrator
-            return await TranslationOrchestrator.ExecuteAsync(options, config);
+            int exitCode = await TranslationOrchestrator.ExecuteAsync(options, config);
+            AppLogger.Info($"Program Main exiting with code: {exitCode}");
+            return exitCode;
         }
     }
 }

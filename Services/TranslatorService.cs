@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace PolyglotCLI
@@ -23,6 +24,7 @@ namespace PolyglotCLI
         {
             if (string.IsNullOrWhiteSpace(sourceText))
             {
+                AppLogger.Warn($"Translation page {pageNumber}: Source text was empty. Skipping API request.");
                 return $"*Page {pageNumber} was empty.*";
             }
 
@@ -32,19 +34,36 @@ namespace PolyglotCLI
 
             string userPrompt = $"Translate the following text into {_targetLanguage}. {formatInstruction} Make sure to only return the translation:\n\n{sourceText}";
 
+            AppLogger.Info($"Translation page {pageNumber}: Starting text request to model '{_modelName}' (Input length: {sourceText.Length} chars)...");
             Console.Write($"Translating page {pageNumber}... ");
 
-            string translatedText = await _client.SendTextRequestAsync(
-                _systemPrompt,
-                userPrompt,
-                _modelName
-            );
+            var stopwatch = Stopwatch.StartNew();
+            try
+            {
+                string translatedText = await _client.SendTextRequestAsync(
+                    _systemPrompt,
+                    userPrompt,
+                    _modelName
+                );
+                stopwatch.Stop();
+                AppLogger.Info($"Translation page {pageNumber}: Succeeded in {stopwatch.ElapsedMilliseconds}ms. Output length: {translatedText.Length} chars.");
 
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Done.");
-            Console.ResetColor();
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Done.");
+                Console.ResetColor();
 
-            return translatedText;
+                return translatedText;
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                AppLogger.Error($"Translation page {pageNumber}: Failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
+
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Failed.");
+                Console.ResetColor();
+                throw;
+            }
         }
     }
 }
