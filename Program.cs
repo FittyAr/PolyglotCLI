@@ -155,6 +155,20 @@ namespace PolyglotCLI
                     }
                     Console.WriteLine($"Extracted {successCount}/{pageStates.Count} pages/chunks successfully.");
                     
+                    int textLength = 0;
+                    foreach (var s in pageStates)
+                    {
+                        textLength += s.OcrText?.Trim().Length ?? 0;
+                    }
+                    if (textLength == 0 && target.Mode.Equals("text", StringComparison.OrdinalIgnoreCase) && Path.GetExtension(filePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine($"[WARNING] No selectable text was found in '{fileName}'.");
+                        Console.WriteLine($"          If this is a scanned document (image-only PDF), please run again with OCR mode set to 'Image'.");
+                        Console.WriteLine($"          In the interactive menu, select the file and press [T] or [M] to toggle OCR mode.");
+                        Console.ResetColor();
+                    }
+                    
                     documentStateCache[filePath] = pageStates;
                 }
                 catch (Exception ex)
