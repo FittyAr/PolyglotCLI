@@ -14,6 +14,11 @@ namespace PolyglotCLI
         public string LastScanDirectory { get; set; } = ".";
         public bool Debug { get; set; } = false;
         public string? AdditionalPrompt { get; set; }
+        public int TranslationTimeoutSeconds { get; set; } = 300;
+        public int PromptImproveTimeoutSeconds { get; set; } = 300;
+        public int ModelCheckTimeoutSeconds { get; set; } = 5;
+        public double Temperature { get; set; } = 0.3;
+        public int MaxCharactersPerChunk { get; set; } = 4000;
 
         public static AppConfig Load(string? configPath = null)
         {

@@ -238,5 +238,6 @@ namespace PolyglotCLI
         public string FilePath { get; set; } = string.Empty;
         public string Mode { get; set; } = "text"; // "text" or "image" (specific to PDF)
         public string PageRange { get; set; } = "all";
+        public int MaxCharactersPerChunk { get; set; } = 4000;
     }
 }

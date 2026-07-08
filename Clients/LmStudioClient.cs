@@ -11,13 +11,13 @@ namespace PolyglotCLI
     {
         private readonly HttpClient _httpClient;
         private readonly string _apiUrl;
+        public double Temperature { get; set; } = 0.3;
 
-        public LmStudioClient(string apiUrl)
+        public LmStudioClient(string apiUrl, int timeoutSeconds = 300)
         {
             _apiUrl = apiUrl.TrimEnd('/');
             _httpClient = new HttpClient();
-            // Default timeout to 5 minutes to accommodate large PDF pages or slow LLMs
-            _httpClient.Timeout = TimeSpan.FromMinutes(5);
+            _httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
         }
 
         public async Task<string> GetFirstLoadedModelAsync()
@@ -65,7 +65,7 @@ namespace PolyglotCLI
                     new { role = "system", content = systemPrompt },
                     new { role = "user", content = userPrompt }
                 },
-                temperature = 0.3
+                temperature = Temperature
             };
 
             string jsonPayload = JsonSerializer.Serialize(payload);

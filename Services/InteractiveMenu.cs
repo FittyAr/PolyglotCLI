@@ -57,18 +57,21 @@ namespace PolyglotCLI
             };
 
             var btnSavePresets = new Button("Save Presets [F4]") { X = 1, Y = 18 };
+            var btnConfig = new Button("Settings [F8]") { X = Pos.Right(btnSavePresets) + 1, Y = 18 };
 
             var labelAddPrompt = new Label("Additional Prompt:") { X = 1, Y = 20 };
-            var btnImprovePrompt = new Button("Improve [F5]") { X = Pos.Right(labelAddPrompt) + 1, Y = 20 };
             var textAddPrompt = new TextView()
             {
                 X = 1,
                 Y = 21,
                 Width = Dim.Fill(3),
-                Height = Dim.Fill(1),
+                Height = Dim.Fill(2),
                 WordWrap = true
             };
             textAddPrompt.Text = config.AdditionalPrompt ?? "";
+
+            var btnImprovePrompt = new Button("Improve [F5]") { X = 1, Y = Pos.Bottom(textAddPrompt) };
+            var btnAnalyzeFilePrompt = new Button("Analyze File [F7]") { X = Pos.Right(btnImprovePrompt) + 1, Y = Pos.Bottom(textAddPrompt) };
 
             leftFrame.Add(
                 labelApi, textApi,
@@ -77,8 +80,8 @@ namespace PolyglotCLI
                 labelLang, textLang,
                 labelOutputDir, textOutputDir,
                 checkDebug,
-                btnSavePresets,
-                labelAddPrompt, btnImprovePrompt, textAddPrompt
+                btnSavePresets, btnConfig,
+                labelAddPrompt, textAddPrompt, btnImprovePrompt, btnAnalyzeFilePrompt
             );
 
             var scrollBar = new ScrollBarView(textAddPrompt, true);
@@ -174,6 +177,16 @@ namespace PolyglotCLI
                     ImprovePromptWithAi();
                     return true;
                 }
+                if (keyEvent.Key == Key.F7)
+                {
+                    AnalyzeFileForPromptWithAi();
+                    return true;
+                }
+                if (keyEvent.Key == Key.F8)
+                {
+                    ShowSettingsModal();
+                    return true;
+                }
                 if (keyEvent.Key == Key.F6)
                 {
                     PerformScan();
@@ -195,7 +208,7 @@ namespace PolyglotCLI
             // Help Modal Dialog
             void ShowHelpModal()
             {
-                var dialog = new Dialog("Keyboard Shortcuts & Help", 60, 15);
+                var dialog = new Dialog("Keyboard Shortcuts & Help", 60, 16);
                 var content = new Label(
                     "Use the following function keys or click the buttons:\n\n" +
                     "  [F1]  : Show this shortcuts help dialog\n" +
@@ -204,6 +217,8 @@ namespace PolyglotCLI
                     "  [F4]  : Save current settings as presets\n" +
                     "  [F5]  : Improve prompt with AI\n" +
                     "  [F6]  : Scan documents directory\n" +
+                    "  [F7]  : Analyze file to generate prompt\n" +
+                    "  [F8]  : Advanced application settings\n" +
                     "  [F9]  : Start translation of selected files\n" +
                     "  [F12] : Quit application\n\n" +
                     "  [Space] / Double-Click : Toggle selection of document\n" +
@@ -268,8 +283,8 @@ namespace PolyglotCLI
                             string systemMessage = promptTemplate.Replace("{user_input}", rawInput);
 
                             using var httpClient = new System.Net.Http.HttpClient();
-                            httpClient.Timeout = TimeSpan.FromSeconds(20);
-
+                            httpClient.Timeout = TimeSpan.FromSeconds(config.PromptImproveTimeoutSeconds);
+ 
                             var requestBody = new
                             {
                                 model = model,
@@ -277,7 +292,7 @@ namespace PolyglotCLI
                                 {
                                     new { role = "user", content = systemMessage }
                                 },
-                                temperature = 0.3
+                                temperature = config.Temperature
                             };
 
                             string jsonString = System.Text.Json.JsonSerializer.Serialize(requestBody);
@@ -407,6 +422,213 @@ namespace PolyglotCLI
                 }
             }
 
+            void AnalyzeFileForPromptWithAi()
+            {
+                int idx = listFiles.SelectedItem;
+                if (idx < 0 || idx >= filesSource.Count)
+                {
+                    MessageBox.ErrorQuery("Error", "Please select/highlight a file in the documents list to analyze.", "OK");
+                    return;
+                }
+                var file = filesSource[idx];
+
+                string url = textApi.Text?.ToString()?.Trim() ?? "";
+                string model = textModel.Text?.ToString()?.Trim() ?? "";
+                string visionModel = textVisionModel.Text?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
+                {
+                    MessageBox.ErrorQuery("Error", "API URL and Translation Model Name are required.", "OK");
+                    return;
+                }
+
+                var dProgress = new Dialog("AI File Context Prompt Generator", 50, 5);
+                var lblStatus = new Label("Preparing to analyze file...") { X = Pos.Center(), Y = 1 };
+                dProgress.Add(lblStatus);
+                
+                string? improvedPromptResult = null;
+                string? errorMessage = null;
+
+                dProgress.Loaded += () => {
+                    Task.Run(async () => {
+                        try
+                        {
+                            string ocrPrompt = "You are a precise OCR system. Output the text exactly as it is shown in the image.";
+                            try
+                            {
+                                var loader = new PromptLoader();
+                                ocrPrompt = loader.LoadOcrPrompt();
+                            }
+                            catch {}
+
+                            using var client = new LmStudioClient(url, config.TranslationTimeoutSeconds);
+                            var ocrService = new OcrService(client, ocrPrompt, visionModel);
+                            var pageRenderer = new PdfPageRenderer();
+ 
+                            var target = new DocumentTarget
+                            {
+                                FilePath = file.FullPath,
+                                Mode = file.Mode,
+                                PageRange = file.PageRange,
+                                MaxCharactersPerChunk = config.MaxCharactersPerChunk
+                            };
+
+                            Application.MainLoop.Invoke(() => {
+                                lblStatus.Text = "Extracting text content from file...";
+                            });
+
+                            var extractor = new DocumentExtractorFactory().GetExtractor(file.FullPath);
+                            var pageStates = await extractor.ExtractTextAsync(file.FullPath, target, ocrService, pageRenderer);
+
+                            var sb = new System.Text.StringBuilder();
+                            foreach (var s in pageStates)
+                            {
+                                if (!string.IsNullOrEmpty(s.OcrText))
+                                {
+                                    sb.AppendLine(s.OcrText);
+                                }
+                            }
+                            string fileText = sb.ToString().Trim();
+
+                            if (string.IsNullOrEmpty(fileText))
+                            {
+                                throw new Exception("The file content could not be read or is empty.");
+                            }
+
+                            Application.MainLoop.Invoke(() => {
+                                lblStatus.Text = "Analyzing context and generating prompt...";
+                            });
+
+                            string systemPrompt = "You are an expert translation system prompt engineer. Analyze the following document text content to understand its context, main topic, style, tone, and specific domain terminology. " +
+                                                  "Based on this analysis, generate an optimal, detailed set of instructions (in English) that a translation model should follow when translating this document. The instructions should specify: " +
+                                                  "1) The context and topic of the text. " +
+                                                  "2) The tone, style, and formatting that must be preserved. " +
+                                                  "3) Any key domain-specific terminology or guidelines. " +
+                                                  "Output ONLY the generated instructions/additional prompt. Do NOT include any introductory or concluding text, and do NOT use markdown code blocks.";
+
+                            if (fileText.Length > 60000)
+                            {
+                                fileText = fileText.Substring(0, 60000) + "\n\n[TRUNCATED DUE TO SIZE]";
+                            }
+
+                            string userMessage = $"Here is the text content of the document to analyze:\n\n{fileText}";
+
+                            var requestBody = new
+                            {
+                                model = model,
+                                messages = new[]
+                                {
+                                    new { role = "system", content = systemPrompt },
+                                    new { role = "user", content = userMessage }
+                                },
+                                temperature = config.Temperature
+                            };
+ 
+                            using var httpClient = new System.Net.Http.HttpClient();
+                            httpClient.Timeout = TimeSpan.FromSeconds(config.PromptImproveTimeoutSeconds);
+
+                            string jsonString = System.Text.Json.JsonSerializer.Serialize(requestBody);
+                            var content = new System.Net.Http.StringContent(jsonString, System.Text.Encoding.UTF8, "application/json");
+
+                            var response = await httpClient.PostAsync($"{url.TrimEnd('/')}/chat/completions", content);
+                            if (response.IsSuccessStatusCode)
+                            {
+                                string responseJson = await response.Content.ReadAsStringAsync();
+                                using var doc = System.Text.Json.JsonDocument.Parse(responseJson);
+                                var choices = doc.RootElement.GetProperty("choices");
+                                if (choices.GetArrayLength() > 0)
+                                {
+                                    string text = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+                                    improvedPromptResult = text.Trim();
+                                }
+                            }
+                            else
+                            {
+                                errorMessage = $"API returned status code: {response.StatusCode}";
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            errorMessage = ex.Message;
+                        }
+                        finally
+                        {
+                            Application.MainLoop.Invoke(() => {
+                                Application.RequestStop();
+                            });
+                        }
+                    });
+                };
+
+                Application.Run(dProgress);
+
+                if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    MessageBox.ErrorQuery("Error", $"Failed to analyze file: {errorMessage}", "OK");
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(improvedPromptResult))
+                {
+                    MessageBox.ErrorQuery("Error", "No output returned from AI.", "OK");
+                    return;
+                }
+
+                var dPreview = new Dialog("AI File Analysis Result Preview", 75, 20);
+                
+                var lblNew = new Label("Generated Context-Based Prompt:") { X = 1, Y = 1 };
+                var textNew = new TextView()
+                {
+                    X = 1,
+                    Y = 2,
+                    Width = Dim.Fill(3),
+                    Height = Dim.Fill(2),
+                    ReadOnly = true,
+                    Text = improvedPromptResult,
+                    WordWrap = true
+                };
+
+                bool apply = false;
+                var btnApply = new Button("Apply to Additional Prompt", is_default: true);
+                var btnDiscard = new Button("Discard");
+
+                btnApply.Clicked += () => {
+                    apply = true;
+                    Application.RequestStop();
+                };
+
+                btnDiscard.Clicked += () => {
+                    apply = false;
+                    Application.RequestStop();
+                };
+
+                dPreview.AddButton(btnApply);
+                dPreview.AddButton(btnDiscard);
+                
+                dPreview.Add(lblNew, textNew);
+
+                var scrollBarNew = new ScrollBarView(textNew, true);
+                scrollBarNew.ChangedPosition += () => {
+                    textNew.TopRow = scrollBarNew.Position;
+                    textNew.SetNeedsDisplay();
+                };
+                textNew.DrawContent += (e) => {
+                    scrollBarNew.Size = textNew.Lines;
+                    scrollBarNew.Position = textNew.TopRow;
+                    scrollBarNew.LayoutSubviews();
+                    scrollBarNew.SetNeedsDisplay();
+                };
+
+                dPreview.Add(scrollBarNew);
+
+                Application.Run(dPreview);
+
+                if (apply)
+                {
+                    textAddPrompt.Text = improvedPromptResult;
+                    MessageBox.Query("Success", "Additional Prompt updated with file analysis context!", "OK");
+                }
+            }
+
             // (Declaration moved to top of RunAsync)
 
             // Helper to update file list view
@@ -481,6 +703,67 @@ namespace PolyglotCLI
 
             // (Obsolete ShowHelpModal removed, new version defined above)
 
+            void ShowSettingsModal()
+            {
+                var dialog = new Dialog("Advanced Settings", 65, 17);
+
+                var lblTransTimeout = new Label("Translation Timeout (sec):") { X = 1, Y = 1 };
+                var textTransTimeout = new TextField(config.TranslationTimeoutSeconds.ToString()) { X = 32, Y = 1, Width = 15 };
+
+                var lblPromptTimeout = new Label("AI Improve Timeout (sec):") { X = 1, Y = 3 };
+                var textPromptTimeout = new TextField(config.PromptImproveTimeoutSeconds.ToString()) { X = 32, Y = 3, Width = 15 };
+
+                var lblModelCheckTimeout = new Label("Model Check Timeout (sec):") { X = 1, Y = 5 };
+                var textModelCheckTimeout = new TextField(config.ModelCheckTimeoutSeconds.ToString()) { X = 32, Y = 5, Width = 15 };
+
+                var lblTemperature = new Label("LLM Temperature (0.0-1.0):") { X = 1, Y = 7 };
+                var textTemperature = new TextField(config.Temperature.ToString(System.Globalization.CultureInfo.InvariantCulture)) { X = 32, Y = 7, Width = 15 };
+
+                var lblChunkSize = new Label("Max Chars per Chunk:") { X = 1, Y = 9 };
+                var textChunkSize = new TextField(config.MaxCharactersPerChunk.ToString()) { X = 32, Y = 9, Width = 15 };
+
+                var btnSave = new Button("Save", is_default: true);
+                var btnCancelSettings = new Button("Cancel");
+
+                btnSave.Clicked += () => {
+                    if (int.TryParse(textTransTimeout.Text?.ToString(), out int transTimeout) &&
+                        int.TryParse(textPromptTimeout.Text?.ToString(), out int promptTimeout) &&
+                        int.TryParse(textModelCheckTimeout.Text?.ToString(), out int checkTimeout) &&
+                        double.TryParse(textTemperature.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double temp) &&
+                        int.TryParse(textChunkSize.Text?.ToString(), out int chunkSize))
+                    {
+                        config.TranslationTimeoutSeconds = transTimeout;
+                        config.PromptImproveTimeoutSeconds = promptTimeout;
+                        config.ModelCheckTimeoutSeconds = checkTimeout;
+                        config.Temperature = temp;
+                        config.MaxCharactersPerChunk = chunkSize;
+                        config.Save();
+                        MessageBox.Query("Success", "Settings saved successfully!", "OK");
+                        Application.RequestStop();
+                    }
+                    else
+                    {
+                        MessageBox.ErrorQuery("Error", "Please enter valid numeric values.", "OK");
+                    }
+                };
+
+                btnCancelSettings.Clicked += () => {
+                    Application.RequestStop();
+                };
+
+                dialog.AddButton(btnSave);
+                dialog.AddButton(btnCancelSettings);
+                dialog.Add(
+                    lblTransTimeout, textTransTimeout,
+                    lblPromptTimeout, textPromptTimeout,
+                    lblModelCheckTimeout, textModelCheckTimeout,
+                    lblTemperature, textTemperature,
+                    lblChunkSize, textChunkSize
+                );
+
+                Application.Run(dialog);
+            }
+
             // Sync model detection logic via selection modal
             void ShowModelSelectionModal(TextField targetField, string roleName)
             {
@@ -495,7 +778,7 @@ namespace PolyglotCLI
                 try
                 {
                     using var httpClient = new System.Net.Http.HttpClient();
-                    httpClient.Timeout = TimeSpan.FromSeconds(5);
+                    httpClient.Timeout = TimeSpan.FromSeconds(config.ModelCheckTimeoutSeconds);
                     var task = httpClient.GetAsync($"{url.TrimEnd('/')}/models");
                     task.Wait();
                     var modelsResponse = task.Result;
@@ -590,7 +873,9 @@ namespace PolyglotCLI
             btnSelectModel.Clicked += () => ShowModelSelectionModal(textModel, "Translation");
             btnSelectVisionModel.Clicked += () => ShowModelSelectionModal(textVisionModel, "Vision/OCR");
             btnSavePresets.Clicked += () => SavePresets();
+            btnConfig.Clicked += () => ShowSettingsModal();
             btnImprovePrompt.Clicked += () => ImprovePromptWithAi();
+            btnAnalyzeFilePrompt.Clicked += () => AnalyzeFileForPromptWithAi();
             btnCancel.Clicked += () => QuitApp();
             btnStart.Clicked += () => StartTranslation();
 
@@ -767,7 +1052,8 @@ namespace PolyglotCLI
                     {
                         FilePath = f.FullPath,
                         Mode = f.Mode,
-                        PageRange = f.PageRange
+                        PageRange = f.PageRange,
+                        MaxCharactersPerChunk = config.MaxCharactersPerChunk
                     });
                     finalOptions.Files.Add(f.FullPath);
                 }

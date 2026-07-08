@@ -59,7 +59,8 @@ namespace PolyglotCLI
 
             // 3. Initialize LM Studio Client and detect models
             Console.WriteLine($"Connecting to LM Studio API at: {options.ApiUrl} ...");
-            using var client = new LmStudioClient(options.ApiUrl);
+            using var client = new LmStudioClient(options.ApiUrl, config.TranslationTimeoutSeconds);
+            client.Temperature = config.Temperature;
             
             string loadedModel = await client.GetFirstLoadedModelAsync();
             if (string.IsNullOrWhiteSpace(loadedModel))
