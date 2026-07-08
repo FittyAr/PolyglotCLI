@@ -9,6 +9,7 @@ namespace PolyglotCLI
         private readonly string _systemPrompt;
         private readonly string? _modelName;
         private readonly string _targetLanguage;
+        public bool PreserveFormat { get; set; } = true;
 
         public TranslatorService(LmStudioClient client, string systemPrompt, string? modelName = null, string targetLanguage = "Spanish")
         {
@@ -25,7 +26,11 @@ namespace PolyglotCLI
                 return $"*Page {pageNumber} was empty.*";
             }
 
-            string userPrompt = $"Translate the following text into {_targetLanguage}. Make sure to only return the translation, preserving format:\n\n{sourceText}";
+            string formatInstruction = PreserveFormat
+                ? "Preserve all Markdown formatting (headers, tables, lists, bold, italic, links)."
+                : "Translate only the text content. Do not preserve Markdown formatting, output plain text.";
+
+            string userPrompt = $"Translate the following text into {_targetLanguage}. {formatInstruction} Make sure to only return the translation:\n\n{sourceText}";
 
             Console.Write($"Translating page {pageNumber}... ");
 

@@ -18,7 +18,13 @@ namespace PolyglotCLI
         public int PromptImproveTimeoutSeconds { get; set; } = 300;
         public int ModelCheckTimeoutSeconds { get; set; } = 5;
         public double Temperature { get; set; } = 0.3;
-        public int MaxCharactersPerChunk { get; set; } = 4000;
+        public int MaxCharactersPerChunk { get; set; } = 6000;
+        public int ChunkOverlapCharacters { get; set; } = 300;
+        public bool PreserveFormat { get; set; } = true;
+        public bool EnableReview { get; set; } = false;
+        public string? ReviewModel { get; set; }
+        public int ReviewTimeoutSeconds { get; set; } = 300;
+        public string OutputFormats { get; set; } = "md";
 
         public static AppConfig Load(string? configPath = null)
         {

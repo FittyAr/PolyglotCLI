@@ -50,7 +50,7 @@ namespace PolyglotCLI
                 }
 
                 string text = sb.ToString();
-                var chunks = TextChunker.ChunkText(text, target.MaxCharactersPerChunk);
+                var chunks = TextChunker.ChunkText(text, target.MaxCharactersPerChunk, target.ChunkOverlapCharacters);
 
                 if (chunks.Count == 0)
                 {

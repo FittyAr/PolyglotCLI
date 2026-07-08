@@ -106,9 +106,32 @@ namespace PolyglotCLI
 
             var ocrService = new OcrService(client, ocrPrompt, visionModel);
             var translatorService = new TranslatorService(client, translationPrompt, textModel, options.TargetLanguage);
+            translatorService.PreserveFormat = config.PreserveFormat;
             var pageRenderer = new PdfPageRenderer();
             var translatedWriter = new MarkdownWriter();
             var originalWriter = new MarkdownWriter();
+
+            // Initialize Review Service if enabled
+            ReviewService? reviewService = null;
+            if (config.EnableReview)
+            {
+                try
+                {
+                    var promptLoader2 = new PromptLoader();
+                    string reviewPrompt = promptLoader2.LoadReviewPrompt();
+                    string reviewModel = config.ReviewModel ?? textModel;
+                    reviewService = new ReviewService(client, reviewPrompt, reviewModel);
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"Post-translation review enabled (model: {reviewModel}).");
+                    Console.ResetColor();
+                }
+                catch (Exception revEx)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"Warning: Could not load review prompt, review disabled: {revEx.Message}");
+                    Console.ResetColor();
+                }
+            }
 
             // Create output directory if it doesn't exist
             string absoluteOutputDir = Path.GetFullPath(options.OutputDirectory);
@@ -415,6 +438,46 @@ namespace PolyglotCLI
                         }
                     }
 
+                    // Phase 4.5: Post-Translation Review (if enabled)
+                    if (reviewService != null)
+                    {
+                        Console.WriteLine();
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine($"[REVIEW] Running post-translation review for {fileName}...");
+                        Console.ResetColor();
+
+                        foreach (var state in pageStates)
+                        {
+                            if (state.OcrFailed || state.TranslationFailed)
+                            {
+                                continue; // Skip failed pages
+                            }
+
+                            try
+                            {
+                                string reviewed = await reviewService.ReviewTranslationAsync(
+                                    state.OcrText ?? string.Empty,
+                                    state.TranslatedText ?? string.Empty,
+                                    state.PageNumber
+                                );
+                                state.ReviewedText = reviewed;
+                                state.ReviewFailed = false;
+
+                                // Update translated text with reviewed version
+                                state.TranslatedText = reviewed;
+                                translatedWriter.UpdatePage(state.PageNumber, reviewed);
+                            }
+                            catch (Exception revEx)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.WriteLine($"[REVIEW] Page {state.PageNumber} review failed (keeping original translation): {revEx.Message}");
+                                Console.ResetColor();
+                                state.ReviewFailed = true;
+                                state.ReviewErrorMessage = revEx.Message;
+                            }
+                        }
+                    }
+
                     // Print final status for this file
                     var finalFailed = new System.Collections.Generic.List<int>();
                     foreach (var state in pageStates)
@@ -440,6 +503,13 @@ namespace PolyglotCLI
 
                     Console.WriteLine($"Original text saved to: {originalOutputPath}");
                     Console.WriteLine($"Output saved to: {outputPath}");
+
+                    // Phase 5: Output Format Conversion
+                    if (!string.IsNullOrWhiteSpace(config.OutputFormats) && !config.OutputFormats.Trim().Equals("md", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine($"Converting output to additional formats...");
+                        OutputFormatConverter.ConvertToFormats(outputPath, config.OutputFormats);
+                    }
                 }
                 catch (Exception ex)
                 {

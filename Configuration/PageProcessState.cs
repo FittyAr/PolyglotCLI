@@ -9,5 +9,8 @@ namespace PolyglotCLI
         public bool TranslationFailed { get; set; }
         public string? OcrErrorMessage { get; set; }
         public string? TranslationErrorMessage { get; set; }
+        public string? ReviewedText { get; set; }
+        public bool ReviewFailed { get; set; }
+        public string? ReviewErrorMessage { get; set; }
     }
 }

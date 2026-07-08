@@ -208,7 +208,7 @@ namespace PolyglotCLI
             // Help Modal Dialog
             void ShowHelpModal()
             {
-                var dialog = new Dialog("Keyboard Shortcuts & Help", 60, 16);
+                var dialog = new Dialog("Keyboard Shortcuts & Help", 65, 28);
                 var content = new Label(
                     "Use the following function keys or click the buttons:\n\n" +
                     "  [F1]  : Show this shortcuts help dialog\n" +
@@ -223,7 +223,13 @@ namespace PolyglotCLI
                     "  [F12] : Quit application\n\n" +
                     "  [Space] / Double-Click : Toggle selection of document\n" +
                     "  [T] / [M]             : Toggle OCR Mode (Text/Image) for PDF\n" +
-                    "  [P]                   : Set Page Range for PDF"
+                    "  [P]                   : Set Page Range for PDF\n\n" +
+                    "--- Sobre la Temperatura ---\n" +
+                    "  0.0  : Traduccion extremadamente consistente\n" +
+                    "  0.1  : Opcion recomendada\n" +
+                    "  0.2  : Muy buena\n" +
+                    "  0.3  : Puede 'embellecer' frases o cambiar estilo\n" +
+                    "  >0.5 : No recomendado para traduccion"
                 )
                 {
                     X = 1,
@@ -469,7 +475,8 @@ namespace PolyglotCLI
                                 FilePath = file.FullPath,
                                 Mode = file.Mode,
                                 PageRange = file.PageRange,
-                                MaxCharactersPerChunk = config.MaxCharactersPerChunk
+                                MaxCharactersPerChunk = config.MaxCharactersPerChunk,
+                                ChunkOverlapCharacters = config.ChunkOverlapCharacters
                             };
 
                             Application.MainLoop.Invoke(() => {
@@ -705,22 +712,38 @@ namespace PolyglotCLI
 
             void ShowSettingsModal()
             {
-                var dialog = new Dialog("Advanced Settings", 65, 17);
+                var dialog = new Dialog("Advanced Settings", 68, 18);
 
                 var lblTransTimeout = new Label("Translation Timeout (sec):") { X = 1, Y = 1 };
-                var textTransTimeout = new TextField(config.TranslationTimeoutSeconds.ToString()) { X = 32, Y = 1, Width = 15 };
+                var textTransTimeout = new TextField(config.TranslationTimeoutSeconds.ToString()) { X = 34, Y = 1, Width = 15 };
 
-                var lblPromptTimeout = new Label("AI Improve Timeout (sec):") { X = 1, Y = 3 };
-                var textPromptTimeout = new TextField(config.PromptImproveTimeoutSeconds.ToString()) { X = 32, Y = 3, Width = 15 };
+                var lblPromptTimeout = new Label("AI Improve Timeout (sec):") { X = 1, Y = 2 };
+                var textPromptTimeout = new TextField(config.PromptImproveTimeoutSeconds.ToString()) { X = 34, Y = 2, Width = 15 };
 
-                var lblModelCheckTimeout = new Label("Model Check Timeout (sec):") { X = 1, Y = 5 };
-                var textModelCheckTimeout = new TextField(config.ModelCheckTimeoutSeconds.ToString()) { X = 32, Y = 5, Width = 15 };
+                var lblModelCheckTimeout = new Label("Model Check Timeout (sec):") { X = 1, Y = 3 };
+                var textModelCheckTimeout = new TextField(config.ModelCheckTimeoutSeconds.ToString()) { X = 34, Y = 3, Width = 15 };
 
-                var lblTemperature = new Label("LLM Temperature (0.0-1.0):") { X = 1, Y = 7 };
-                var textTemperature = new TextField(config.Temperature.ToString(System.Globalization.CultureInfo.InvariantCulture)) { X = 32, Y = 7, Width = 15 };
+                var lblTemperature = new Label("LLM Temperature (0.0-1.0):") { X = 1, Y = 4 };
+                var textTemperature = new TextField(config.Temperature.ToString(System.Globalization.CultureInfo.InvariantCulture)) { X = 34, Y = 4, Width = 15 };
 
-                var lblChunkSize = new Label("Max Chars per Chunk:") { X = 1, Y = 9 };
-                var textChunkSize = new TextField(config.MaxCharactersPerChunk.ToString()) { X = 32, Y = 9, Width = 15 };
+                var lblChunkSize = new Label("Max Chars per Chunk:") { X = 1, Y = 5 };
+                var textChunkSize = new TextField(config.MaxCharactersPerChunk.ToString()) { X = 34, Y = 5, Width = 15 };
+
+                var lblChunkOverlap = new Label("Chunk Overlap (chars):") { X = 1, Y = 6 };
+                var textChunkOverlap = new TextField(config.ChunkOverlapCharacters.ToString()) { X = 34, Y = 6, Width = 15 };
+
+                var checkPreserveFormat = new CheckBox("Preserve Formatting") { X = 1, Y = 7, Checked = config.PreserveFormat };
+
+                var lblOutputFormats = new Label("Output Formats (e.g. md,pdf):") { X = 1, Y = 8 };
+                var textOutputFormats = new TextField(config.OutputFormats ?? "md") { X = 34, Y = 8, Width = 28 };
+
+                var checkEnableReview = new CheckBox("Enable Post-Translation Review") { X = 1, Y = 9, Checked = config.EnableReview };
+
+                var lblReviewModel = new Label("Review Model Name:") { X = 1, Y = 10 };
+                var textReviewModel = new TextField(config.ReviewModel ?? "") { X = 34, Y = 10, Width = 28 };
+
+                var lblReviewTimeout = new Label("Review Timeout (sec):") { X = 1, Y = 11 };
+                var textReviewTimeout = new TextField(config.ReviewTimeoutSeconds.ToString()) { X = 34, Y = 11, Width = 15 };
 
                 var btnSave = new Button("Save", is_default: true);
                 var btnCancelSettings = new Button("Cancel");
@@ -730,13 +753,22 @@ namespace PolyglotCLI
                         int.TryParse(textPromptTimeout.Text?.ToString(), out int promptTimeout) &&
                         int.TryParse(textModelCheckTimeout.Text?.ToString(), out int checkTimeout) &&
                         double.TryParse(textTemperature.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double temp) &&
-                        int.TryParse(textChunkSize.Text?.ToString(), out int chunkSize))
+                        int.TryParse(textChunkSize.Text?.ToString(), out int chunkSize) &&
+                        int.TryParse(textChunkOverlap.Text?.ToString(), out int chunkOverlap) &&
+                        int.TryParse(textReviewTimeout.Text?.ToString(), out int reviewTimeout))
                     {
                         config.TranslationTimeoutSeconds = transTimeout;
                         config.PromptImproveTimeoutSeconds = promptTimeout;
                         config.ModelCheckTimeoutSeconds = checkTimeout;
                         config.Temperature = temp;
                         config.MaxCharactersPerChunk = chunkSize;
+                        config.ChunkOverlapCharacters = chunkOverlap;
+                        config.PreserveFormat = checkPreserveFormat.Checked;
+                        config.OutputFormats = textOutputFormats.Text?.ToString()?.Trim() ?? "md";
+                        config.EnableReview = checkEnableReview.Checked;
+                        config.ReviewModel = string.IsNullOrWhiteSpace(textReviewModel.Text?.ToString()) ? null : textReviewModel.Text?.ToString()?.Trim();
+                        config.ReviewTimeoutSeconds = reviewTimeout;
+
                         config.Save();
                         MessageBox.Query("Success", "Settings saved successfully!", "OK");
                         Application.RequestStop();
@@ -758,7 +790,13 @@ namespace PolyglotCLI
                     lblPromptTimeout, textPromptTimeout,
                     lblModelCheckTimeout, textModelCheckTimeout,
                     lblTemperature, textTemperature,
-                    lblChunkSize, textChunkSize
+                    lblChunkSize, textChunkSize,
+                    lblChunkOverlap, textChunkOverlap,
+                    checkPreserveFormat,
+                    lblOutputFormats, textOutputFormats,
+                    checkEnableReview,
+                    lblReviewModel, textReviewModel,
+                    lblReviewTimeout, textReviewTimeout
                 );
 
                 Application.Run(dialog);
@@ -1053,7 +1091,8 @@ namespace PolyglotCLI
                         FilePath = f.FullPath,
                         Mode = f.Mode,
                         PageRange = f.PageRange,
-                        MaxCharactersPerChunk = config.MaxCharactersPerChunk
+                        MaxCharactersPerChunk = config.MaxCharactersPerChunk,
+                        ChunkOverlapCharacters = config.ChunkOverlapCharacters
                     });
                     finalOptions.Files.Add(f.FullPath);
                 }

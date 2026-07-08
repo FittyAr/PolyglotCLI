@@ -5,5 +5,17 @@
   "TargetLanguage": "Spanish",
   "OutputDirectory": "d:\\",
   "LastScanDirectory": "d:\\",
-  "Debug": false
+  "Debug": false,
+  "AdditionalPrompt": null,
+  "TranslationTimeoutSeconds": 300,
+  "PromptImproveTimeoutSeconds": 300,
+  "ModelCheckTimeoutSeconds": 5,
+  "Temperature": 0.1,
+  "MaxCharactersPerChunk": 6000,
+  "ChunkOverlapCharacters": 300,
+  "PreserveFormat": true,
+  "EnableReview": true,
+  "ReviewModel": null,
+  "ReviewTimeoutSeconds": 300,
+  "OutputFormats": "md"
 }

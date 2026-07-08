@@ -19,7 +19,7 @@ namespace PolyglotCLI
             try
             {
                 string text = ScrapeTextFromDoc(filePath);
-                var chunks = TextChunker.ChunkText(text, target.MaxCharactersPerChunk);
+                var chunks = TextChunker.ChunkText(text, target.MaxCharactersPerChunk, target.ChunkOverlapCharacters);
 
                 if (chunks.Count == 0)
                 {
