@@ -33,7 +33,7 @@ namespace PolyglotCLI
             };
 
             var labelAddPrompt = new Label("Additional Prompt Guidance:") { X = 1, Y = 1 };
-            var textAddPrompt = new TextView()
+            var textAddPrompt = new SafeTextView()
             {
                 X = 1,
                 Y = 2,
@@ -272,7 +272,7 @@ namespace PolyglotCLI
                 var dPreview = new Dialog("AI Improved Prompt Preview", 75, 20);
                 
                 var lblOrig = new Label("Original Prompt:") { X = 1, Y = 1 };
-                var textOrig = new TextView()
+                var textOrig = new SafeTextView()
                 {
                     X = 1,
                     Y = 2,
@@ -284,7 +284,7 @@ namespace PolyglotCLI
                 };
 
                 var lblNew = new Label("AI Improved Prompt:") { X = Pos.Right(textOrig) + 2, Y = 1 };
-                var textNew = new TextView()
+                var textNew = new SafeTextView()
                 {
                     X = Pos.Right(textOrig) + 2,
                     Y = 2,
@@ -424,7 +424,7 @@ namespace PolyglotCLI
                 var dPreview = new Dialog("AI File Analysis Result Preview", 75, 20);
                 
                 var lblNew = new Label("Generated Context-Based Prompt:") { X = 1, Y = 1 };
-                var textNew = new TextView()
+                var textNew = new SafeTextView()
                 {
                     X = 1,
                     Y = 2,
@@ -843,6 +843,21 @@ namespace PolyglotCLI
             Application.Run(dialog);
             
             return result;
+        }
+    }
+
+    public class SafeTextView : TextView
+    {
+        public override bool MouseEvent(MouseEvent ev)
+        {
+            try
+            {
+                return base.MouseEvent(ev);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return true;
+            }
         }
     }
 }
