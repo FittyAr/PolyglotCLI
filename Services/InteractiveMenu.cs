@@ -145,7 +145,7 @@ namespace PolyglotCLI
                 }
                 if (keyEvent.Key == Key.F8)
                 {
-                    ShowSettingsModal();
+                    SettingsDialog.Show(config);
                     return true;
                 }
                 if (keyEvent.Key == Key.F6)
@@ -234,51 +234,13 @@ namespace PolyglotCLI
                     Task.Run(async () => {
                         try
                         {
-                            string promptTemplate = "";
-                            string promptPath = Path.Combine("prompts", "prompt_improver_prompt.md");
-                            if (File.Exists(promptPath))
-                            {
-                                promptTemplate = await File.ReadAllTextAsync(promptPath);
-                            }
-                            else
-                            {
-                                promptTemplate = "You are an expert translation prompt engineer. Rewrite the following translation instructions to be highly effective for an LLM. Output only the improved text, no intro, no markdown codeblocks:\n\n{user_input}";
-                            }
-
-                            string systemMessage = promptTemplate.Replace("{user_input}", rawInput);
-
-                            using var httpClient = new System.Net.Http.HttpClient();
-                            httpClient.Timeout = TimeSpan.FromSeconds(config.PromptImproveTimeoutSeconds);
- 
-                            var requestBody = new
-                            {
-                                model = model,
-                                messages = new[]
-                                {
-                                    new { role = "user", content = systemMessage }
-                                },
-                                temperature = config.Temperature
-                            };
-
-                            string jsonString = System.Text.Json.JsonSerializer.Serialize(requestBody);
-                            var content = new System.Net.Http.StringContent(jsonString, System.Text.Encoding.UTF8, "application/json");
-
-                            var response = await httpClient.PostAsync($"{url.TrimEnd('/')}/chat/completions", content);
-                            if (response.IsSuccessStatusCode)
-                            {
-                                string responseJson = await response.Content.ReadAsStringAsync();
-                                using var doc = System.Text.Json.JsonDocument.Parse(responseJson);
-                                var choices = doc.RootElement.GetProperty("choices");
-                                if (choices.GetArrayLength() > 0)
-                                {
-                                    string text = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
-                                    improvedResult = text.Trim();
-                                }
-                            }
-                            else
-                            {
-                                errorMessage = $"API returned status code: {response.StatusCode}";
-                            }
+                            improvedResult = await PromptHelperService.ImprovePromptAsync(
+                                rawInput, 
+                                url, 
+                                model, 
+                                config.PromptImproveTimeoutSeconds, 
+                                config.Temperature
+                            );
                         }
                         catch (Exception ex)
                         {
@@ -417,100 +379,20 @@ namespace PolyglotCLI
                     Task.Run(async () => {
                         try
                         {
-                            string ocrPrompt = "You are a precise OCR system. Output the text exactly as it is shown in the image.";
-                            try
-                            {
-                                var loader = new PromptLoader();
-                                ocrPrompt = loader.LoadOcrPrompt();
-                            }
-                            catch {}
-
-                            using var client = new LmStudioClient(url, config.TranslationTimeoutSeconds);
-                            var ocrService = new OcrService(client, ocrPrompt, visionModel);
-                            var pageRenderer = new PdfPageRenderer();
- 
-                            var target = new DocumentTarget
-                            {
-                                FilePath = file.FullPath,
-                                Mode = file.Mode,
-                                PageRange = file.PageRange,
-                                MaxCharactersPerChunk = config.MaxCharactersPerChunk,
-                                ChunkOverlapCharacters = config.ChunkOverlapCharacters
-                            };
-
-                            Application.MainLoop.Invoke(() => {
-                                lblStatus.Text = "Extracting text content from file...";
-                            });
-
-                            var extractor = new DocumentExtractorFactory().GetExtractor(file.FullPath);
-                            var pageStates = await extractor.ExtractTextAsync(file.FullPath, target, ocrService, pageRenderer);
-
-                            var sb = new System.Text.StringBuilder();
-                            foreach (var s in pageStates)
-                            {
-                                if (!string.IsNullOrEmpty(s.OcrText))
-                                {
-                                    sb.AppendLine(s.OcrText);
+                            improvedPromptResult = await PromptHelperService.GenerateContextPromptAsync(
+                                file.FullPath,
+                                file.Mode,
+                                file.PageRange,
+                                config,
+                                url,
+                                model,
+                                visionModel,
+                                (status) => {
+                                    Application.MainLoop.Invoke(() => {
+                                        lblStatus.Text = status;
+                                    });
                                 }
-                            }
-                            string fileText = sb.ToString().Trim();
-
-                            if (string.IsNullOrEmpty(fileText))
-                            {
-                                throw new Exception("The file content could not be read or is empty.");
-                            }
-
-                            Application.MainLoop.Invoke(() => {
-                                lblStatus.Text = "Analyzing context and generating prompt...";
-                            });
-
-                            string systemPrompt = "You are an expert translation system prompt engineer. Analyze the following document text content to understand its context, main topic, style, tone, and specific domain terminology. " +
-                                                  "Based on this analysis, generate an optimal, detailed set of instructions (in English) that a translation model should follow when translating this document. The instructions should specify: " +
-                                                  "1) The context and topic of the text. " +
-                                                  "2) The tone, style, and formatting that must be preserved. " +
-                                                  "3) Any key domain-specific terminology or guidelines. " +
-                                                  "Output ONLY the generated instructions/additional prompt. Do NOT include any introductory or concluding text, and do NOT use markdown code blocks.";
-
-                            if (fileText.Length > 60000)
-                            {
-                                fileText = fileText.Substring(0, 60000) + "\n\n[TRUNCATED DUE TO SIZE]";
-                            }
-
-                            string userMessage = $"Here is the text content of the document to analyze:\n\n{fileText}";
-
-                            var requestBody = new
-                            {
-                                model = model,
-                                messages = new[]
-                                {
-                                    new { role = "system", content = systemPrompt },
-                                    new { role = "user", content = userMessage }
-                                },
-                                temperature = config.Temperature
-                            };
- 
-                            using var httpClient = new System.Net.Http.HttpClient();
-                            httpClient.Timeout = TimeSpan.FromSeconds(config.PromptImproveTimeoutSeconds);
-
-                            string jsonString = System.Text.Json.JsonSerializer.Serialize(requestBody);
-                            var content = new System.Net.Http.StringContent(jsonString, System.Text.Encoding.UTF8, "application/json");
-
-                            var response = await httpClient.PostAsync($"{url.TrimEnd('/')}/chat/completions", content);
-                            if (response.IsSuccessStatusCode)
-                            {
-                                string responseJson = await response.Content.ReadAsStringAsync();
-                                using var doc = System.Text.Json.JsonDocument.Parse(responseJson);
-                                var choices = doc.RootElement.GetProperty("choices");
-                                if (choices.GetArrayLength() > 0)
-                                {
-                                    string text = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
-                                    improvedPromptResult = text.Trim();
-                                }
-                            }
-                            else
-                            {
-                                errorMessage = $"API returned status code: {response.StatusCode}";
-                            }
+                            );
                         }
                         catch (Exception ex)
                         {
@@ -595,8 +477,6 @@ namespace PolyglotCLI
                 }
             }
 
-            // (Declaration moved to top of RunAsync)
-
             // Helper to update file list view
             void UpdateFileList()
             {
@@ -607,8 +487,6 @@ namespace PolyglotCLI
                 }
                 listFiles.SetSource(displayList);
             }
-
-            // (Helpers for obsolete PDF options panel removed)
 
             // Perform directory scanning
             void PerformScan()
@@ -667,427 +545,10 @@ namespace PolyglotCLI
                 }
             }
 
-            // (Obsolete ShowHelpModal removed, new version defined above)
-
-            void ShowSettingsModal()
-            {
-                var dialog = new Dialog("Advanced Configuration Settings", 82, 24);
-
-                // Categories list on the left
-                var categories = new List<string> { "General", "OCR Process", "Translation", "Revision", "Output Formats" };
-                var categoryList = new ListView(categories)
-                {
-                    X = 1,
-                    Y = 1,
-                    Width = 17,
-                    Height = Dim.Fill(2)
-                };
-
-                // Right container view
-                var rightContainer = new View()
-                {
-                    X = 19,
-                    Y = 1,
-                    Width = Dim.Fill(),
-                    Height = Dim.Fill(2)
-                };
-
-                // Add left menu list and right container to dialog
-                dialog.Add(categoryList, rightContainer);
-
-                // --- 1. General Panel ---
-                var viewGeneral = new FrameView("General Settings")
-                {
-                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill()
-                };
-                var lblApi = new Label("LM Studio API URL:") { X = 1, Y = 1 };
-                var textApiSetting = new TextField(config.ApiUrl) { X = 1, Y = 2, Width = Dim.Fill(2) };
-
-                var btnTestConn = new Button("Test Connection") { X = 1, Y = 4 };
-                
-                var lblModelCheckTimeout = new Label("Model Check Timeout (sec):") { X = 1, Y = 6 };
-                var textModelCheckTimeout = new TextField(config.ModelCheckTimeoutSeconds.ToString()) { X = 32, Y = 6, Width = 10 };
-
-                var lblOutputDir = new Label("Output Directory:") { X = 1, Y = 8 };
-                var textOutputDirSetting = new TextField(config.OutputDirectory ?? "output") { X = 32, Y = 8, Width = 24 };
-
-                var checkDebugSetting = new CheckBox("Debug Mode (processes first 2 pages)") { X = 1, Y = 10, Checked = config.Debug };
-
-                viewGeneral.Add(lblApi, textApiSetting, btnTestConn, lblModelCheckTimeout, textModelCheckTimeout, lblOutputDir, textOutputDirSetting, checkDebugSetting);
-
-                // --- 2. OCR Panel ---
-                var viewOcr = new FrameView("OCR Process Settings")
-                {
-                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), Visible = false
-                };
-                var lblOcrModel = new Label("OCR/Vision Model Name:") { X = 1, Y = 1 };
-                var textOcrModel = new TextField(config.DefaultVisionModel ?? "") { X = 1, Y = 2, Width = Dim.Fill(10) };
-                var btnOcrModelSel = new Button("Sel") { X = Pos.Right(textOcrModel) + 1, Y = 2 };
-
-                var lblOcrTemp = new Label("OCR Temperature (0.0-1.0):") { X = 1, Y = 4 };
-                var textOcrTemp = new TextField(config.OcrTemperature.ToString(System.Globalization.CultureInfo.InvariantCulture)) { X = 32, Y = 4, Width = 10 };
-
-                var lblOcrTimeout = new Label("OCR Timeout (sec):") { X = 1, Y = 6 };
-                var textOcrTimeout = new TextField(config.OcrTimeoutSeconds.ToString()) { X = 32, Y = 6, Width = 10 };
-
-                viewOcr.Add(lblOcrModel, textOcrModel, btnOcrModelSel, lblOcrTemp, textOcrTemp, lblOcrTimeout, textOcrTimeout);
-
-                // --- 3. Translation Panel ---
-                var viewTranslation = new FrameView("Translation Process Settings")
-                {
-                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), Visible = false
-                };
-                var lblTransModel = new Label("Translation Model Name:") { X = 1, Y = 1 };
-                var textTransModel = new TextField(config.DefaultModel ?? "") { X = 1, Y = 2, Width = Dim.Fill(10) };
-                var btnTransModelSel = new Button("Sel") { X = Pos.Right(textTransModel) + 1, Y = 2 };
-
-                var lblTargetLang = new Label("Target Language:") { X = 1, Y = 4 };
-                var textTargetLang = new TextField(config.TargetLanguage ?? "Spanish") { X = 32, Y = 4, Width = 24 };
-
-                var lblTransTemp = new Label("Temperature (0.0-1.0):") { X = 1, Y = 6 };
-                var textTransTemp = new TextField(config.Temperature.ToString(System.Globalization.CultureInfo.InvariantCulture)) { X = 32, Y = 6, Width = 10 };
-
-                var lblMaxChunk = new Label("Max Chars per Chunk:") { X = 1, Y = 8 };
-                var textMaxChunk = new TextField(config.MaxCharactersPerChunk.ToString()) { X = 32, Y = 8, Width = 10 };
-
-                var lblChunkOverlap = new Label("Chunk Overlap (chars):") { X = 1, Y = 10 };
-                var textChunkOverlap = new TextField(config.ChunkOverlapCharacters.ToString()) { X = 32, Y = 10, Width = 10 };
-
-                var checkPreserveFormatSetting = new CheckBox("Preserve Formatting") { X = 1, Y = 12, Checked = config.PreserveFormat };
-
-                var lblTransTimeoutSetting = new Label("Translation Timeout (sec):") { X = 1, Y = 14 };
-                var textTransTimeoutSetting = new TextField(config.TranslationTimeoutSeconds.ToString()) { X = 32, Y = 14, Width = 10 };
-
-                viewTranslation.Add(
-                    lblTransModel, textTransModel, btnTransModelSel,
-                    lblTargetLang, textTargetLang,
-                    lblTransTemp, textTransTemp,
-                    lblMaxChunk, textMaxChunk,
-                    lblChunkOverlap, textChunkOverlap,
-                    checkPreserveFormatSetting,
-                    lblTransTimeoutSetting, textTransTimeoutSetting
-                );
-
-                // --- 4. Revision Panel ---
-                var viewRevision = new FrameView("Revision Process Settings")
-                {
-                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), Visible = false
-                };
-                var checkEnableReviewSetting = new CheckBox("Enable Post-Translation Review") { X = 1, Y = 1, Checked = config.EnableReview };
-
-                var lblReviewModelSetting = new Label("Review Model Name:") { X = 1, Y = 3 };
-                var textReviewModelSetting = new TextField(config.ReviewModel ?? "") { X = 1, Y = 4, Width = Dim.Fill(10) };
-                var btnReviewModelSel = new Button("Sel") { X = Pos.Right(textReviewModelSetting) + 1, Y = 4 };
-
-                var lblReviewTempSetting = new Label("Review Temp (0.0-1.0):") { X = 1, Y = 6 };
-                var textReviewTempSetting = new TextField(config.ReviewTemperature.ToString(System.Globalization.CultureInfo.InvariantCulture)) { X = 32, Y = 6, Width = 10 };
-
-                var lblReviewTimeoutSetting = new Label("Review Timeout (sec):") { X = 1, Y = 8 };
-                var textReviewTimeoutSetting = new TextField(config.ReviewTimeoutSeconds.ToString()) { X = 32, Y = 8, Width = 10 };
-
-                viewRevision.Add(checkEnableReviewSetting, lblReviewModelSetting, textReviewModelSetting, btnReviewModelSel, lblReviewTempSetting, textReviewTempSetting, lblReviewTimeoutSetting, textReviewTimeoutSetting);
-
-                // --- 5. Formats Panel ---
-                var viewFormats = new FrameView("Output Formats")
-                {
-                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), Visible = false
-                };
-
-                // Split existing formats to determine check state
-                var activeFormats = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (!string.IsNullOrWhiteSpace(config.OutputFormats))
-                {
-                    foreach (var f in config.OutputFormats.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        activeFormats.Add(f.Trim());
-                    }
-                }
-
-                // Checkboxes
-                var checkMd = new CheckBox("Markdown (.md)") { X = 2, Y = 2, Checked = activeFormats.Contains("md") || activeFormats.Contains("markdown") || activeFormats.Count == 0 };
-                var checkHtml = new CheckBox("HTML (.html)") { X = 2, Y = 4, Checked = activeFormats.Contains("html") };
-                var checkPdf = new CheckBox("PDF (.pdf) [requires pandoc]") { X = 2, Y = 6, Checked = activeFormats.Contains("pdf") };
-                var checkDocx = new CheckBox("Word Document (.docx) [requires pandoc]") { X = 2, Y = 8, Checked = activeFormats.Contains("docx") };
-                var checkOdt = new CheckBox("OpenDocument Text (.odt) [requires pandoc]") { X = 2, Y = 10, Checked = activeFormats.Contains("odt") };
-
-                var lblFormatsNotice = new Label("Note: Formats other than MD are generated as post-process.") { X = 2, Y = 13 };
-
-                viewFormats.Add(checkMd, checkHtml, checkPdf, checkDocx, checkOdt, lblFormatsNotice);
-
-                // Add all view panels to the container
-                rightContainer.Add(viewGeneral, viewOcr, viewTranslation, viewRevision, viewFormats);
-
-                // Wire vertical tabs selection change
-                categoryList.SelectedItemChanged += (args) =>
-                {
-                    viewGeneral.Visible = categoryList.SelectedItem == 0;
-                    viewOcr.Visible = categoryList.SelectedItem == 1;
-                    viewTranslation.Visible = categoryList.SelectedItem == 2;
-                    viewRevision.Visible = categoryList.SelectedItem == 3;
-                    viewFormats.Visible = categoryList.SelectedItem == 4;
-                };
-
-                // Model selection click handlers
-                btnOcrModelSel.Clicked += () =>
-                {
-                    ShowModelSelectionModal(textOcrModel, "OCR", textApiSetting.Text?.ToString()?.Trim() ?? config.ApiUrl);
-                };
-
-                btnTransModelSel.Clicked += () =>
-                {
-                    ShowModelSelectionModal(textTransModel, "Translation", textApiSetting.Text?.ToString()?.Trim() ?? config.ApiUrl);
-                };
-
-                btnReviewModelSel.Clicked += () =>
-                {
-                    ShowModelSelectionModal(textReviewModelSetting, "Review", textApiSetting.Text?.ToString()?.Trim() ?? config.ApiUrl);
-                };
-
-                // Test Connection click handler
-                btnTestConn.Clicked += () =>
-                {
-                    string testUrl = textApiSetting.Text?.ToString()?.Trim() ?? "";
-                    if (string.IsNullOrEmpty(testUrl))
-                    {
-                        MessageBox.ErrorQuery("Error", "API URL is empty.", "OK");
-                        return;
-                    }
-
-                    var dProgress = new Dialog("Testing Connection", 45, 5);
-                    var lblStatus = new Label("Connecting to LM Studio...") { X = Pos.Center(), Y = 1 };
-                    dProgress.Add(lblStatus);
-
-                    bool success = false;
-                    string message = "";
-
-                    dProgress.Loaded += () =>
-                    {
-                        Task.Run(async () =>
-                        {
-                            try
-                            {
-                                using var httpClient = new System.Net.Http.HttpClient();
-                                httpClient.Timeout = TimeSpan.FromSeconds(3);
-                                var response = await httpClient.GetAsync($"{testUrl.TrimEnd('/')}/models");
-                                if (response.IsSuccessStatusCode)
-                                {
-                                    string content = await response.Content.ReadAsStringAsync();
-                                    using var doc = System.Text.Json.JsonDocument.Parse(content);
-                                    int modelCount = doc.RootElement.GetProperty("data").GetArrayLength();
-                                    success = true;
-                                    message = $"Connection successful!\nDetected {modelCount} loaded models.";
-                                }
-                                else
-                                {
-                                    message = $"API returned status code: {response.StatusCode}";
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                message = $"Connection failed: {ex.Message}";
-                            }
-                            finally
-                            {
-                                Application.MainLoop.Invoke(() =>
-                                {
-                                    Application.RequestStop();
-                                });
-                            }
-                        });
-                    };
-
-                    Application.Run(dProgress);
-
-                    if (success)
-                    {
-                        MessageBox.Query("Success", message, "OK");
-                    }
-                    else
-                    {
-                        MessageBox.ErrorQuery("Connection Failed", message, "OK");
-                    }
-                };
-
-                // Bottom Buttons
-                var btnSave = new Button("Save", is_default: true);
-                var btnCancelSettings = new Button("Cancel");
-
-                btnSave.Clicked += () =>
-                {
-                    if (int.TryParse(textModelCheckTimeout.Text?.ToString(), out int checkTimeout) &&
-                        int.TryParse(textOcrTimeout.Text?.ToString(), out int ocrTimeout) &&
-                        double.TryParse(textOcrTemp.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double ocrTemp) &&
-                        int.TryParse(textTransTimeoutSetting.Text?.ToString(), out int transTimeout) &&
-                        double.TryParse(textTransTemp.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double transTemp) &&
-                        int.TryParse(textMaxChunk.Text?.ToString(), out int chunkSize) &&
-                        int.TryParse(textChunkOverlap.Text?.ToString(), out int chunkOverlap) &&
-                        int.TryParse(textReviewTimeoutSetting.Text?.ToString(), out int reviewTimeout) &&
-                        double.TryParse(textReviewTempSetting.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double reviewTemp))
-                    {
-                        // Save basic settings
-                        config.ApiUrl = textApiSetting.Text?.ToString()?.Trim() ?? "";
-                        config.ModelCheckTimeoutSeconds = checkTimeout;
-                        config.OutputDirectory = textOutputDirSetting.Text?.ToString()?.Trim() ?? "output";
-                        config.Debug = checkDebugSetting.Checked;
-
-                        // OCR process
-                        config.DefaultVisionModel = string.IsNullOrWhiteSpace(textOcrModel.Text?.ToString()) ? null : textOcrModel.Text?.ToString()?.Trim();
-                        config.OcrTemperature = ocrTemp;
-                        config.OcrTimeoutSeconds = ocrTimeout;
-
-                        // Translation process
-                        config.DefaultModel = string.IsNullOrWhiteSpace(textTransModel.Text?.ToString()) ? null : textTransModel.Text?.ToString()?.Trim();
-                        config.TargetLanguage = textTargetLang.Text?.ToString()?.Trim() ?? "Spanish";
-                        config.Temperature = transTemp;
-                        config.MaxCharactersPerChunk = chunkSize;
-                        config.ChunkOverlapCharacters = chunkOverlap;
-                        config.PreserveFormat = checkPreserveFormatSetting.Checked;
-                        config.TranslationTimeoutSeconds = transTimeout;
-
-                        // Revision process
-                        config.EnableReview = checkEnableReviewSetting.Checked;
-                        config.ReviewModel = string.IsNullOrWhiteSpace(textReviewModelSetting.Text?.ToString()) ? null : textReviewModelSetting.Text?.ToString()?.Trim();
-                        config.ReviewTemperature = reviewTemp;
-                        config.ReviewTimeoutSeconds = reviewTimeout;
-
-                        // Formats
-                        var selectedFormats = new List<string>();
-                        if (checkMd.Checked) selectedFormats.Add("md");
-                        if (checkHtml.Checked) selectedFormats.Add("html");
-                        if (checkPdf.Checked) selectedFormats.Add("pdf");
-                        if (checkDocx.Checked) selectedFormats.Add("docx");
-                        if (checkOdt.Checked) selectedFormats.Add("odt");
-                        if (selectedFormats.Count == 0) selectedFormats.Add("md");
-                        config.OutputFormats = string.Join(",", selectedFormats);
-
-                        config.Save();
-                        MessageBox.Query("Success", "Settings saved successfully!", "OK");
-                        Application.RequestStop();
-                    }
-                    else
-                    {
-                        MessageBox.ErrorQuery("Error", "Please enter valid numeric values.", "OK");
-                    }
-                };
-
-                btnCancelSettings.Clicked += () =>
-                {
-                    Application.RequestStop();
-                };
-
-                dialog.AddButton(btnSave);
-                dialog.AddButton(btnCancelSettings);
-
-                Application.Run(dialog);
-            }
-
-            // Sync model detection logic via selection modal
-            void ShowModelSelectionModal(TextField targetField, string roleName, string apiUrl)
-            {
-                if (string.IsNullOrEmpty(apiUrl))
-                {
-                    MessageBox.ErrorQuery("Error", "LM Studio API URL is empty.", "OK");
-                    return;
-                }
-
-                var detectedList = new List<string>();
-                try
-                {
-                    using var httpClient = new System.Net.Http.HttpClient();
-                    httpClient.Timeout = TimeSpan.FromSeconds(config.ModelCheckTimeoutSeconds);
-                    var task = httpClient.GetAsync($"{apiUrl.TrimEnd('/')}/models");
-                    task.Wait();
-                    var modelsResponse = task.Result;
-                    
-                    if (modelsResponse.IsSuccessStatusCode)
-                    {
-                        var contentTask = modelsResponse.Content.ReadAsStringAsync();
-                        contentTask.Wait();
-                        string content = contentTask.Result;
-                        
-                        using var doc = System.Text.Json.JsonDocument.Parse(content);
-                        foreach (var item in doc.RootElement.GetProperty("data").EnumerateArray())
-                        {
-                            string id = item.GetProperty("id").GetString() ?? string.Empty;
-                            if (!string.IsNullOrEmpty(id))
-                            {
-                                detectedList.Add(id);
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.ErrorQuery("Connection Error", $"Failed to connect to LM Studio: {ex.Message}", "OK");
-                    return;
-                }
-
-                if (detectedList.Count == 0)
-                {
-                    MessageBox.Query("Status", "No active models returned from API.", "OK");
-                    return;
-                }
-
-                var dialog = new Dialog($"Select {roleName} Model", 60, 15);
-                
-                var label = new Label($"Available models in LM Studio (Select one):")
-                {
-                    X = 1,
-                    Y = 1,
-                    Width = Dim.Fill()
-                };
-                
-                var listModels = new ListView(detectedList)
-                {
-                    X = 1,
-                    Y = 2,
-                    Width = Dim.Fill(2),
-                    Height = Dim.Fill(2)
-                };
-
-                string? selected = null;
-                var btnOk = new Button("Select", is_default: true);
-                var btnCancel = new Button("Cancel");
-
-                btnOk.Clicked += () => {
-                    int sel = listModels.SelectedItem;
-                    if (sel >= 0 && sel < detectedList.Count)
-                    {
-                        selected = detectedList[sel];
-                    }
-                    Application.RequestStop();
-                };
-
-                btnCancel.Clicked += () => {
-                    selected = null;
-                    Application.RequestStop();
-                };
-
-                listModels.OpenSelectedItem += (args) => {
-                    int sel = listModels.SelectedItem;
-                    if (sel >= 0 && sel < detectedList.Count)
-                    {
-                        selected = detectedList[sel];
-                    }
-                    Application.RequestStop();
-                };
-
-                dialog.AddButton(btnOk);
-                dialog.AddButton(btnCancel);
-                dialog.Add(label, listModels);
-
-                Application.Run(dialog);
-
-                if (selected != null)
-                {
-                    targetField.Text = selected;
-                }
-            }
-
             // Wire events
             btnScan.Clicked += () => PerformScan();
             btnSavePresets.Clicked += () => SavePresets();
-            btnConfig.Clicked += () => ShowSettingsModal();
+            btnConfig.Clicked += () => SettingsDialog.Show(config);
             btnImprovePrompt.Clicked += () => ImprovePromptWithAi();
             btnAnalyzeFilePrompt.Clicked += () => AnalyzeFileForPromptWithAi();
             btnCancel.Clicked += () => QuitApp();
@@ -1382,63 +843,6 @@ namespace PolyglotCLI
             Application.Run(dialog);
             
             return result;
-        }
-    }
-
-    public class SelectableFile
-    {
-        public string FullPath { get; set; } = string.Empty;
-        public string DisplayName => Path.GetFileName(FullPath);
-        public bool IsSelected { get; set; }
-        public string Mode { get; set; } = "text";
-        public string PageRange { get; set; } = "all";
-
-        public override string ToString()
-        {
-            string prefix = IsSelected ? "[X]" : "[ ]";
-            
-            string name = DisplayName;
-            if (name.Length > 20)
-            {
-                name = name.Substring(0, 17) + "...";
-            }
-            name = name.PadRight(20);
-
-            string ext = Path.GetExtension(FullPath).ToUpperInvariant().TrimStart('.');
-            if (ext.Length > 4)
-            {
-                ext = ext.Substring(0, 4);
-            }
-            ext = ext.PadRight(4);
-
-            string extLower = Path.GetExtension(FullPath).ToLowerInvariant();
-            string mode = "";
-            if (extLower == ".pdf")
-            {
-                mode = Mode.Equals("image", StringComparison.OrdinalIgnoreCase) 
-                    ? "[ ] Text [X] Image" 
-                    : "[X] Text [ ] Image";
-            }
-            else
-            {
-                bool isImage = extLower == ".jpg" || extLower == ".jpeg" || extLower == ".png" || extLower == ".bmp" || extLower == ".tiff";
-                mode = isImage ? "          [X] Image" : "[X] Text           ";
-            }
-            mode = mode.PadRight(20);
-
-            string pages = PageRange;
-            if (extLower != ".pdf")
-            {
-                pages = "-";
-            }
-            pages = $"[ {pages} ]";
-            if (pages.Length > 9)
-            {
-                pages = pages.Substring(0, 9);
-            }
-            pages = pages.PadRight(9);
-
-            return $"{prefix} | {name} | {ext} | {mode} | {pages}";
         }
     }
 }
