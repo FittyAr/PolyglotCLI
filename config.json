@@ -6,7 +6,7 @@
   "OutputDirectory": "d:\\",
   "LastScanDirectory": "d:\\",
   "Debug": false,
-  "AdditionalPrompt": null,
+  "AdditionalPrompt": "",
   "TranslationTimeoutSeconds": 300,
   "PromptImproveTimeoutSeconds": 300,
   "ModelCheckTimeoutSeconds": 5,
@@ -15,7 +15,10 @@
   "ChunkOverlapCharacters": 300,
   "PreserveFormat": true,
   "EnableReview": true,
-  "ReviewModel": null,
+  "ReviewModel": "qwen/qwen3.5-9b",
   "ReviewTimeoutSeconds": 300,
+  "ReviewTemperature": 0.1,
+  "OcrTemperature": 0.2,
+  "OcrTimeoutSeconds": 300,
   "OutputFormats": "md"
 }

@@ -24,6 +24,9 @@ namespace PolyglotCLI
         public bool EnableReview { get; set; } = false;
         public string? ReviewModel { get; set; }
         public int ReviewTimeoutSeconds { get; set; } = 300;
+        public double ReviewTemperature { get; set; } = 0.3;
+        public double OcrTemperature { get; set; } = 0.2;
+        public int OcrTimeoutSeconds { get; set; } = 300;
         public string OutputFormats { get; set; } = "md";
 
         public static AppConfig Load(string? configPath = null)

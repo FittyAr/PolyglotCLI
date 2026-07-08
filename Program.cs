@@ -59,10 +59,9 @@ namespace PolyglotCLI
 
             // 3. Initialize LM Studio Client and detect models
             Console.WriteLine($"Connecting to LM Studio API at: {options.ApiUrl} ...");
-            using var client = new LmStudioClient(options.ApiUrl, config.TranslationTimeoutSeconds);
-            client.Temperature = config.Temperature;
+            using var checkClient = new LmStudioClient(options.ApiUrl, config.ModelCheckTimeoutSeconds);
             
-            string loadedModel = await client.GetFirstLoadedModelAsync();
+            string loadedModel = await checkClient.GetFirstLoadedModelAsync();
             if (string.IsNullOrWhiteSpace(loadedModel))
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
@@ -101,11 +100,18 @@ namespace PolyglotCLI
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"[VRAM] Checking loaded models. Ensuring only '{firstRequiredModel}' is loaded for start...");
                 Console.ResetColor();
-                await client.UnloadAllExceptAsync(firstRequiredModel);
+                await checkClient.UnloadAllExceptAsync(firstRequiredModel);
             }
 
-            var ocrService = new OcrService(client, ocrPrompt, visionModel);
-            var translatorService = new TranslatorService(client, translationPrompt, textModel, options.TargetLanguage);
+            // Initialize separate clients for OCR and Translation processes
+            using var ocrClient = new LmStudioClient(options.ApiUrl, config.OcrTimeoutSeconds);
+            ocrClient.Temperature = config.OcrTemperature;
+
+            using var translatorClient = new LmStudioClient(options.ApiUrl, config.TranslationTimeoutSeconds);
+            translatorClient.Temperature = config.Temperature;
+
+            var ocrService = new OcrService(ocrClient, ocrPrompt, visionModel);
+            var translatorService = new TranslatorService(translatorClient, translationPrompt, textModel, options.TargetLanguage);
             translatorService.PreserveFormat = config.PreserveFormat;
             var pageRenderer = new PdfPageRenderer();
             var translatedWriter = new MarkdownWriter();
@@ -113,14 +119,17 @@ namespace PolyglotCLI
 
             // Initialize Review Service if enabled
             ReviewService? reviewService = null;
-            if (config.EnableReview)
+            using var reviewClient = config.EnableReview ? new LmStudioClient(options.ApiUrl, config.ReviewTimeoutSeconds) : null;
+            if (config.EnableReview && reviewClient != null)
             {
                 try
                 {
                     var promptLoader2 = new PromptLoader();
                     string reviewPrompt = promptLoader2.LoadReviewPrompt();
                     string reviewModel = config.ReviewModel ?? textModel;
-                    reviewService = new ReviewService(client, reviewPrompt, reviewModel);
+                    
+                    reviewClient.Temperature = config.ReviewTemperature;
+                    reviewService = new ReviewService(reviewClient, reviewPrompt, reviewModel);
                     Console.ForegroundColor = ConsoleColor.Cyan;
                     Console.WriteLine($"Post-translation review enabled (model: {reviewModel}).");
                     Console.ResetColor();
@@ -227,7 +236,7 @@ namespace PolyglotCLI
 
                 try
                 {
-                    bool unloaded = await client.UnloadModelAsync(visionModel);
+                    bool unloaded = await translatorClient.UnloadModelAsync(visionModel);
                     if (unloaded)
                     {
                         Console.ForegroundColor = ConsoleColor.Green;

@@ -23,8 +23,8 @@ namespace PolyglotCLI
                 Height = Dim.Fill()
             };
 
-            // Left Panel: Global Settings
-            var leftFrame = new FrameView("Global Settings")
+            // Left Panel: Translation Prompt & Actions
+            var leftFrame = new FrameView("Translation Prompt & Actions")
             {
                 X = 0,
                 Y = 0,
@@ -32,56 +32,27 @@ namespace PolyglotCLI
                 Height = Dim.Fill(2)
             };
 
-            var labelApi = new Label("LM Studio API URL:") { X = 1, Y = 1 };
-            var textApi = new TextField(config.ApiUrl) { X = 1, Y = 2, Width = Dim.Fill(2) };
-
-            var labelModel = new Label("Translation Model Name:") { X = 1, Y = 4 };
-            var textModel = new TextField(config.DefaultModel ?? "") { X = 1, Y = 5, Width = Dim.Fill(14) };
-            var btnSelectModel = new Button("Sel [F2]") { X = Pos.Right(textModel) + 1, Y = 5 };
-
-            var labelVisionModel = new Label("Vision/OCR Model Name:") { X = 1, Y = 7 };
-            var textVisionModel = new TextField(config.DefaultVisionModel ?? "") { X = 1, Y = 8, Width = Dim.Fill(14) };
-            var btnSelectVisionModel = new Button("Sel [F3]") { X = Pos.Right(textVisionModel) + 1, Y = 8 };
-
-            var labelLang = new Label("Target Language:") { X = 1, Y = 10 };
-            var textLang = new TextField(config.TargetLanguage ?? "Spanish") { X = 1, Y = 11, Width = Dim.Fill(2) };
-
-            var labelOutputDir = new Label("Output Directory:") { X = 1, Y = 13 };
-            var textOutputDir = new TextField(config.OutputDirectory ?? "output") { X = 1, Y = 14, Width = Dim.Fill(2) };
-
-            var checkDebug = new CheckBox("Debug Mode (Processes first 2 pages only)")
-            {
-                X = 1,
-                Y = 16,
-                Checked = config.Debug
-            };
-
-            var btnSavePresets = new Button("Save Presets [F4]") { X = 1, Y = 18 };
-            var btnConfig = new Button("Settings [F8]") { X = Pos.Right(btnSavePresets) + 1, Y = 18 };
-
-            var labelAddPrompt = new Label("Additional Prompt:") { X = 1, Y = 20 };
+            var labelAddPrompt = new Label("Additional Prompt Guidance:") { X = 1, Y = 1 };
             var textAddPrompt = new TextView()
             {
                 X = 1,
-                Y = 21,
+                Y = 2,
                 Width = Dim.Fill(3),
-                Height = Dim.Fill(2),
+                Height = Dim.Fill(5), // Leave 5 lines for buttons at the bottom
                 WordWrap = true
             };
             textAddPrompt.Text = config.AdditionalPrompt ?? "";
 
-            var btnImprovePrompt = new Button("Improve [F5]") { X = 1, Y = Pos.Bottom(textAddPrompt) };
-            var btnAnalyzeFilePrompt = new Button("Analyze File [F7]") { X = Pos.Right(btnImprovePrompt) + 1, Y = Pos.Bottom(textAddPrompt) };
+            var btnImprovePrompt = new Button("Improve [F5]") { X = 1, Y = Pos.Bottom(textAddPrompt) + 1 };
+            var btnAnalyzeFilePrompt = new Button("Analyze File [F7]") { X = Pos.Right(btnImprovePrompt) + 1, Y = Pos.Bottom(textAddPrompt) + 1 };
+
+            var btnSavePresets = new Button("Save Presets [F4]") { X = 1, Y = Pos.Bottom(btnImprovePrompt) + 1 };
+            var btnConfig = new Button("Settings [F8]") { X = Pos.Right(btnSavePresets) + 1, Y = Pos.Bottom(btnImprovePrompt) + 1 };
 
             leftFrame.Add(
-                labelApi, textApi,
-                labelModel, textModel, btnSelectModel,
-                labelVisionModel, textVisionModel, btnSelectVisionModel,
-                labelLang, textLang,
-                labelOutputDir, textOutputDir,
-                checkDebug,
-                btnSavePresets, btnConfig,
-                labelAddPrompt, textAddPrompt, btnImprovePrompt, btnAnalyzeFilePrompt
+                labelAddPrompt, textAddPrompt,
+                btnImprovePrompt, btnAnalyzeFilePrompt,
+                btnSavePresets, btnConfig
             );
 
             var scrollBar = new ScrollBarView(textAddPrompt, true);
@@ -157,16 +128,6 @@ namespace PolyglotCLI
                     ShowHelpModal();
                     return true;
                 }
-                if (keyEvent.Key == Key.F2)
-                {
-                    ShowModelSelectionModal(textModel, "Translation");
-                    return true;
-                }
-                if (keyEvent.Key == Key.F3)
-                {
-                    ShowModelSelectionModal(textVisionModel, "Vision/OCR");
-                    return true;
-                }
                 if (keyEvent.Key == Key.F4)
                 {
                     SavePresets();
@@ -212,13 +173,11 @@ namespace PolyglotCLI
                 var content = new Label(
                     "Use the following function keys or click the buttons:\n\n" +
                     "  [F1]  : Show this shortcuts help dialog\n" +
-                    "  [F2]  : Select translation model\n" +
-                    "  [F3]  : Select vision/OCR model\n" +
                     "  [F4]  : Save current settings as presets\n" +
                     "  [F5]  : Improve prompt with AI\n" +
                     "  [F6]  : Scan documents directory\n" +
                     "  [F7]  : Analyze file to generate prompt\n" +
-                    "  [F8]  : Advanced application settings\n" +
+                    "  [F8]  : Advanced settings (models, server, timeouts, formats)\n" +
                     "  [F9]  : Start translation of selected files\n" +
                     "  [F12] : Quit application\n\n" +
                     "  [Space] / Double-Click : Toggle selection of document\n" +
@@ -256,11 +215,11 @@ namespace PolyglotCLI
                     return;
                 }
 
-                string url = textApi.Text?.ToString()?.Trim() ?? "";
-                string model = textModel.Text?.ToString()?.Trim() ?? "";
+                string url = config.ApiUrl;
+                string model = config.DefaultModel ?? "";
                 if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
                 {
-                    MessageBox.ErrorQuery("Error", "API URL and Translation Model Name are required to connect to LM Studio.", "OK");
+                    MessageBox.ErrorQuery("Error", "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.", "OK");
                     return;
                 }
 
@@ -438,12 +397,12 @@ namespace PolyglotCLI
                 }
                 var file = filesSource[idx];
 
-                string url = textApi.Text?.ToString()?.Trim() ?? "";
-                string model = textModel.Text?.ToString()?.Trim() ?? "";
-                string visionModel = textVisionModel.Text?.ToString()?.Trim() ?? "";
+                string url = config.ApiUrl;
+                string model = config.DefaultModel ?? "";
+                string visionModel = config.DefaultVisionModel ?? "";
                 if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
                 {
-                    MessageBox.ErrorQuery("Error", "API URL and Translation Model Name are required.", "OK");
+                    MessageBox.ErrorQuery("Error", "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.", "OK");
                     return;
                 }
 
@@ -712,62 +671,294 @@ namespace PolyglotCLI
 
             void ShowSettingsModal()
             {
-                var dialog = new Dialog("Advanced Settings", 68, 18);
+                var dialog = new Dialog("Advanced Configuration Settings", 82, 24);
 
-                var lblTransTimeout = new Label("Translation Timeout (sec):") { X = 1, Y = 1 };
-                var textTransTimeout = new TextField(config.TranslationTimeoutSeconds.ToString()) { X = 34, Y = 1, Width = 15 };
+                // Categories list on the left
+                var categories = new List<string> { "General", "OCR Process", "Translation", "Revision", "Output Formats" };
+                var categoryList = new ListView(categories)
+                {
+                    X = 1,
+                    Y = 1,
+                    Width = 17,
+                    Height = Dim.Fill(2)
+                };
 
-                var lblPromptTimeout = new Label("AI Improve Timeout (sec):") { X = 1, Y = 2 };
-                var textPromptTimeout = new TextField(config.PromptImproveTimeoutSeconds.ToString()) { X = 34, Y = 2, Width = 15 };
+                // Right container view
+                var rightContainer = new View()
+                {
+                    X = 19,
+                    Y = 1,
+                    Width = Dim.Fill(),
+                    Height = Dim.Fill(2)
+                };
 
-                var lblModelCheckTimeout = new Label("Model Check Timeout (sec):") { X = 1, Y = 3 };
-                var textModelCheckTimeout = new TextField(config.ModelCheckTimeoutSeconds.ToString()) { X = 34, Y = 3, Width = 15 };
+                // Add left menu list and right container to dialog
+                dialog.Add(categoryList, rightContainer);
 
-                var lblTemperature = new Label("LLM Temperature (0.0-1.0):") { X = 1, Y = 4 };
-                var textTemperature = new TextField(config.Temperature.ToString(System.Globalization.CultureInfo.InvariantCulture)) { X = 34, Y = 4, Width = 15 };
+                // --- 1. General Panel ---
+                var viewGeneral = new FrameView("General Settings")
+                {
+                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill()
+                };
+                var lblApi = new Label("LM Studio API URL:") { X = 1, Y = 1 };
+                var textApiSetting = new TextField(config.ApiUrl) { X = 1, Y = 2, Width = Dim.Fill(2) };
 
-                var lblChunkSize = new Label("Max Chars per Chunk:") { X = 1, Y = 5 };
-                var textChunkSize = new TextField(config.MaxCharactersPerChunk.ToString()) { X = 34, Y = 5, Width = 15 };
+                var btnTestConn = new Button("Test Connection") { X = 1, Y = 4 };
+                
+                var lblModelCheckTimeout = new Label("Model Check Timeout (sec):") { X = 1, Y = 6 };
+                var textModelCheckTimeout = new TextField(config.ModelCheckTimeoutSeconds.ToString()) { X = 32, Y = 6, Width = 10 };
 
-                var lblChunkOverlap = new Label("Chunk Overlap (chars):") { X = 1, Y = 6 };
-                var textChunkOverlap = new TextField(config.ChunkOverlapCharacters.ToString()) { X = 34, Y = 6, Width = 15 };
+                var lblOutputDir = new Label("Output Directory:") { X = 1, Y = 8 };
+                var textOutputDirSetting = new TextField(config.OutputDirectory ?? "output") { X = 32, Y = 8, Width = 24 };
 
-                var checkPreserveFormat = new CheckBox("Preserve Formatting") { X = 1, Y = 7, Checked = config.PreserveFormat };
+                var checkDebugSetting = new CheckBox("Debug Mode (processes first 2 pages)") { X = 1, Y = 10, Checked = config.Debug };
 
-                var lblOutputFormats = new Label("Output Formats (e.g. md,pdf):") { X = 1, Y = 8 };
-                var textOutputFormats = new TextField(config.OutputFormats ?? "md") { X = 34, Y = 8, Width = 28 };
+                viewGeneral.Add(lblApi, textApiSetting, btnTestConn, lblModelCheckTimeout, textModelCheckTimeout, lblOutputDir, textOutputDirSetting, checkDebugSetting);
 
-                var checkEnableReview = new CheckBox("Enable Post-Translation Review") { X = 1, Y = 9, Checked = config.EnableReview };
+                // --- 2. OCR Panel ---
+                var viewOcr = new FrameView("OCR Process Settings")
+                {
+                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), Visible = false
+                };
+                var lblOcrModel = new Label("OCR/Vision Model Name:") { X = 1, Y = 1 };
+                var textOcrModel = new TextField(config.DefaultVisionModel ?? "") { X = 1, Y = 2, Width = Dim.Fill(10) };
+                var btnOcrModelSel = new Button("Sel") { X = Pos.Right(textOcrModel) + 1, Y = 2 };
 
-                var lblReviewModel = new Label("Review Model Name:") { X = 1, Y = 10 };
-                var textReviewModel = new TextField(config.ReviewModel ?? "") { X = 34, Y = 10, Width = 28 };
+                var lblOcrTemp = new Label("OCR Temperature (0.0-1.0):") { X = 1, Y = 4 };
+                var textOcrTemp = new TextField(config.OcrTemperature.ToString(System.Globalization.CultureInfo.InvariantCulture)) { X = 32, Y = 4, Width = 10 };
 
-                var lblReviewTimeout = new Label("Review Timeout (sec):") { X = 1, Y = 11 };
-                var textReviewTimeout = new TextField(config.ReviewTimeoutSeconds.ToString()) { X = 34, Y = 11, Width = 15 };
+                var lblOcrTimeout = new Label("OCR Timeout (sec):") { X = 1, Y = 6 };
+                var textOcrTimeout = new TextField(config.OcrTimeoutSeconds.ToString()) { X = 32, Y = 6, Width = 10 };
 
+                viewOcr.Add(lblOcrModel, textOcrModel, btnOcrModelSel, lblOcrTemp, textOcrTemp, lblOcrTimeout, textOcrTimeout);
+
+                // --- 3. Translation Panel ---
+                var viewTranslation = new FrameView("Translation Process Settings")
+                {
+                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), Visible = false
+                };
+                var lblTransModel = new Label("Translation Model Name:") { X = 1, Y = 1 };
+                var textTransModel = new TextField(config.DefaultModel ?? "") { X = 1, Y = 2, Width = Dim.Fill(10) };
+                var btnTransModelSel = new Button("Sel") { X = Pos.Right(textTransModel) + 1, Y = 2 };
+
+                var lblTargetLang = new Label("Target Language:") { X = 1, Y = 4 };
+                var textTargetLang = new TextField(config.TargetLanguage ?? "Spanish") { X = 32, Y = 4, Width = 24 };
+
+                var lblTransTemp = new Label("Temperature (0.0-1.0):") { X = 1, Y = 6 };
+                var textTransTemp = new TextField(config.Temperature.ToString(System.Globalization.CultureInfo.InvariantCulture)) { X = 32, Y = 6, Width = 10 };
+
+                var lblMaxChunk = new Label("Max Chars per Chunk:") { X = 1, Y = 8 };
+                var textMaxChunk = new TextField(config.MaxCharactersPerChunk.ToString()) { X = 32, Y = 8, Width = 10 };
+
+                var lblChunkOverlap = new Label("Chunk Overlap (chars):") { X = 1, Y = 10 };
+                var textChunkOverlap = new TextField(config.ChunkOverlapCharacters.ToString()) { X = 32, Y = 10, Width = 10 };
+
+                var checkPreserveFormatSetting = new CheckBox("Preserve Formatting") { X = 1, Y = 12, Checked = config.PreserveFormat };
+
+                var lblTransTimeoutSetting = new Label("Translation Timeout (sec):") { X = 1, Y = 14 };
+                var textTransTimeoutSetting = new TextField(config.TranslationTimeoutSeconds.ToString()) { X = 32, Y = 14, Width = 10 };
+
+                viewTranslation.Add(
+                    lblTransModel, textTransModel, btnTransModelSel,
+                    lblTargetLang, textTargetLang,
+                    lblTransTemp, textTransTemp,
+                    lblMaxChunk, textMaxChunk,
+                    lblChunkOverlap, textChunkOverlap,
+                    checkPreserveFormatSetting,
+                    lblTransTimeoutSetting, textTransTimeoutSetting
+                );
+
+                // --- 4. Revision Panel ---
+                var viewRevision = new FrameView("Revision Process Settings")
+                {
+                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), Visible = false
+                };
+                var checkEnableReviewSetting = new CheckBox("Enable Post-Translation Review") { X = 1, Y = 1, Checked = config.EnableReview };
+
+                var lblReviewModelSetting = new Label("Review Model Name:") { X = 1, Y = 3 };
+                var textReviewModelSetting = new TextField(config.ReviewModel ?? "") { X = 1, Y = 4, Width = Dim.Fill(10) };
+                var btnReviewModelSel = new Button("Sel") { X = Pos.Right(textReviewModelSetting) + 1, Y = 4 };
+
+                var lblReviewTempSetting = new Label("Review Temp (0.0-1.0):") { X = 1, Y = 6 };
+                var textReviewTempSetting = new TextField(config.ReviewTemperature.ToString(System.Globalization.CultureInfo.InvariantCulture)) { X = 32, Y = 6, Width = 10 };
+
+                var lblReviewTimeoutSetting = new Label("Review Timeout (sec):") { X = 1, Y = 8 };
+                var textReviewTimeoutSetting = new TextField(config.ReviewTimeoutSeconds.ToString()) { X = 32, Y = 8, Width = 10 };
+
+                viewRevision.Add(checkEnableReviewSetting, lblReviewModelSetting, textReviewModelSetting, btnReviewModelSel, lblReviewTempSetting, textReviewTempSetting, lblReviewTimeoutSetting, textReviewTimeoutSetting);
+
+                // --- 5. Formats Panel ---
+                var viewFormats = new FrameView("Output Formats")
+                {
+                    X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), Visible = false
+                };
+
+                // Split existing formats to determine check state
+                var activeFormats = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrWhiteSpace(config.OutputFormats))
+                {
+                    foreach (var f in config.OutputFormats.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        activeFormats.Add(f.Trim());
+                    }
+                }
+
+                // Checkboxes
+                var checkMd = new CheckBox("Markdown (.md)") { X = 2, Y = 2, Checked = activeFormats.Contains("md") || activeFormats.Contains("markdown") || activeFormats.Count == 0 };
+                var checkHtml = new CheckBox("HTML (.html)") { X = 2, Y = 4, Checked = activeFormats.Contains("html") };
+                var checkPdf = new CheckBox("PDF (.pdf) [requires pandoc]") { X = 2, Y = 6, Checked = activeFormats.Contains("pdf") };
+                var checkDocx = new CheckBox("Word Document (.docx) [requires pandoc]") { X = 2, Y = 8, Checked = activeFormats.Contains("docx") };
+                var checkOdt = new CheckBox("OpenDocument Text (.odt) [requires pandoc]") { X = 2, Y = 10, Checked = activeFormats.Contains("odt") };
+
+                var lblFormatsNotice = new Label("Note: Formats other than MD are generated as post-process.") { X = 2, Y = 13 };
+
+                viewFormats.Add(checkMd, checkHtml, checkPdf, checkDocx, checkOdt, lblFormatsNotice);
+
+                // Add all view panels to the container
+                rightContainer.Add(viewGeneral, viewOcr, viewTranslation, viewRevision, viewFormats);
+
+                // Wire vertical tabs selection change
+                categoryList.SelectedItemChanged += (args) =>
+                {
+                    viewGeneral.Visible = categoryList.SelectedItem == 0;
+                    viewOcr.Visible = categoryList.SelectedItem == 1;
+                    viewTranslation.Visible = categoryList.SelectedItem == 2;
+                    viewRevision.Visible = categoryList.SelectedItem == 3;
+                    viewFormats.Visible = categoryList.SelectedItem == 4;
+                };
+
+                // Model selection click handlers
+                btnOcrModelSel.Clicked += () =>
+                {
+                    ShowModelSelectionModal(textOcrModel, "OCR", textApiSetting.Text?.ToString()?.Trim() ?? config.ApiUrl);
+                };
+
+                btnTransModelSel.Clicked += () =>
+                {
+                    ShowModelSelectionModal(textTransModel, "Translation", textApiSetting.Text?.ToString()?.Trim() ?? config.ApiUrl);
+                };
+
+                btnReviewModelSel.Clicked += () =>
+                {
+                    ShowModelSelectionModal(textReviewModelSetting, "Review", textApiSetting.Text?.ToString()?.Trim() ?? config.ApiUrl);
+                };
+
+                // Test Connection click handler
+                btnTestConn.Clicked += () =>
+                {
+                    string testUrl = textApiSetting.Text?.ToString()?.Trim() ?? "";
+                    if (string.IsNullOrEmpty(testUrl))
+                    {
+                        MessageBox.ErrorQuery("Error", "API URL is empty.", "OK");
+                        return;
+                    }
+
+                    var dProgress = new Dialog("Testing Connection", 45, 5);
+                    var lblStatus = new Label("Connecting to LM Studio...") { X = Pos.Center(), Y = 1 };
+                    dProgress.Add(lblStatus);
+
+                    bool success = false;
+                    string message = "";
+
+                    dProgress.Loaded += () =>
+                    {
+                        Task.Run(async () =>
+                        {
+                            try
+                            {
+                                using var httpClient = new System.Net.Http.HttpClient();
+                                httpClient.Timeout = TimeSpan.FromSeconds(3);
+                                var response = await httpClient.GetAsync($"{testUrl.TrimEnd('/')}/models");
+                                if (response.IsSuccessStatusCode)
+                                {
+                                    string content = await response.Content.ReadAsStringAsync();
+                                    using var doc = System.Text.Json.JsonDocument.Parse(content);
+                                    int modelCount = doc.RootElement.GetProperty("data").GetArrayLength();
+                                    success = true;
+                                    message = $"Connection successful!\nDetected {modelCount} loaded models.";
+                                }
+                                else
+                                {
+                                    message = $"API returned status code: {response.StatusCode}";
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                message = $"Connection failed: {ex.Message}";
+                            }
+                            finally
+                            {
+                                Application.MainLoop.Invoke(() =>
+                                {
+                                    Application.RequestStop();
+                                });
+                            }
+                        });
+                    };
+
+                    Application.Run(dProgress);
+
+                    if (success)
+                    {
+                        MessageBox.Query("Success", message, "OK");
+                    }
+                    else
+                    {
+                        MessageBox.ErrorQuery("Connection Failed", message, "OK");
+                    }
+                };
+
+                // Bottom Buttons
                 var btnSave = new Button("Save", is_default: true);
                 var btnCancelSettings = new Button("Cancel");
 
-                btnSave.Clicked += () => {
-                    if (int.TryParse(textTransTimeout.Text?.ToString(), out int transTimeout) &&
-                        int.TryParse(textPromptTimeout.Text?.ToString(), out int promptTimeout) &&
-                        int.TryParse(textModelCheckTimeout.Text?.ToString(), out int checkTimeout) &&
-                        double.TryParse(textTemperature.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double temp) &&
-                        int.TryParse(textChunkSize.Text?.ToString(), out int chunkSize) &&
+                btnSave.Clicked += () =>
+                {
+                    if (int.TryParse(textModelCheckTimeout.Text?.ToString(), out int checkTimeout) &&
+                        int.TryParse(textOcrTimeout.Text?.ToString(), out int ocrTimeout) &&
+                        double.TryParse(textOcrTemp.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double ocrTemp) &&
+                        int.TryParse(textTransTimeoutSetting.Text?.ToString(), out int transTimeout) &&
+                        double.TryParse(textTransTemp.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double transTemp) &&
+                        int.TryParse(textMaxChunk.Text?.ToString(), out int chunkSize) &&
                         int.TryParse(textChunkOverlap.Text?.ToString(), out int chunkOverlap) &&
-                        int.TryParse(textReviewTimeout.Text?.ToString(), out int reviewTimeout))
+                        int.TryParse(textReviewTimeoutSetting.Text?.ToString(), out int reviewTimeout) &&
+                        double.TryParse(textReviewTempSetting.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double reviewTemp))
                     {
-                        config.TranslationTimeoutSeconds = transTimeout;
-                        config.PromptImproveTimeoutSeconds = promptTimeout;
+                        // Save basic settings
+                        config.ApiUrl = textApiSetting.Text?.ToString()?.Trim() ?? "";
                         config.ModelCheckTimeoutSeconds = checkTimeout;
-                        config.Temperature = temp;
+                        config.OutputDirectory = textOutputDirSetting.Text?.ToString()?.Trim() ?? "output";
+                        config.Debug = checkDebugSetting.Checked;
+
+                        // OCR process
+                        config.DefaultVisionModel = string.IsNullOrWhiteSpace(textOcrModel.Text?.ToString()) ? null : textOcrModel.Text?.ToString()?.Trim();
+                        config.OcrTemperature = ocrTemp;
+                        config.OcrTimeoutSeconds = ocrTimeout;
+
+                        // Translation process
+                        config.DefaultModel = string.IsNullOrWhiteSpace(textTransModel.Text?.ToString()) ? null : textTransModel.Text?.ToString()?.Trim();
+                        config.TargetLanguage = textTargetLang.Text?.ToString()?.Trim() ?? "Spanish";
+                        config.Temperature = transTemp;
                         config.MaxCharactersPerChunk = chunkSize;
                         config.ChunkOverlapCharacters = chunkOverlap;
-                        config.PreserveFormat = checkPreserveFormat.Checked;
-                        config.OutputFormats = textOutputFormats.Text?.ToString()?.Trim() ?? "md";
-                        config.EnableReview = checkEnableReview.Checked;
-                        config.ReviewModel = string.IsNullOrWhiteSpace(textReviewModel.Text?.ToString()) ? null : textReviewModel.Text?.ToString()?.Trim();
+                        config.PreserveFormat = checkPreserveFormatSetting.Checked;
+                        config.TranslationTimeoutSeconds = transTimeout;
+
+                        // Revision process
+                        config.EnableReview = checkEnableReviewSetting.Checked;
+                        config.ReviewModel = string.IsNullOrWhiteSpace(textReviewModelSetting.Text?.ToString()) ? null : textReviewModelSetting.Text?.ToString()?.Trim();
+                        config.ReviewTemperature = reviewTemp;
                         config.ReviewTimeoutSeconds = reviewTimeout;
+
+                        // Formats
+                        var selectedFormats = new List<string>();
+                        if (checkMd.Checked) selectedFormats.Add("md");
+                        if (checkHtml.Checked) selectedFormats.Add("html");
+                        if (checkPdf.Checked) selectedFormats.Add("pdf");
+                        if (checkDocx.Checked) selectedFormats.Add("docx");
+                        if (checkOdt.Checked) selectedFormats.Add("odt");
+                        if (selectedFormats.Count == 0) selectedFormats.Add("md");
+                        config.OutputFormats = string.Join(",", selectedFormats);
 
                         config.Save();
                         MessageBox.Query("Success", "Settings saved successfully!", "OK");
@@ -779,34 +970,21 @@ namespace PolyglotCLI
                     }
                 };
 
-                btnCancelSettings.Clicked += () => {
+                btnCancelSettings.Clicked += () =>
+                {
                     Application.RequestStop();
                 };
 
                 dialog.AddButton(btnSave);
                 dialog.AddButton(btnCancelSettings);
-                dialog.Add(
-                    lblTransTimeout, textTransTimeout,
-                    lblPromptTimeout, textPromptTimeout,
-                    lblModelCheckTimeout, textModelCheckTimeout,
-                    lblTemperature, textTemperature,
-                    lblChunkSize, textChunkSize,
-                    lblChunkOverlap, textChunkOverlap,
-                    checkPreserveFormat,
-                    lblOutputFormats, textOutputFormats,
-                    checkEnableReview,
-                    lblReviewModel, textReviewModel,
-                    lblReviewTimeout, textReviewTimeout
-                );
 
                 Application.Run(dialog);
             }
 
             // Sync model detection logic via selection modal
-            void ShowModelSelectionModal(TextField targetField, string roleName)
+            void ShowModelSelectionModal(TextField targetField, string roleName, string apiUrl)
             {
-                string url = textApi.Text?.ToString()?.Trim() ?? "";
-                if (string.IsNullOrEmpty(url))
+                if (string.IsNullOrEmpty(apiUrl))
                 {
                     MessageBox.ErrorQuery("Error", "LM Studio API URL is empty.", "OK");
                     return;
@@ -817,7 +995,7 @@ namespace PolyglotCLI
                 {
                     using var httpClient = new System.Net.Http.HttpClient();
                     httpClient.Timeout = TimeSpan.FromSeconds(config.ModelCheckTimeoutSeconds);
-                    var task = httpClient.GetAsync($"{url.TrimEnd('/')}/models");
+                    var task = httpClient.GetAsync($"{apiUrl.TrimEnd('/')}/models");
                     task.Wait();
                     var modelsResponse = task.Result;
                     
@@ -908,8 +1086,6 @@ namespace PolyglotCLI
 
             // Wire events
             btnScan.Clicked += () => PerformScan();
-            btnSelectModel.Clicked += () => ShowModelSelectionModal(textModel, "Translation");
-            btnSelectVisionModel.Clicked += () => ShowModelSelectionModal(textVisionModel, "Vision/OCR");
             btnSavePresets.Clicked += () => SavePresets();
             btnConfig.Clicked += () => ShowSettingsModal();
             btnImprovePrompt.Clicked += () => ImprovePromptWithAi();
@@ -920,32 +1096,29 @@ namespace PolyglotCLI
             bool ValidateInputs(bool checkSelectedFiles)
             {
                 // 1. LM Studio API URL
-                string apiUrl = textApi.Text?.ToString()?.Trim() ?? "";
+                string apiUrl = config.ApiUrl;
                 if (string.IsNullOrEmpty(apiUrl))
                 {
-                    MessageBox.ErrorQuery("Validation Error", "LM Studio API URL cannot be empty.", "OK");
-                    textApi.SetFocus();
+                    MessageBox.ErrorQuery("Validation Error", "LM Studio API URL cannot be empty.\nConfigure it in settings [F8].", "OK");
                     return false;
                 }
                 if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out var uriResult) || 
                     (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))
                 {
-                    MessageBox.ErrorQuery("Validation Error", "LM Studio API URL must be a valid HTTP or HTTPS URL (e.g., http://localhost:1234/v1).", "OK");
-                    textApi.SetFocus();
+                    MessageBox.ErrorQuery("Validation Error", "LM Studio API URL must be a valid HTTP or HTTPS URL (e.g., http://localhost:1234/v1).\nConfigure it in settings [F8].", "OK");
                     return false;
                 }
 
                 // 2. Translation Model Name
-                string translationModel = textModel.Text?.ToString()?.Trim() ?? "";
+                string translationModel = config.DefaultModel ?? "";
                 if (string.IsNullOrEmpty(translationModel))
                 {
-                    MessageBox.ErrorQuery("Validation Error", "Translation Model Name cannot be empty.\nUse the [Sel] button to fetch available models from LM Studio.", "OK");
-                    textModel.SetFocus();
+                    MessageBox.ErrorQuery("Validation Error", "Translation Model Name cannot be empty.\nConfigure it in settings [F8].", "OK");
                     return false;
                 }
 
                 // 3. Vision/OCR Model Name
-                string visionModel = textVisionModel.Text?.ToString()?.Trim() ?? "";
+                string visionModel = config.DefaultVisionModel ?? "";
                 if (string.IsNullOrEmpty(visionModel))
                 {
                     bool needsVision = false;
@@ -972,40 +1145,35 @@ namespace PolyglotCLI
 
                     if (needsVision)
                     {
-                        MessageBox.ErrorQuery("Validation Error", "Vision/OCR Model Name cannot be empty.\nIt is required to translate images or PDFs in OCR mode.", "OK");
-                        textVisionModel.SetFocus();
+                        MessageBox.ErrorQuery("Validation Error", "Vision/OCR Model Name cannot be empty.\nIt is required to translate images or PDFs in OCR mode.\nConfigure it in settings [F8].", "OK");
                         return false;
                     }
                 }
 
                 // 4. Target Language
-                string targetLang = textLang.Text?.ToString()?.Trim() ?? "";
+                string targetLang = config.TargetLanguage ?? "";
                 if (string.IsNullOrEmpty(targetLang))
                 {
-                    MessageBox.ErrorQuery("Validation Error", "Target Language cannot be empty (e.g., 'Spanish', 'French').", "OK");
-                    textLang.SetFocus();
+                    MessageBox.ErrorQuery("Validation Error", "Target Language cannot be empty.\nConfigure it in settings [F8].", "OK");
                     return false;
                 }
                 if (!System.Text.RegularExpressions.Regex.IsMatch(targetLang, @"^[a-zA-Z\s\-]+$"))
                 {
-                    MessageBox.ErrorQuery("Validation Error", "Target Language must contain only letters, spaces, or hyphens (e.g., 'English' or 'Brazilian-Portuguese').", "OK");
-                    textLang.SetFocus();
+                    MessageBox.ErrorQuery("Validation Error", "Target Language must contain only letters, spaces, or hyphens (e.g., 'English' or 'Brazilian-Portuguese').\nConfigure it in settings [F8].", "OK");
                     return false;
                 }
 
                 // 5. Output Directory
-                string outDir = textOutputDir.Text?.ToString()?.Trim() ?? "";
+                string outDir = config.OutputDirectory ?? "";
                 if (string.IsNullOrEmpty(outDir))
                 {
-                    MessageBox.ErrorQuery("Validation Error", "Output Directory cannot be empty.", "OK");
-                    textOutputDir.SetFocus();
+                    MessageBox.ErrorQuery("Validation Error", "Output Directory cannot be empty.\nConfigure it in settings [F8].", "OK");
                     return false;
                 }
                 char[] invalidChars = Path.GetInvalidPathChars();
                 if (outDir.IndexOfAny(invalidChars) >= 0)
                 {
-                    MessageBox.ErrorQuery("Validation Error", "Output Directory contains invalid path characters.", "OK");
-                    textOutputDir.SetFocus();
+                    MessageBox.ErrorQuery("Validation Error", "Output Directory contains invalid path characters.\nConfigure it in settings [F8].", "OK");
                     return false;
                 }
 
@@ -1046,18 +1214,15 @@ namespace PolyglotCLI
 
             void SavePresets()
             {
-                if (!ValidateInputs(false))
+                string scanDir = textScanDir.Text?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(scanDir) || !Directory.Exists(scanDir))
                 {
+                    MessageBox.ErrorQuery("Validation Error", "Please specify a valid Directory to Scan before saving presets.", "OK");
+                    textScanDir.SetFocus();
                     return;
                 }
 
-                config.ApiUrl = textApi.Text?.ToString()?.Trim() ?? "";
-                config.DefaultModel = textModel.Text?.ToString()?.Trim();
-                config.DefaultVisionModel = textVisionModel.Text?.ToString()?.Trim();
-                config.TargetLanguage = textLang.Text?.ToString()?.Trim() ?? "Spanish";
-                config.OutputDirectory = textOutputDir.Text?.ToString()?.Trim() ?? "output";
-                config.LastScanDirectory = textScanDir.Text?.ToString()?.Trim() ?? ".";
-                config.Debug = checkDebug.Checked;
+                config.LastScanDirectory = scanDir;
                 config.AdditionalPrompt = textAddPrompt.Text?.ToString()?.Trim();
                 
                 config.Save();
@@ -1074,12 +1239,12 @@ namespace PolyglotCLI
                 var selected = filesSource.FindAll(f => f.IsSelected);
                 var finalOptions = new CommandLineOptions
                 {
-                    ApiUrl = textApi.Text?.ToString()?.Trim() ?? "",
-                    ModelName = string.IsNullOrWhiteSpace(textModel.Text?.ToString()) ? null : textModel.Text?.ToString()?.Trim(),
-                    VisionModelName = string.IsNullOrWhiteSpace(textVisionModel.Text?.ToString()) ? null : textVisionModel.Text?.ToString()?.Trim(),
-                    TargetLanguage = textLang.Text?.ToString()?.Trim() ?? "Spanish",
-                    OutputDirectory = textOutputDir.Text?.ToString()?.Trim() ?? "output",
-                    Debug = checkDebug.Checked,
+                    ApiUrl = config.ApiUrl,
+                    ModelName = string.IsNullOrWhiteSpace(config.DefaultModel) ? null : config.DefaultModel.Trim(),
+                    VisionModelName = string.IsNullOrWhiteSpace(config.DefaultVisionModel) ? null : config.DefaultVisionModel.Trim(),
+                    TargetLanguage = config.TargetLanguage ?? "Spanish",
+                    OutputDirectory = config.OutputDirectory ?? "output",
+                    Debug = config.Debug,
                     AdditionalPrompt = textAddPrompt.Text?.ToString()?.Trim(),
                     DocumentTargets = new List<DocumentTarget>()
                 };

@@ -124,7 +124,7 @@ namespace PolyglotCLI
                         }
                     }
                 },
-                temperature = 0.2
+                temperature = Temperature
             };
 
             string jsonPayload = JsonSerializer.Serialize(payload);
