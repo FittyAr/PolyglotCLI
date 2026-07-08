@@ -1,0 +1,89 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {"id": "A", "type": "rectangle", "x": 100, "y": 150, "width": 140, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tA", "type": "text", "x": 110, "y": 170, "width": 120, "height": 20, "text": "Start Application", "fontSize": 14, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "B", "type": "diamond", "x": 300, "y": 130, "width": 140, "height": 100, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0},
+    {"id": "tB", "type": "text", "x": 310, "y": 165, "width": 120, "height": 30, "text": "Load Config\n& Prompts", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "C", "type": "diamond", "x": 500, "y": 130, "width": 160, "height": 100, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0},
+    {"id": "tC", "type": "text", "x": 510, "y": 165, "width": 140, "height": 30, "text": "Check Existing\nOutput Files?", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "D", "type": "rectangle", "x": 720, "y": 110, "width": 180, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tD", "type": "text", "x": 730, "y": 125, "width": 160, "height": 30, "text": "Parse Markdown\nPages to RAM Cache", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "E", "type": "rectangle", "x": 720, "y": 210, "width": 180, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tE", "type": "text", "x": 730, "y": 225, "width": 160, "height": 30, "text": "Initialize RAM\nCache empty", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "F", "type": "rectangle", "x": 960, "y": 150, "width": 180, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tF", "type": "text", "x": 970, "y": 165, "width": 160, "height": 30, "text": "Phase 1: Text\nExtraction & OCR", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "G", "type": "diamond", "x": 970, "y": 410, "width": 160, "height": 100, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0},
+    {"id": "tG", "type": "text", "x": 980, "y": 445, "width": 140, "height": 30, "text": "Page cached\non disk?", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "I", "type": "rectangle", "x": 730, "y": 390, "width": 170, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tI", "type": "text", "x": 740, "y": 410, "width": 150, "height": 20, "text": "Run Extraction / OCR", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "H", "type": "rectangle", "x": 730, "y": 480, "width": 170, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tH", "type": "text", "x": 740, "y": 495, "width": 150, "height": 30, "text": "Skip Extraction,\nLoad from cache", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "J", "type": "rectangle", "x": 510, "y": 390, "width": 160, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tJ", "type": "text", "x": 520, "y": 405, "width": 140, "height": 30, "text": "Save extracted\nOCR text to disk", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "K", "type": "rectangle", "x": 280, "y": 430, "width": 160, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tK", "type": "text", "x": 290, "y": 445, "width": 140, "height": 30, "text": "Phase 2:\nModel Transition", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "L", "type": "rectangle", "x": 100, "y": 710, "width": 160, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tL", "type": "text", "x": 110, "y": 725, "width": 140, "height": 30, "text": "Phase 3:\nTranslation & Review", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "M", "type": "diamond", "x": 310, "y": 690, "width": 150, "height": 100, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0},
+    {"id": "tM", "type": "text", "x": 320, "y": 725, "width": 130, "height": 30, "text": "Page translated\non disk?", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "O", "type": "rectangle", "x": 510, "y": 670, "width": 160, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tO", "type": "text", "x": 520, "y": 685, "width": 140, "height": 30, "text": "Run Translation\n& Review", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "N", "type": "rectangle", "x": 510, "y": 760, "width": 160, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tN", "type": "text", "x": 520, "y": 775, "width": 140, "height": 30, "text": "Skip Translation,\nLoad from cache", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "P", "type": "rectangle", "x": 710, "y": 670, "width": 160, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tP", "type": "text", "x": 720, "y": 685, "width": 140, "height": 30, "text": "Save translated\npage to disk", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+    
+    {"id": "Q", "type": "rectangle", "x": 930, "y": 710, "width": 160, "height": 60, "backgroundColor": "#1e1e24", "strokeColor": "#ffffff", "fillStyle": "solid", "roughness": 0, "roundness": {"type": 3}},
+    {"id": "tQ", "type": "text", "x": 940, "y": 725, "width": 140, "height": 30, "text": "Loop Next Page\n/ Finish", "fontSize": 13, "fontFamily": 1, "textAlign": "center", "verticalAlign": "middle", "strokeColor": "#ffffff"},
+
+    {"id": "lbl_yes1", "type": "text", "x": 670, "y": 140, "width": 30, "height": 15, "text": "Yes", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0"},
+    {"id": "lbl_no1", "type": "text", "x": 670, "y": 210, "width": 30, "height": 15, "text": "No", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0"},
+    {"id": "lbl_yes2", "type": "text", "x": 920, "y": 420, "width": 30, "height": 15, "text": "Yes", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0"},
+    {"id": "lbl_no2", "type": "text", "x": 920, "y": 490, "width": 30, "height": 15, "text": "No", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0"},
+    {"id": "lbl_yes3", "type": "text", "x": 470, "y": 700, "width": 30, "height": 15, "text": "Yes", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0"},
+    {"id": "lbl_no3", "type": "text", "x": 470, "y": 770, "width": 30, "height": 15, "text": "No", "fontSize": 11, "fontFamily": 1, "strokeColor": "#a0a0a0"},
+
+    {"id": "arr1", "type": "arrow", "x": 240, "y": 180, "points": [[0,0], [60,0]], "strokeColor": "#ffffff"},
+    {"id": "arr2", "type": "arrow", "x": 440, "y": 180, "points": [[0,0], [60,0]], "strokeColor": "#ffffff"},
+    {"id": "arr3", "type": "arrow", "x": 660, "y": 180, "points": [[0,0], [30,-40], [60,-40]], "strokeColor": "#ffffff"},
+    {"id": "arr4", "type": "arrow", "x": 660, "y": 180, "points": [[0,0], [30,60], [60,60]], "strokeColor": "#ffffff"},
+    {"id": "arr5", "type": "arrow", "x": 900, "y": 140, "points": [[0,0], [30,0], [60,40]], "strokeColor": "#ffffff"},
+    {"id": "arr6", "type": "arrow", "x": 900, "y": 240, "points": [[0,0], [30,0], [60,-60]], "strokeColor": "#ffffff"},
+    
+    {"id": "arr_down1", "type": "arrow", "x": 1050, "y": 210, "points": [[0,0], [0,200]], "strokeColor": "#ffffff"},
+    
+    {"id": "arr7", "type": "arrow", "x": 970, "y": 460, "points": [[0,0], [-70,50]], "strokeColor": "#ffffff"},
+    {"id": "arr8", "type": "arrow", "x": 970, "y": 460, "points": [[0,0], [-70,-40]], "strokeColor": "#ffffff"},
+    {"id": "arr9", "type": "arrow", "x": 730, "y": 420, "points": [[0,0], [-60,0]], "strokeColor": "#ffffff"},
+    {"id": "arr10", "type": "arrow", "x": 510, "y": 420, "points": [[0,0], [-70,40]], "strokeColor": "#ffffff"},
+    {"id": "arr11", "type": "arrow", "x": 730, "y": 510, "points": [[0,0], [-290,0], [-290,-20]], "strokeColor": "#ffffff"},
+    
+    {"id": "arr_down2", "type": "arrow", "x": 360, "y": 490, "points": [[0,0], [0,120], [-100,120], [-100,220]], "strokeColor": "#ffffff"},
+    
+    {"id": "arr12", "type": "arrow", "x": 260, "y": 740, "points": [[0,0], [50,0]], "strokeColor": "#ffffff"},
+    {"id": "arr13", "type": "arrow", "x": 460, "y": 740, "points": [[0,0], [20,-40], [50,-40]], "strokeColor": "#ffffff"},
+    {"id": "arr14", "type": "arrow", "x": 460, "y": 740, "points": [[0,0], [20,50], [50,50]], "strokeColor": "#ffffff"},
+    {"id": "arr15", "type": "arrow", "x": 670, "y": 700, "points": [[0,0], [40,0]], "strokeColor": "#ffffff"},
+    {"id": "arr16", "type": "arrow", "x": 870, "y": 700, "points": [[0,0], [30,0], [60,25]], "strokeColor": "#ffffff"},
+    {"id": "arr17", "type": "arrow", "x": 670, "y": 790, "points": [[0,0], [220,0], [260,-40]], "strokeColor": "#ffffff"}
+  ],
+  "appState": { "theme": "dark", "viewBackgroundColor": "#0b0f19" }
+}
