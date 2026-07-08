@@ -15,7 +15,13 @@ namespace PolyglotCLI
             return fileExtension.Equals(".docx", StringComparison.OrdinalIgnoreCase);
         }
 
-        public Task<List<PageProcessState>> ExtractTextAsync(string filePath, DocumentTarget target, OcrService ocrService, PdfPageRenderer pageRenderer)
+        public Task<List<PageProcessState>> ExtractTextAsync(
+            string filePath, 
+            DocumentTarget target, 
+            OcrService ocrService, 
+            PdfPageRenderer pageRenderer, 
+            List<PageProcessState>? cachedStates = null,
+            MarkdownWriter? originalWriter = null)
         {
             var pageStates = new List<PageProcessState>();
             try
@@ -79,16 +85,30 @@ namespace PolyglotCLI
                         });
                     }
                 }
+
+                if (originalWriter != null)
+                {
+                    foreach (var s in pageStates)
+                    {
+                        originalWriter.SaveOrUpdatePage(s.PageNumber, s.OcrText ?? string.Empty);
+                    }
+                }
             }
             catch (Exception ex)
             {
-                pageStates.Add(new PageProcessState
+                var state = new PageProcessState
                 {
                     PageNumber = 1,
                     OcrFailed = true,
                     OcrErrorMessage = ex.Message,
                     OcrText = $"*Failed to read Docx file: {ex.Message}*"
-                });
+                };
+                pageStates.Add(state);
+
+                if (originalWriter != null)
+                {
+                    originalWriter.SaveOrUpdatePage(1, state.OcrText ?? string.Empty);
+                }
             }
 
             return Task.FromResult(pageStates);

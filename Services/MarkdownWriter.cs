@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
@@ -7,6 +8,80 @@ namespace PolyglotCLI
     public class MarkdownWriter
     {
         private string? _filePath;
+        private readonly HashSet<int> _writtenPages = new HashSet<int>();
+
+        public void InitializeOrKeep(string filePath, string documentTitle, string targetLanguage)
+        {
+            _filePath = filePath;
+            _writtenPages.Clear();
+
+            if (File.Exists(filePath))
+            {
+                Console.WriteLine($"Found existing output file: {filePath}. Resuming/Appending progress.");
+                var existing = ReadPages(filePath);
+                foreach (var key in existing.Keys)
+                {
+                    _writtenPages.Add(key);
+                }
+                return;
+            }
+
+            Initialize(filePath, documentTitle, targetLanguage);
+        }
+
+        public void SaveOrUpdatePage(int pageNumber, string content)
+        {
+            if (_writtenPages.Contains(pageNumber))
+            {
+                UpdatePage(pageNumber, content);
+            }
+            else
+            {
+                AppendPage(pageNumber, content);
+                _writtenPages.Add(pageNumber);
+            }
+        }
+
+        public static Dictionary<int, string> ReadPages(string filePath)
+        {
+            var pages = new Dictionary<int, string>();
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            {
+                return pages;
+            }
+
+            try
+            {
+                string fileContent = File.ReadAllText(filePath, Encoding.UTF8);
+                string[] parts = fileContent.Split(new[] { "## Page " }, StringSplitOptions.None);
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    string part = parts[i];
+                    int firstNewLine = part.IndexOf('\n');
+                    if (firstNewLine == -1) continue;
+
+                    string pageNumStr = part.Substring(0, firstNewLine).Trim();
+                    if (int.TryParse(pageNumStr, out int pageNum))
+                    {
+                        string pageContent = part.Substring(firstNewLine + 1);
+                        int separatorIdx = pageContent.LastIndexOf("- - -");
+                        if (separatorIdx != -1)
+                        {
+                            pageContent = pageContent.Substring(0, separatorIdx);
+                        }
+                        pages[pageNum] = pageContent.Trim('\r', '\n');
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error reading pages from {filePath}: {ex.Message}");
+                Console.ResetColor();
+            }
+
+            return pages;
+        }
 
         public void Initialize(string filePath, string documentTitle, string targetLanguage)
         {

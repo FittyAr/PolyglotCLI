@@ -148,6 +148,10 @@ namespace PolyglotCLI
             {
                 string filePath = target.FilePath;
                 string fileName = Path.GetFileName(filePath);
+                string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+                string outputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_{options.TargetLanguage}.md");
+                string originalOutputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_original.md");
+
                 AppLogger.InfoConsole($"\nProcessing file: {fileName} (Mode: {target.Mode.ToUpperInvariant()})", ConsoleColor.Cyan);
                 
                 try
@@ -155,7 +159,52 @@ namespace PolyglotCLI
                     var extractor = extractorFactory.GetExtractor(filePath);
                     AppLogger.Info($"Running extractor {extractor.GetType().Name} for {fileName}");
                     
-                    var pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer);
+                    // Parse existing output files to see what is already processed
+                    var cachedStates = new List<PageProcessState>();
+                    var originalPages = MarkdownWriter.ReadPages(originalOutputPath);
+                    var translatedPages = MarkdownWriter.ReadPages(outputPath);
+
+                    var allPages = new HashSet<int>(originalPages.Keys);
+                    allPages.UnionWith(translatedPages.Keys);
+
+                    foreach (var pageNum in allPages)
+                    {
+                        var state = new PageProcessState { PageNumber = pageNum };
+                        
+                        if (originalPages.TryGetValue(pageNum, out var ocrText))
+                        {
+                            state.OcrText = ocrText;
+                            state.OcrFailed = string.IsNullOrEmpty(ocrText) || ocrText.StartsWith("*Failed to", StringComparison.OrdinalIgnoreCase);
+                            if (state.OcrFailed)
+                            {
+                                state.OcrErrorMessage = "Loaded failed OCR page from disk";
+                            }
+                        }
+                        else
+                        {
+                            state.OcrFailed = true;
+                        }
+
+                        if (translatedPages.TryGetValue(pageNum, out var transText))
+                        {
+                            state.TranslatedText = transText;
+                            state.TranslationFailed = string.IsNullOrEmpty(transText) || transText.StartsWith("*Failed to", StringComparison.OrdinalIgnoreCase);
+                            if (state.TranslationFailed)
+                            {
+                                state.TranslationErrorMessage = "Loaded failed translation page from disk";
+                            }
+                        }
+                        else
+                        {
+                            state.TranslationFailed = true;
+                        }
+
+                        cachedStates.Add(state);
+                    }
+
+                    originalWriter.InitializeOrKeep(originalOutputPath, fileName, "Original");
+                    
+                    var pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer, cachedStates, originalWriter);
                     
                     int successCount = 0;
                     foreach (var s in pageStates)
@@ -250,12 +299,19 @@ namespace PolyglotCLI
                 try
                 {
                     AppLogger.Debug($"Initializing output files: {outputPath} and {originalOutputPath}");
-                    translatedWriter.Initialize(outputPath, fileName, options.TargetLanguage);
-                    originalWriter.Initialize(originalOutputPath, fileName, "Original");
+                    translatedWriter.InitializeOrKeep(outputPath, fileName, options.TargetLanguage);
+                    originalWriter.InitializeOrKeep(originalOutputPath, fileName, "Original");
 
                     foreach (var state in pageStates)
                     {
                         int pageNum = state.PageNumber;
+
+                        if (!state.TranslationFailed && !string.IsNullOrEmpty(state.TranslatedText))
+                        {
+                            AppLogger.Info($"Page {pageNum}: Using cached translation from disk.");
+                            translatedWriter.SaveOrUpdatePage(pageNum, state.TranslatedText);
+                            continue;
+                        }
 
                         if (state.OcrFailed)
                         {
@@ -283,8 +339,8 @@ namespace PolyglotCLI
                             }
                         }
 
-                        originalWriter.AppendPage(pageNum, state.OcrText ?? string.Empty);
-                        translatedWriter.AppendPage(pageNum, state.TranslatedText ?? string.Empty);
+                        originalWriter.SaveOrUpdatePage(pageNum, state.OcrText ?? string.Empty);
+                        translatedWriter.SaveOrUpdatePage(pageNum, state.TranslatedText ?? string.Empty);
                     }
 
                     // Phase 4: Retry Loop for Failed Pages of this file
@@ -324,7 +380,7 @@ namespace PolyglotCLI
                                         state.OcrText = await ocrService.PerformOcrAsync(pngBytes, pageNum);
                                         state.OcrFailed = false;
                                         state.OcrErrorMessage = null;
-                                        originalWriter.UpdatePage(pageNum, state.OcrText ?? string.Empty);
+                                        originalWriter.SaveOrUpdatePage(pageNum, state.OcrText ?? string.Empty);
                                         AppLogger.Info($"[RETRY] Page {pageNum}: Extraction successful on retry.");
                                     }
                                     catch (Exception ocrEx)
@@ -343,7 +399,7 @@ namespace PolyglotCLI
                                         state.OcrText = await ocrService.PerformOcrAsync(imgBytes, 1);
                                         state.OcrFailed = false;
                                         state.OcrErrorMessage = null;
-                                        originalWriter.UpdatePage(pageNum, state.OcrText ?? string.Empty);
+                                        originalWriter.SaveOrUpdatePage(pageNum, state.OcrText ?? string.Empty);
                                         AppLogger.Info($"[RETRY] Image OCR retry successful.");
                                     }
                                     catch (Exception imgEx)
@@ -366,7 +422,7 @@ namespace PolyglotCLI
                                             state.OcrText = matched.OcrText;
                                             state.OcrFailed = false;
                                             state.OcrErrorMessage = null;
-                                            originalWriter.UpdatePage(pageNum, state.OcrText ?? string.Empty);
+                                            originalWriter.SaveOrUpdatePage(pageNum, state.OcrText ?? string.Empty);
                                             AppLogger.Info($"[RETRY] Page {pageNum}: Re-extraction successful.");
                                         }
                                     }
@@ -385,7 +441,7 @@ namespace PolyglotCLI
                                     state.TranslatedText = await translatorService.TranslateTextAsync(state.OcrText ?? string.Empty, pageNum);
                                     state.TranslationFailed = false;
                                     state.TranslationErrorMessage = null;
-                                    translatedWriter.UpdatePage(pageNum, state.TranslatedText ?? string.Empty);
+                                    translatedWriter.SaveOrUpdatePage(pageNum, state.TranslatedText ?? string.Empty);
                                     AppLogger.Info($"[RETRY] Page {pageNum}: Translation successful on retry.");
                                 }
                                 catch (Exception transEx)
@@ -394,7 +450,7 @@ namespace PolyglotCLI
                                     AppLogger.ErrorConsole($"[RETRY] Page/Chunk {pageNum} translation retry failed", transEx);
                                     state.TranslationFailed = true;
                                     state.TranslationErrorMessage = transEx.Message;
-                                    translatedWriter.UpdatePage(pageNum, $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*");
+                                    translatedWriter.SaveOrUpdatePage(pageNum, $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*");
                                 }
                             }
                         }
@@ -423,7 +479,7 @@ namespace PolyglotCLI
                                 state.ReviewFailed = false;
 
                                 state.TranslatedText = reviewed;
-                                translatedWriter.UpdatePage(state.PageNumber, reviewed);
+                                translatedWriter.SaveOrUpdatePage(state.PageNumber, reviewed);
                             }
                             catch (Exception revEx)
                             {

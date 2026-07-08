@@ -33,6 +33,33 @@ Translations are processed incrementally (page-by-page) and appended immediately
 
 ---
 
+## Workflow Diagram
+
+```mermaid
+graph LR
+    A[Start Application] --> B{Load Config & Prompts}
+    B --> C{Check Existing Output Files?}
+    C -- Yes --> D[Parse Markdown Pages to RAM Cache]
+    C -- No --> E[Initialize RAM Cache empty]
+    D --> F[Phase 1: Text Extraction & OCR]
+    E --> F
+    F --> G{Page cached on disk?}
+    G -- Yes --> H[Skip Extraction, Load OCR text from cache]
+    G -- No --> I[Run Extraction / OCR]
+    I --> J[Save extracted OCR text to disk immediately]
+    H --> K[Phase 2: Model Transition]
+    J --> K
+    K --> L[Phase 3: Translation & Review]
+    L --> M{Page translated on disk?}
+    M -- Yes --> N[Skip Translation, Load from cache]
+    M -- No --> O[Run Translation & Review]
+    O --> P[Save translated page to disk immediately]
+    N --> Q[Loop Next Page / Finish]
+    P --> Q
+```
+
+---
+
 ## Prerequisites
 
 1. **.NET 10 SDK** installed on your system.
