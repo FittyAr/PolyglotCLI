@@ -35,6 +35,16 @@ Translations are processed incrementally (page-by-page) and appended immediately
 
 ## Workflow Diagram
 
+A clean, compact, serpentine workflow diagram is available as an interactive Excalidraw file:
+
+- **Interactive File:** [architecture.excalidraw](docs\architecture.excalidraw) (Open it in your editor or import it at [excalidraw.com](https://excalidraw.com) to view, edit, or export).
+- **Static Preview:** Export it to `architecture.svg` or `architecture.png` to display it directly:
+
+![Workflow Diagram](docs\architecture.svg)
+
+<details>
+<summary><b>View Original Mermaid Diagram Source</b></summary>
+
 ```mermaid
 graph LR
     A[Start Application] --> B{Load Config & Prompts}
@@ -57,6 +67,8 @@ graph LR
     N --> Q[Loop Next Page / Finish]
     P --> Q
 ```
+
+</details>
 
 ---
 
