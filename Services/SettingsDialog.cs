@@ -144,7 +144,8 @@ namespace PolyglotCLI
                 Y = 4 
             };
 
-            var defaultFormatsList = new List<string> { "None", "html", "docx", "odf", "pdf" };
+            var defaultFormatsList = new List<string> { "None" };
+            defaultFormatsList.AddRange(config.SupportedOutputFormats ?? new List<string> { "html", "docx", "odf", "pdf" });
             var comboDefaultFormat = new ComboBox()
             {
                 X = 2,

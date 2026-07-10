@@ -30,6 +30,12 @@ namespace PolyglotCLI
         public string OutputFormats { get; set; } = "md";
         public bool SaveMarkdown { get; set; } = true;
         public string? DefaultOutputFormat { get; set; }
+        public List<string> SupportedOutputFormats { get; set; } = new List<string> { "html", "docx", "odf", "pdf" };
+        public List<string> SupportedInputExtensions { get; set; } = new List<string>
+        {
+            ".pdf", ".docx", ".doc", ".odt", ".odf", ".txt", ".md",
+            ".json", ".csv", ".xml", ".html", ".jpg", ".jpeg", ".png", ".bmp", ".tiff"
+        };
         public string LogDirectory { get; set; } = "logs";
         public string LogLevelConsole { get; set; } = "Information";
         public string LogLevelFile { get; set; } = "Debug";

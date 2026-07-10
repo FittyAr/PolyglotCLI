@@ -20,6 +20,21 @@ namespace PolyglotCLI
             AppLogger.Initialize(config);
             AppLogger.Info($"Loaded configuration API URL: '{config.ApiUrl}'");
 
+            // Test Conversion CLI Override
+            if (args.Length > 0 && args[0] == "--test-conversion")
+            {
+                if (args.Length < 3)
+                {
+                    Console.WriteLine("Usage: --test-conversion <markdownPath> <formats>");
+                    return 1;
+                }
+                string mdPath = args[1];
+                string fmts = args[2];
+                Console.WriteLine($"Running test conversion for: {mdPath} to: {fmts}");
+                await OutputFormatConverter.ConvertToFormatsAsync(mdPath, fmts);
+                return 0;
+            }
+
             try
             {
                 // 1. Parse command line options or launch interactive menu

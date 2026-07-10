@@ -22,5 +22,7 @@
   "OcrTimeoutSeconds": 300,
   "OutputFormats": "md",
   "SaveMarkdown": true,
-  "DefaultOutputFormat": null
+  "DefaultOutputFormat": null,
+  "SupportedOutputFormats": [ "html", "docx", "odf", "pdf" ],
+  "SupportedInputExtensions": [ ".pdf", ".docx", ".doc", ".odt", ".odf", ".txt", ".md", ".json", ".csv", ".xml", ".html", ".jpg", ".jpeg", ".png", ".bmp", ".tiff" ]
 }

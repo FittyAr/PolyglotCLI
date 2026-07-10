@@ -89,7 +89,7 @@ namespace PolyglotCLI
             var checkVerify = new CheckBox("Verify") { X = 37, Y = 4, Checked = config.EnableReview };
             var checkGenerate = new CheckBox("Gen Doc:") { X = 48, Y = 4, Checked = !string.IsNullOrEmpty(config.DefaultOutputFormat) };
 
-            var formatsList = new List<string> { "html", "docx", "odf", "pdf" };
+            var formatsList = config.SupportedOutputFormats ?? new List<string> { "html", "docx", "odf", "pdf" };
             var comboFormat = new ComboBox()
             {
                 X = 60,
@@ -530,11 +530,11 @@ namespace PolyglotCLI
                 try
                 {
                     var files = Directory.GetFiles(dirPath);
-                    var supportedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    var supportedExtensions = new HashSet<string>(config.SupportedInputExtensions ?? new List<string>
                     {
                         ".pdf", ".docx", ".doc", ".odt", ".odf", ".txt", ".md", 
                         ".json", ".csv", ".xml", ".html", ".jpg", ".jpeg", ".png", ".bmp", ".tiff"
-                    };
+                    }, StringComparer.OrdinalIgnoreCase);
 
                     foreach (var file in files)
                     {

@@ -8,9 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Se incorporaron las directrices `.agents` para el control inteligente del repositorio a través de agentes de IA.
+- Soporte nativo para conversiones a DOCX, PDF y ODT de forma local (C#).
+- Configuraciones dinámicas de extensiones de entrada y formatos de salida en config.json.
+- Modo de prueba CLI `--test-conversion` para validación rápida del conversor de formatos.
 
 ### Changed
+- Integración de las librerías open-source HtmlToOpenXml, PeachPDF y NetOdt como fallback local cuando pandoc no está disponible.
+- Actualización de los menús interactivos y de ajustes para consumir dinámicamente los formatos de salida soportados.
 - Adaptación de la configuración de agentes (`AGENTS.md`) de Rust/Pairee a C#/.NET 10/PolyglotCLI.
 - Adaptación de las herramientas de asistencia (skills) `settings-helper` y `changelog-helper` al contexto del proyecto.
 - Reemplazo de la habilidad `localize-helper` por `prompts-helper` adaptada al sistema de prompts del proyecto.

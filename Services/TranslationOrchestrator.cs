@@ -569,11 +569,11 @@ namespace PolyglotCLI
                         AppLogger.InfoConsole($"Converting output to {options.SelectedFormat.ToUpperInvariant()}...", ConsoleColor.Cyan);
                         if (File.Exists(outputPath))
                         {
-                            OutputFormatConverter.ConvertToFormats(outputPath, options.SelectedFormat);
+                            await OutputFormatConverter.ConvertToFormatsAsync(outputPath, options.SelectedFormat);
                         }
                         if (File.Exists(originalOutputPath))
                         {
-                            OutputFormatConverter.ConvertToFormats(originalOutputPath, options.SelectedFormat);
+                            await OutputFormatConverter.ConvertToFormatsAsync(originalOutputPath, options.SelectedFormat);
                         }
                     }
 
