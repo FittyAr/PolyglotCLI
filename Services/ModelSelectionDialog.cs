@@ -61,22 +61,26 @@ namespace PolyglotCLI
 
             var dialog = new Dialog { Title = $"Select {roleName} Model", Width = 60, Height = 15, BorderStyle = LineStyle.Rounded };
             
-            var label = new Label { Text = $"Available models in LM Studio (Select one):", X = 1,
+            var label = new Label 
+            { 
+                Text = $"Available models in LM Studio (Select one):", 
+                X = 1,
                 Y = 1,
-                Width = Dim.Fill() };
+                Width = Dim.Fill() 
+            };
             
             var listModels = new ListView
             {
                 X = 1,
                 Y = 2,
                 Width = Dim.Fill(2),
-                Height = Dim.Fill(2)
+                Height = Dim.Fill(3)
             };
             listModels.SetSource(new ObservableCollection<string>(detectedList));
 
             string? selected = null;
-            var btnOk = new Button { Text = "Select", IsDefault = true };
-            var btnCancel = new Button { Text = "Cancel" };
+            var btnOk = new Button { Text = "Select", X = 15, Y = 12, IsDefault = true };
+            var btnCancel = new Button { Text = "Cancel", X = 32, Y = 12 };
 
             btnOk.Accepted += (s, e) => {
                 int sel = listModels.SelectedItem ?? -1;
@@ -101,15 +105,17 @@ namespace PolyglotCLI
                 app.RequestStop(dialog);
             };
 
-            dialog.AddButton(btnOk);
-            dialog.AddButton(btnCancel);
-            dialog.Add(label, listModels);
+            dialog.Add(label, listModels, btnOk, btnCancel);
 
+            InteractiveMenu.OpenModal();
             app.Run(dialog);
+            InteractiveMenu.CloseModal();
 
             if (selected != null)
             {
                 targetField.Text = selected;
+                targetField.SetNeedsDraw();
+                targetField.SuperView?.SetNeedsDraw();
             }
         }
     }

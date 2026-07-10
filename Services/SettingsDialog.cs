@@ -231,7 +231,9 @@ namespace PolyglotCLI
                     });
                 };
 
+                InteractiveMenu.OpenModal();
                 app.Run(dProgress);
+                InteractiveMenu.CloseModal();
 
                 if (success)
                 {
@@ -314,7 +316,9 @@ namespace PolyglotCLI
             dialog.AddButton(btnSave);
             dialog.AddButton(btnCancelSettings);
 
+            InteractiveMenu.OpenModal();
             app.Run(dialog);
+            InteractiveMenu.CloseModal();
         }
     }
 }

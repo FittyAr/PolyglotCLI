@@ -24,7 +24,7 @@ namespace PolyglotCLI
             AppRequired.Keyboard.KeyDown += (object? sender, Key keyEvent) =>
             {
                 // While a modal dialog is open, let all keys pass through to the dialog's controls
-                if (_isModalOpen) return;
+                if (IsModalOpen) return;
 
                 // ---- Function-key shortcuts (always active) ----
                 if (keyEvent.KeyCode == KeyCode.F1)  { ShowHelpModal();                        keyEvent.Handled = true; return; }

@@ -22,11 +22,11 @@ namespace PolyglotCLI
             { 
                 Title = "Keyboard Shortcuts & Help", 
                 Width = 65, 
-                Height = 28,
+                Height = 18,
                 BorderStyle = LineStyle.Rounded
             };
 
-            var content = new Label 
+            var content = new SafeTextView 
             { 
                 Text = "Use the following function keys or click the buttons:\n\n" +
                     "  [F1]  : Show this shortcuts help dialog\n" +
@@ -42,14 +42,16 @@ namespace PolyglotCLI
                     "  [P]                   : Set Page Range for PDF\n\n" +
                     "--- Sobre la Temperatura ---\n" +
                     "  0.0  : Traduccion extremadamente consistente\n" +
-                    "  0.1  : Opcion recomendada\n" +
-                    "  0.2  : Muy buena\n" +
+                    "  0.1  : Opcion recomendada (muy buena)\n" +
+                    "  0.2  : Buen balance\n" +
                     "  0.3  : Puede 'embellecer' frases o cambiar estilo\n" +
                     "  >0.5 : No recomendado para traduccion", 
                 X = 1,
                 Y = 1,
-                Width = Dim.Fill(),
-                Height = Dim.Fill() 
+                Width = Dim.Fill(2),
+                Height = Dim.Fill(2),
+                ReadOnly = true,
+                WordWrap = true
             };
             
             var btnClose = new Button { Text = "Close", IsDefault = true };
@@ -57,7 +59,9 @@ namespace PolyglotCLI
             dialog.AddButton(btnClose);
             dialog.Add(content);
             
+            InteractiveMenu.OpenModal();
             AppRequired.Run(dialog);
+            InteractiveMenu.CloseModal();
             dialog.Dispose();
         }
 
@@ -111,7 +115,9 @@ namespace PolyglotCLI
                 });
             };
 
+            InteractiveMenu.OpenModal();
             AppRequired.Run(dProgress);
+            InteractiveMenu.CloseModal();
             dProgress.Dispose();
 
             if (!string.IsNullOrEmpty(errorMessage))
@@ -170,7 +176,9 @@ namespace PolyglotCLI
             dPreview.AddButton(btnDiscard);
             dPreview.Add(lblOrig, textOrig, lblNew, textNew);
 
+            InteractiveMenu.OpenModal();
             AppRequired.Run(dPreview);
+            InteractiveMenu.CloseModal();
             dPreview.Dispose();
 
             if (apply && _textAddPrompt is not null)
@@ -238,7 +246,9 @@ namespace PolyglotCLI
                 });
             };
 
+            InteractiveMenu.OpenModal();
             AppRequired.Run(dProgress);
+            InteractiveMenu.CloseModal();
             dProgress.Dispose();
 
             if (!string.IsNullOrEmpty(errorMessage))
@@ -285,7 +295,9 @@ namespace PolyglotCLI
             dPreview.AddButton(btnDiscard);
             dPreview.Add(lblNew, textNew);
 
+            InteractiveMenu.OpenModal();
             AppRequired.Run(dPreview);
+            InteractiveMenu.CloseModal();
             dPreview.Dispose();
 
             if (apply && _textAddPrompt is not null)
@@ -316,8 +328,8 @@ namespace PolyglotCLI
                 Width = Dim.Fill(2) 
             };
             
-            var btnOk = new Button { Text = "OK", IsDefault = true };
-            var btnCancel = new Button { Text = "Cancel" };
+            var btnOk = new Button { Text = "OK", X = 12, Y = 4, IsDefault = true };
+            var btnCancel = new Button { Text = "Cancel", X = 26, Y = 4 };
             
             btnOk.Accepted += (s, e) => {
                 result = textInput.Text?.ToString() ?? "";
@@ -328,12 +340,21 @@ namespace PolyglotCLI
                 result = null;
                 AppRequired.RequestStop(dialog);
             };
+
+            textInput.KeyDown += (s, e) => {
+                if (e.KeyCode == KeyCode.Enter)
+                {
+                    result = textInput.Text?.ToString() ?? "";
+                    AppRequired.RequestStop(dialog);
+                    e.Handled = true;
+                }
+            };
             
-            dialog.AddButton(btnOk);
-            dialog.AddButton(btnCancel);
-            dialog.Add(label, textInput);
+            dialog.Add(label, textInput, btnOk, btnCancel);
             
+            InteractiveMenu.OpenModal();
             AppRequired.Run(dialog);
+            InteractiveMenu.CloseModal();
             dialog.Dispose();
             
             return result;

@@ -40,6 +40,9 @@ namespace PolyglotCLI
         public string LogLevelConsole { get; set; } = "Information";
         public string LogLevelFile { get; set; } = "Debug";
 
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string? LoadedFromPath { get; set; }
+
         public static string GetDefaultConfigPath()
         {
             if (OperatingSystem.IsWindows())
@@ -57,49 +60,65 @@ namespace PolyglotCLI
 
         public static AppConfig Load(string? configPath = null)
         {
-            configPath ??= GetDefaultConfigPath();
-            
-            // Fallback to local files if appdata config does not exist
-            if (!File.Exists(configPath))
+            string resolvedPath;
+
+            if (configPath != null)
             {
-                string localPath = Path.Combine(AppContext.BaseDirectory, "config.json");
-                if (File.Exists(localPath))
+                resolvedPath = configPath;
+            }
+            else
+            {
+                // Prefer local project/workspace configuration in GetCurrentDirectory() or AppContext.BaseDirectory
+                string currentDirConfig = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
+                string baseDirConfig = Path.Combine(AppContext.BaseDirectory, "config.json");
+                string appDataConfig = GetDefaultConfigPath();
+
+                if (File.Exists(currentDirConfig))
                 {
-                    configPath = localPath;
+                    resolvedPath = currentDirConfig;
+                }
+                else if (File.Exists(baseDirConfig))
+                {
+                    resolvedPath = baseDirConfig;
+                }
+                else if (File.Exists(appDataConfig))
+                {
+                    resolvedPath = appDataConfig;
                 }
                 else
                 {
-                    string rootPath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
-                    if (File.Exists(rootPath))
-                    {
-                        configPath = rootPath;
-                    }
+                    resolvedPath = appDataConfig; // Fallback default path for saving new config
                 }
             }
 
-            if (!File.Exists(configPath))
+            AppConfig config;
+            if (!File.Exists(resolvedPath))
             {
-                return new AppConfig();
+                config = new AppConfig();
+                config.LoadedFromPath = resolvedPath;
+                return config;
             }
 
             try
             {
-                string jsonString = File.ReadAllText(configPath);
-                var config = JsonSerializer.Deserialize<AppConfig>(jsonString);
-                return config ?? new AppConfig();
+                string jsonString = File.ReadAllText(resolvedPath);
+                config = JsonSerializer.Deserialize<AppConfig>(jsonString) ?? new AppConfig();
             }
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"Warning: Failed to load config.json, using defaults. Error: {ex.Message}");
                 Console.ResetColor();
-                return new AppConfig();
+                config = new AppConfig();
             }
+
+            config.LoadedFromPath = resolvedPath;
+            return config;
         }
 
         public void Save(string? configPath = null)
         {
-            configPath ??= GetDefaultConfigPath();
+            configPath ??= LoadedFromPath ?? GetDefaultConfigPath();
             
             try
             {
