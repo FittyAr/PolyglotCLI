@@ -33,7 +33,8 @@ namespace PolyglotCLI
                 X = 0,
                 Y = 0,
                 Width = Dim.Percent(38),
-                Height = Dim.Fill(2) 
+                Height = Dim.Fill(2),
+                BorderStyle = LineStyle.Rounded
             };
 
             var labelAddPrompt = new Label 
@@ -94,7 +95,8 @@ namespace PolyglotCLI
                 X = Pos.Right(_leftFrame),
                 Y = 0,
                 Width = Dim.Fill(),
-                Height = Dim.Fill(2) 
+                Height = Dim.Fill(2),
+                BorderStyle = LineStyle.Rounded
             };
 
             _labelScanDir = new Label 
@@ -165,7 +167,7 @@ namespace PolyglotCLI
                 X = 60,
                 Y = 4,
                 Width = 10,
-                Height = 5
+                Height = 1
             };
             _comboFormat.Source = new ListWrapper<string>(new ObservableCollection<string>(formatsList));
             _comboFormat.Text = string.IsNullOrEmpty(_config.DefaultOutputFormat) ? "html" : _config.DefaultOutputFormat;

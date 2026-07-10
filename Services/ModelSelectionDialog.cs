@@ -59,7 +59,7 @@ namespace PolyglotCLI
                 return;
             }
 
-            var dialog = new Dialog { Title = $"Select {roleName} Model", Width =  60, Height =  15 };
+            var dialog = new Dialog { Title = $"Select {roleName} Model", Width = 60, Height = 15, BorderStyle = LineStyle.Rounded };
             
             var label = new Label { Text = $"Available models in LM Studio (Select one):", X = 1,
                 Y = 1,

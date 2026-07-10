@@ -22,7 +22,8 @@ namespace PolyglotCLI
             { 
                 Title = "Keyboard Shortcuts & Help", 
                 Width = 65, 
-                Height = 28 
+                Height = 28,
+                BorderStyle = LineStyle.Rounded
             };
 
             var content = new Label 
@@ -78,7 +79,7 @@ namespace PolyglotCLI
                 return;
             }
 
-            var dProgress = new Dialog { Title = "AI Prompt Improver", Width = 40, Height = 5 };
+            var dProgress = new Dialog { Title = "AI Prompt Improver", Width = 40, Height = 5, BorderStyle = LineStyle.Rounded };
             var lblStatus = new Label { Text = "Connecting to LM Studio...", X = Pos.Center(), Y = 1 };
             dProgress.Add(lblStatus);
             
@@ -125,7 +126,7 @@ namespace PolyglotCLI
                 return;
             }
 
-            var dPreview = new Dialog { Title = "AI Improved Prompt Preview", Width = 75, Height = 20 };
+            var dPreview = new Dialog { Title = "AI Improved Prompt Preview", Width = 75, Height = 20, BorderStyle = LineStyle.Rounded };
             
             var lblOrig = new Label { Text = "Original Prompt:", X = 1, Y = 1 };
             var textOrig = new SafeTextView
@@ -198,7 +199,7 @@ namespace PolyglotCLI
                 return;
             }
 
-            var dProgress = new Dialog { Title = "AI File Context Prompt Generator", Width = 50, Height = 5 };
+            var dProgress = new Dialog { Title = "AI File Context Prompt Generator", Width = 50, Height = 5, BorderStyle = LineStyle.Rounded };
             var lblStatus = new Label { Text = "Preparing to analyze file...", X = Pos.Center(), Y = 1 };
             dProgress.Add(lblStatus);
             
@@ -252,7 +253,7 @@ namespace PolyglotCLI
                 return;
             }
 
-            var dPreview = new Dialog { Title = "AI File Analysis Result Preview", Width = 75, Height = 20 };
+            var dPreview = new Dialog { Title = "AI File Analysis Result Preview", Width = 75, Height = 20, BorderStyle = LineStyle.Rounded };
             
             var lblNew = new Label { Text = "Generated Context-Based Prompt:", X = 1, Y = 1 };
             var textNew = new SafeTextView
@@ -297,7 +298,7 @@ namespace PolyglotCLI
         private string? PromptTextDialog(string title, string promptText, string defaultValue)
         {
             string? result = null;
-            var dialog = new Dialog { Title = title, Width = 50, Height = 7 };
+            var dialog = new Dialog { Title = title, Width = 50, Height = 7, BorderStyle = LineStyle.Rounded };
             
             var label = new Label 
             { 

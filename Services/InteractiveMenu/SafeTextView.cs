@@ -4,6 +4,11 @@ namespace PolyglotCLI
 {
     public class SafeTextView : TextView
     {
+        public SafeTextView()
+        {
+            TabKeyAddsTab = false;
+        }
+
         protected override bool OnMouseEvent(Terminal.Gui.Input.Mouse ev)
         {
             try

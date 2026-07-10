@@ -16,7 +16,7 @@ namespace PolyglotCLI
     {
         public static void Show(IApplication app, AppConfig config)
         {
-            var dialog = new Dialog { Title = "Advanced Configuration Settings", Width =  82, Height =  24 };
+            var dialog = new Dialog { Title = "Advanced Configuration Settings", Width = 82, Height = 24, BorderStyle = LineStyle.Rounded };
 
             // Categories list on the left
             var categories = new List<string> { "General", "OCR Process", "Translation", "Revision", "Output Formats" };
@@ -138,7 +138,7 @@ namespace PolyglotCLI
                 X = 2,
                 Y = 5,
                 Width = 15,
-                Height = 6
+                Height = 1
             };
             comboDefaultFormat.Source = new ListWrapper<string>(new System.Collections.ObjectModel.ObservableCollection<string>(defaultFormatsList));
             comboDefaultFormat.Text = string.IsNullOrEmpty(config.DefaultOutputFormat) ? "None" : config.DefaultOutputFormat;
@@ -158,6 +158,8 @@ namespace PolyglotCLI
                 viewTranslation.Visible = (categoryList.SelectedItem ?? -1) == 2;
                 viewRevision.Visible = (categoryList.SelectedItem ?? -1) == 3;
                 viewFormats.Visible = (categoryList.SelectedItem ?? -1) == 4;
+                // Force a full repaint to prevent ghosting/overlap between panels
+                dialog.SetNeedsDraw();
             };
 
             // Model selection click handlers
@@ -186,7 +188,7 @@ namespace PolyglotCLI
                     return;
                 }
 
-                var dProgress = new Dialog { Title = "Testing Connection", Width =  45, Height =  5 };
+                var dProgress = new Dialog { Title = "Testing Connection", Width = 45, Height = 5, BorderStyle = LineStyle.Rounded };
                 var lblStatus = new Label { Text = "Connecting to LM Studio...", X = Pos.Center(), Y = 1 };
                 dProgress.Add(lblStatus);
 

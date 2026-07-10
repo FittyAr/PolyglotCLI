@@ -214,7 +214,19 @@ namespace PolyglotCLI
 
             _config.LastScanDirectory = scanDir;
             _config.AdditionalPrompt = _textAddPrompt.Text?.ToString()?.Trim();
-            
+            _config.EnableReview = _checkVerify.Value == CheckState.Checked;
+
+            // Save Gen Doc / format selection
+            bool generateDoc = _checkGenerate.Value == CheckState.Checked;
+            string selectedFmt = _comboFormat.Text?.ToString()?.Trim().ToLowerInvariant() ?? "";
+            _config.DefaultOutputFormat = generateDoc && !string.IsNullOrEmpty(selectedFmt) ? selectedFmt : null;
+
+            var outputFormats = new List<string>();
+            if (_config.SaveMarkdown) outputFormats.Add("md");
+            if (generateDoc && !string.IsNullOrEmpty(selectedFmt)) outputFormats.Add(selectedFmt);
+            if (outputFormats.Count == 0) outputFormats.Add("md");
+            _config.OutputFormats = string.Join(",", outputFormats);
+
             _config.Save();
             MessageBox.Query(_app, "Success", "Presets saved successfully to config.json!", new[] { "OK" });
         }
