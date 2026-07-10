@@ -1,6 +1,6 @@
 {
   "ApiUrl": "http://192.168.0.11:1234/v1",
-  "DefaultModel": "google/gemma-4-e4b",
+  "DefaultModel": "qwen/qwen3.5-9b",
   "DefaultVisionModel": "qwen/qwen2.5-vl-7b",
   "TargetLanguage": "Spanish",
   "OutputDirectory": "d:\\",

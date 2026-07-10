@@ -19,6 +19,11 @@ namespace PolyglotCLI
         private readonly List<SelectableFile> _filesSource = new();
         private CommandLineOptions? _resultOptions;
         private IApplication? _app;
+        /// <summary>
+        /// True while any modal dialog is being shown via <c>AppRequired.Run(dialog)</c>.
+        /// Used by the global keyboard handler to avoid consuming character keys meant for modal inputs.
+        /// </summary>
+        private bool _isModalOpen;
 
         // UI Widget fields — initialized in BuildLayout(), declared nullable to satisfy CS8618
         private Window? _win;
