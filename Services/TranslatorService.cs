@@ -46,6 +46,12 @@ namespace PolyglotCLI
                     _modelName
                 );
                 stopwatch.Stop();
+
+                if (string.IsNullOrWhiteSpace(translatedText))
+                {
+                    throw new InvalidOperationException("Translation model returned an empty or whitespace response.");
+                }
+
                 AppLogger.Info($"Translation page {pageNumber}: Succeeded in {stopwatch.ElapsedMilliseconds}ms. Output length: {translatedText.Length} chars.");
 
                 Console.ForegroundColor = ConsoleColor.Green;

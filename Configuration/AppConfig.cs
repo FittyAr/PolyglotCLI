@@ -40,14 +40,41 @@ namespace PolyglotCLI
         public string LogLevelConsole { get; set; } = "Information";
         public string LogLevelFile { get; set; } = "Debug";
 
+        public static string GetDefaultConfigPath()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string dir = Path.Combine(appData, "PolyglotCLI");
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+                return Path.Combine(dir, "config.json");
+            }
+            return Path.Combine(AppContext.BaseDirectory, "config.json");
+        }
+
         public static AppConfig Load(string? configPath = null)
         {
-            configPath ??= Path.Combine(AppContext.BaseDirectory, "config.json");
+            configPath ??= GetDefaultConfigPath();
             
-            // Fallback to project root directory config if not found in output directory
+            // Fallback to local files if appdata config does not exist
             if (!File.Exists(configPath))
             {
-                configPath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
+                string localPath = Path.Combine(AppContext.BaseDirectory, "config.json");
+                if (File.Exists(localPath))
+                {
+                    configPath = localPath;
+                }
+                else
+                {
+                    string rootPath = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
+                    if (File.Exists(rootPath))
+                    {
+                        configPath = rootPath;
+                    }
+                }
             }
 
             if (!File.Exists(configPath))
@@ -72,17 +99,8 @@ namespace PolyglotCLI
 
         public void Save(string? configPath = null)
         {
-            configPath ??= Path.Combine(AppContext.BaseDirectory, "config.json");
+            configPath ??= GetDefaultConfigPath();
             
-            if (!File.Exists(configPath))
-            {
-                var rootConfig = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
-                if (File.Exists(rootConfig))
-                {
-                    configPath = rootConfig;
-                }
-            }
-
             try
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };

@@ -48,13 +48,31 @@ namespace PolyglotCLI
             }
         }
 
-        public static void Initialize(AppConfig config)
+        public static void Initialize(AppConfig config, string? logDirOverride = null)
         {
-            if (_isInitialized) return;
+            if (_isInitialized && string.IsNullOrEmpty(logDirOverride)) return;
 
             try
             {
-                string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, config.LogDirectory);
+                if (_isInitialized)
+                {
+                    Log.CloseAndFlush();
+                }
+
+                string logDir = logDirOverride ?? string.Empty;
+                if (string.IsNullOrEmpty(logDir))
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+                        string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                        logDir = Path.Combine(appData, "PolyglotCLI", config.LogDirectory);
+                    }
+                    else
+                    {
+                        logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, config.LogDirectory);
+                    }
+                }
+
                 if (!Directory.Exists(logDir))
                 {
                     Directory.CreateDirectory(logDir);

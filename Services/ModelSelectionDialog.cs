@@ -1,16 +1,23 @@
 using System;
 using System.Collections.Generic;
 using Terminal.Gui;
+using Terminal.Gui.App;
+using Terminal.Gui.Drawing;
+using Terminal.Gui.Drivers;
+using Terminal.Gui.Views;
+using Terminal.Gui.Input;
+using System.Collections.ObjectModel;
+using Terminal.Gui.ViewBase;
 
 namespace PolyglotCLI
 {
     public static class ModelSelectionDialog
     {
-        public static void Show(TextField targetField, string roleName, string apiUrl, int checkTimeoutSeconds)
+        public static void Show(IApplication app, TextField targetField, string roleName, string apiUrl, int checkTimeoutSeconds)
         {
             if (string.IsNullOrEmpty(apiUrl))
             {
-                MessageBox.ErrorQuery("Error", "LM Studio API URL is empty.", "OK");
+                MessageBox.ErrorQuery(app, "Error",  "LM Studio API URL is empty.", new[] { "OK" });
                 return;
             }
 
@@ -42,65 +49,63 @@ namespace PolyglotCLI
             }
             catch (Exception ex)
             {
-                MessageBox.ErrorQuery("Connection Error", $"Failed to connect to LM Studio: {ex.Message}", "OK");
+                MessageBox.ErrorQuery(app, "Connection Error",  $"Failed to connect to LM Studio: {ex.Message}", new[] { "OK" });
                 return;
             }
 
             if (detectedList.Count == 0)
             {
-                MessageBox.Query("Status", "No active models returned from API.", "OK");
+                MessageBox.Query(app, "Status",  "No active models returned from API.", new[] { "OK" });
                 return;
             }
 
-            var dialog = new Dialog($"Select {roleName} Model", 60, 15);
+            var dialog = new Dialog { Title = $"Select {roleName} Model", Width =  60, Height =  15 };
             
-            var label = new Label($"Available models in LM Studio (Select one):")
-            {
-                X = 1,
+            var label = new Label { Text = $"Available models in LM Studio (Select one):", X = 1,
                 Y = 1,
-                Width = Dim.Fill()
-            };
+                Width = Dim.Fill() };
             
-            var listModels = new ListView(detectedList)
+            var listModels = new ListView
             {
                 X = 1,
                 Y = 2,
                 Width = Dim.Fill(2),
                 Height = Dim.Fill(2)
             };
+            listModels.SetSource(new ObservableCollection<string>(detectedList));
 
             string? selected = null;
-            var btnOk = new Button("Select", is_default: true);
-            var btnCancel = new Button("Cancel");
+            var btnOk = new Button { Text = "Select", IsDefault = true };
+            var btnCancel = new Button { Text = "Cancel" };
 
-            btnOk.Clicked += () => {
-                int sel = listModels.SelectedItem;
+            btnOk.Accepted += (s, e) => {
+                int sel = listModels.SelectedItem ?? -1;
                 if (sel >= 0 && sel < detectedList.Count)
                 {
                     selected = detectedList[sel];
                 }
-                Application.RequestStop();
+                app.RequestStop(dialog);
             };
 
-            btnCancel.Clicked += () => {
+            btnCancel.Accepted += (s, e) => {
                 selected = null;
-                Application.RequestStop();
+                app.RequestStop(dialog);
             };
 
-            listModels.OpenSelectedItem += (args) => {
-                int sel = listModels.SelectedItem;
+            listModels.Accepted += (s, e) => {
+                int sel = listModels.SelectedItem ?? -1;
                 if (sel >= 0 && sel < detectedList.Count)
                 {
                     selected = detectedList[sel];
                 }
-                Application.RequestStop();
+                app.RequestStop(dialog);
             };
 
             dialog.AddButton(btnOk);
             dialog.AddButton(btnCancel);
             dialog.Add(label, listModels);
 
-            Application.Run(dialog);
+            app.Run(dialog);
 
             if (selected != null)
             {

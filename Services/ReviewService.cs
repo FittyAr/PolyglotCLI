@@ -39,6 +39,12 @@ namespace PolyglotCLI
                     _modelName
                 );
                 stopwatch.Stop();
+
+                if (string.IsNullOrWhiteSpace(reviewedText))
+                {
+                    throw new InvalidOperationException("Review model returned an empty or whitespace response.");
+                }
+
                 AppLogger.Info($"Review page {pageNumber}: Succeeded in {stopwatch.ElapsedMilliseconds}ms. Output length: {reviewedText.Length} chars.");
 
                 Console.ForegroundColor = ConsoleColor.Green;

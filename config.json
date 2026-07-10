@@ -6,7 +6,7 @@
   "OutputDirectory": "d:\\",
   "LastScanDirectory": "d:\\",
   "Debug": false,
-  "AdditionalPrompt": "",
+  "AdditionalPrompt": "Translate the following text into Spanish while strictly preserving the original meaning, structure, and level of technical detail.\r\n\r\nThis document concerns the qualification of pharmaceutical production equipment in a GMP environment. Use terminology that is standard in pharmaceutical engineering, validation, qualification, and regulatory affairs.\r\n\r\nRequirements:\r\n\r\nTranslate only the text provided.\r\nDo not add, omit, rephrase, interpret, infer, or expand any information.\r\nDo not introduce words, explanations, examples, clarifications, or terminology that are not explicitly present in the source text.\r\nPreserve the original sentence structure and formatting whenever possible.\r\nMaintain all technical terminology accurately and consistently.\r\nRetain established pharmaceutical industry terms (e.g., IQ, OQ, PQ, validation lifecycle, critical process parameters) unless an official Spanish equivalent is explicitly used in the source or is the accepted regulatory translation.\r\nMaintain a formal, highly technical, and specialized tone appropriate for pharmaceutical engineering, GMP documentation, validation protocols, and regulatory submissions.\r\nDo not simplify the language or make it more natural or readable at the expense of technical accuracy.\r\nIf a literal translation is technically correct, prefer it over a paraphrased translation.\r\nDo not correct, improve, or rewrite the source text. Your task is translation only.\r\n\r\nThe output must be a faithful, technically precise translation of the original text\u2014nothing more and nothing less.",
   "TranslationTimeoutSeconds": 300,
   "PromptImproveTimeoutSeconds": 300,
   "ModelCheckTimeoutSeconds": 5,
@@ -23,6 +23,31 @@
   "OutputFormats": "md",
   "SaveMarkdown": true,
   "DefaultOutputFormat": null,
-  "SupportedOutputFormats": [ "html", "docx", "odf", "pdf" ],
-  "SupportedInputExtensions": [ ".pdf", ".docx", ".doc", ".odt", ".odf", ".txt", ".md", ".json", ".csv", ".xml", ".html", ".jpg", ".jpeg", ".png", ".bmp", ".tiff" ]
+  "SupportedOutputFormats": [
+    "html",
+    "docx",
+    "odf",
+    "pdf"
+  ],
+  "SupportedInputExtensions": [
+    ".pdf",
+    ".docx",
+    ".doc",
+    ".odt",
+    ".odf",
+    ".txt",
+    ".md",
+    ".json",
+    ".csv",
+    ".xml",
+    ".html",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".bmp",
+    ".tiff"
+  ],
+  "LogDirectory": "logs",
+  "LogLevelConsole": "Information",
+  "LogLevelFile": "Debug"
 }

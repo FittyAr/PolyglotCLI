@@ -62,6 +62,22 @@ namespace PolyglotCLI
                     try
                     {
                         byte[] pngBytes = pageRenderer.RenderPageToPng(filePath, pageNum);
+                        
+                        // Save PNG to current job directory if set
+                        if (!string.IsNullOrEmpty(TranslationOrchestrator.CurrentJobDirectory))
+                        {
+                            try
+                            {
+                                string docName = Path.GetFileNameWithoutExtension(filePath);
+                                string pngPath = Path.Combine(TranslationOrchestrator.CurrentJobDirectory, $"{docName}_page_{pageNum}.png");
+                                File.WriteAllBytes(pngPath, pngBytes);
+                            }
+                            catch (Exception savePngEx)
+                            {
+                                AppLogger.Warn($"Failed to save temporary page PNG to job directory: {savePngEx.Message}");
+                            }
+                        }
+
                         state.OcrText = await ocrService.PerformOcrAsync(pngBytes, pageNum);
                         state.OcrFailed = false;
                     }

@@ -9,8 +9,43 @@ namespace PolyglotCLI
 {
     public static class TranslationOrchestrator
     {
+        public static string? CurrentJobDirectory { get; set; }
+
         public static async Task<int> ExecuteAsync(CommandLineOptions options, AppConfig config)
         {
+            // 0. Setup Job Directory
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string jobDir;
+            if (OperatingSystem.IsWindows())
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                jobDir = Path.Combine(appData, "PolyglotCLI", "jobs", timestamp);
+            }
+            else
+            {
+                jobDir = Path.Combine(AppContext.BaseDirectory, "jobs", timestamp);
+            }
+
+            if (!Directory.Exists(jobDir))
+            {
+                Directory.CreateDirectory(jobDir);
+            }
+
+            CurrentJobDirectory = jobDir;
+
+            // Re-initialize logger to write to the job directory
+            AppLogger.Initialize(config, jobDir);
+
+            // Save config copy
+            try
+            {
+                config.Save(Path.Combine(jobDir, "config.json"));
+            }
+            catch (Exception cfgEx)
+            {
+                AppLogger.Warn($"Failed to save config.json copy to job directory: {cfgEx.Message}");
+            }
+
             var totalPipelineStopwatch = Stopwatch.StartNew();
             using var systemScope = AppLogger.BeginProcess("System");
             AppLogger.Info("==================================================");
@@ -574,6 +609,26 @@ namespace PolyglotCLI
                         if (File.Exists(originalOutputPath))
                         {
                             await OutputFormatConverter.ConvertToFormatsAsync(originalOutputPath, options.SelectedFormat);
+                        }
+                    }
+
+                    // Save copies of markdown files to job directory
+                    if (!string.IsNullOrEmpty(CurrentJobDirectory))
+                    {
+                        try
+                        {
+                            if (File.Exists(outputPath))
+                            {
+                                File.Copy(outputPath, Path.Combine(CurrentJobDirectory, Path.GetFileName(outputPath)), true);
+                            }
+                            if (File.Exists(originalOutputPath))
+                            {
+                                File.Copy(originalOutputPath, Path.Combine(CurrentJobDirectory, Path.GetFileName(originalOutputPath)), true);
+                            }
+                        }
+                        catch (Exception copyEx)
+                        {
+                            AppLogger.Warn($"Failed to copy final Markdown files to job directory: {copyEx.Message}");
                         }
                     }
 
