@@ -1,5 +1,5 @@
 {
-  "ApiUrl": "http://172.22.144.1:1234/v1",
+  "ApiUrl": "http://192.168.0.11:1234/v1",
   "DefaultModel": "google/gemma-4-e4b",
   "DefaultVisionModel": "qwen/qwen2.5-vl-7b",
   "TargetLanguage": "Spanish",
@@ -20,5 +20,7 @@
   "ReviewTemperature": 0.1,
   "OcrTemperature": 0.2,
   "OcrTimeoutSeconds": 300,
-  "OutputFormats": "md"
+  "OutputFormats": "md",
+  "SaveMarkdown": true,
+  "DefaultOutputFormat": null
 }

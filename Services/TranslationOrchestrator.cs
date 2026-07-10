@@ -234,6 +234,22 @@ namespace PolyglotCLI
                         AppLogger.InfoConsole($"Transcribe skipped. Loaded {pageStates.Count} pages/chunks from cache.", ConsoleColor.Yellow);
                     }
                     
+                    // Filter pageStates by target.PageRange if specified
+                    if (!string.IsNullOrWhiteSpace(target.PageRange) && !target.PageRange.Equals("all", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int maxPage = 0;
+                        foreach (var state in pageStates)
+                        {
+                            if (state.PageNumber > maxPage) maxPage = state.PageNumber;
+                        }
+                        var pageFilter = CommandLineOptions.ParsePageRange(target.PageRange, maxPage);
+                        if (pageFilter != null)
+                        {
+                            pageStates = pageStates.FindAll(s => pageFilter.Contains(s.PageNumber));
+                            AppLogger.Info($"Filtered page states to range '{target.PageRange}'. Active pages: {string.Join(", ", pageStates.ConvertAll(s => s.PageNumber))}");
+                        }
+                    }
+                    
                     documentStateCache[filePath] = pageStates;
                 }
                 catch (Exception ex)
