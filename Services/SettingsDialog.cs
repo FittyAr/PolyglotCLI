@@ -131,26 +131,33 @@ namespace PolyglotCLI
                 X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), Visible = false
             };
 
-            // Split existing formats to determine check state
-            var activeFormats = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (!string.IsNullOrWhiteSpace(config.OutputFormats))
+            var checkMd = new CheckBox("Always generate Markdown (.md) documents") 
+            { 
+                X = 2, 
+                Y = 2, 
+                Checked = config.SaveMarkdown 
+            };
+
+            var lblDefaultFormat = new Label("Default Additional Output Format:") 
+            { 
+                X = 2, 
+                Y = 4 
+            };
+
+            var defaultFormatsList = new List<string> { "None", "html", "docx", "odf", "pdf" };
+            var comboDefaultFormat = new ComboBox()
             {
-                foreach (var f in config.OutputFormats.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    activeFormats.Add(f.Trim());
-                }
-            }
+                X = 2,
+                Y = 5,
+                Width = 15,
+                Height = 6
+            };
+            comboDefaultFormat.SetSource(defaultFormatsList);
+            comboDefaultFormat.Text = string.IsNullOrEmpty(config.DefaultOutputFormat) ? "None" : config.DefaultOutputFormat;
 
-            // Checkboxes
-            var checkMd = new CheckBox("Markdown (.md)") { X = 2, Y = 2, Checked = activeFormats.Contains("md") || activeFormats.Contains("markdown") || activeFormats.Count == 0 };
-            var checkHtml = new CheckBox("HTML (.html)") { X = 2, Y = 4, Checked = activeFormats.Contains("html") };
-            var checkPdf = new CheckBox("PDF (.pdf) [requires pandoc]") { X = 2, Y = 6, Checked = activeFormats.Contains("pdf") };
-            var checkDocx = new CheckBox("Word Document (.docx) [requires pandoc]") { X = 2, Y = 8, Checked = activeFormats.Contains("docx") };
-            var checkOdt = new CheckBox("OpenDocument Text (.odt) [requires pandoc]") { X = 2, Y = 10, Checked = activeFormats.Contains("odt") };
+            var lblFormatsNotice = new Label("Note: Formats other than MD are generated as post-process.") { X = 2, Y = 12 };
 
-            var lblFormatsNotice = new Label("Note: Formats other than MD are generated as post-process.") { X = 2, Y = 13 };
-
-            viewFormats.Add(checkMd, checkHtml, checkPdf, checkDocx, checkOdt, lblFormatsNotice);
+            viewFormats.Add(checkMd, lblDefaultFormat, comboDefaultFormat, lblFormatsNotice);
 
             // Add all view panels to the container
             rightContainer.Add(viewGeneral, viewOcr, viewTranslation, viewRevision, viewFormats);
@@ -289,12 +296,13 @@ namespace PolyglotCLI
                     config.ReviewTimeoutSeconds = reviewTimeout;
 
                     // Formats
+                    config.SaveMarkdown = checkMd.Checked;
+                    string selectedFmt = comboDefaultFormat.Text?.ToString()?.Trim().ToLowerInvariant() ?? "none";
+                    config.DefaultOutputFormat = selectedFmt == "none" ? null : selectedFmt;
+
                     var selectedFormats = new List<string>();
-                    if (checkMd.Checked) selectedFormats.Add("md");
-                    if (checkHtml.Checked) selectedFormats.Add("html");
-                    if (checkPdf.Checked) selectedFormats.Add("pdf");
-                    if (checkDocx.Checked) selectedFormats.Add("docx");
-                    if (checkOdt.Checked) selectedFormats.Add("odt");
+                    if (config.SaveMarkdown) selectedFormats.Add("md");
+                    if (!string.IsNullOrEmpty(config.DefaultOutputFormat)) selectedFormats.Add(config.DefaultOutputFormat);
                     if (selectedFormats.Count == 0) selectedFormats.Add("md");
                     config.OutputFormats = string.Join(",", selectedFormats);
 

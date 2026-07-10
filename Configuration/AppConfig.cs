@@ -23,11 +23,13 @@ namespace PolyglotCLI
         public bool PreserveFormat { get; set; } = true;
         public bool EnableReview { get; set; } = false;
         public string? ReviewModel { get; set; }
-        public int ReviewTimeoutSeconds { get; set; } = 300;
+        public int ReviewTimeoutSeconds { get; set; } = 3000;
         public double ReviewTemperature { get; set; } = 0.3;
         public double OcrTemperature { get; set; } = 0.2;
         public int OcrTimeoutSeconds { get; set; } = 300;
         public string OutputFormats { get; set; } = "md";
+        public bool SaveMarkdown { get; set; } = true;
+        public string? DefaultOutputFormat { get; set; }
 
         public static AppConfig Load(string? configPath = null)
         {

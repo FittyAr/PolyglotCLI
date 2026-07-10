@@ -100,8 +100,8 @@ namespace PolyglotCLI
 
             // Initialize Review Service if enabled
             ReviewService? reviewService = null;
-            using var reviewClient = config.EnableReview ? new LmStudioClient(options.ApiUrl, config.ReviewTimeoutSeconds) : null;
-            if (config.EnableReview && reviewClient != null)
+            using var reviewClient = options.Verify ? new LmStudioClient(options.ApiUrl, config.ReviewTimeoutSeconds) : null;
+            if (options.Verify && reviewClient != null)
             {
                 try
                 {
@@ -202,28 +202,36 @@ namespace PolyglotCLI
                         cachedStates.Add(state);
                     }
 
-                    originalWriter.InitializeOrKeep(originalOutputPath, fileName, "Original");
-                    
-                    var pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer, cachedStates, originalWriter);
-                    
-                    int successCount = 0;
-                    foreach (var s in pageStates)
+                    List<PageProcessState> pageStates;
+                    if (options.Transcribe)
                     {
-                        if (!s.OcrFailed) successCount++;
-                    }
-                    AppLogger.InfoConsole($"Extracted {successCount}/{pageStates.Count} pages/chunks successfully.", ConsoleColor.Green);
-                    
-                    int textLength = 0;
-                    foreach (var s in pageStates)
-                    {
-                        textLength += s.OcrText?.Trim().Length ?? 0;
-                    }
-                    AppLogger.Debug($"Total extracted text length for {fileName}: {textLength} characters.");
+                        originalWriter.InitializeOrKeep(originalOutputPath, fileName, "Original");
+                        pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer, cachedStates, originalWriter);
+                        
+                        int successCount = 0;
+                        foreach (var s in pageStates)
+                        {
+                            if (!s.OcrFailed) successCount++;
+                        }
+                        AppLogger.InfoConsole($"Extracted {successCount}/{pageStates.Count} pages/chunks successfully.", ConsoleColor.Green);
+                        
+                        int textLength = 0;
+                        foreach (var s in pageStates)
+                        {
+                            textLength += s.OcrText?.Trim().Length ?? 0;
+                        }
+                        AppLogger.Debug($"Total extracted text length for {fileName}: {textLength} characters.");
 
-                    if (textLength == 0 && target.Mode.Equals("text", StringComparison.OrdinalIgnoreCase) && Path.GetExtension(filePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                        if (textLength == 0 && target.Mode.Equals("text", StringComparison.OrdinalIgnoreCase) && Path.GetExtension(filePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                        {
+                            AppLogger.WarnConsole($"[WARNING] No selectable text was found in '{fileName}'.");
+                            AppLogger.Warn("Scanned document warning: document appears to contain images only. User should run OCR mode.");
+                        }
+                    }
+                    else
                     {
-                        AppLogger.WarnConsole($"[WARNING] No selectable text was found in '{fileName}'.");
-                        AppLogger.Warn("Scanned document warning: document appears to contain images only. User should run OCR mode.");
+                        pageStates = cachedStates;
+                        AppLogger.InfoConsole($"Transcribe skipped. Loaded {pageStates.Count} pages/chunks from cache.", ConsoleColor.Yellow);
                     }
                     
                     documentStateCache[filePath] = pageStates;
@@ -299,48 +307,61 @@ namespace PolyglotCLI
                 try
                 {
                     AppLogger.Debug($"Initializing output files: {outputPath} and {originalOutputPath}");
-                    translatedWriter.InitializeOrKeep(outputPath, fileName, options.TargetLanguage);
-                    originalWriter.InitializeOrKeep(originalOutputPath, fileName, "Original");
-
-                    foreach (var state in pageStates)
+                    if (options.Transcribe)
                     {
-                        int pageNum = state.PageNumber;
+                        originalWriter.InitializeOrKeep(originalOutputPath, fileName, "Original");
+                    }
+                    if (options.Translate || options.Verify)
+                    {
+                        translatedWriter.InitializeOrKeep(outputPath, fileName, options.TargetLanguage);
+                    }
 
-                        if (!state.TranslationFailed && !string.IsNullOrEmpty(state.TranslatedText))
+                    if (options.Translate)
+                    {
+                        foreach (var state in pageStates)
                         {
-                            AppLogger.Info($"Page {pageNum}: Using cached translation from disk.");
-                            translatedWriter.SaveOrUpdatePage(pageNum, state.TranslatedText);
-                            continue;
-                        }
+                            int pageNum = state.PageNumber;
 
-                        if (state.OcrFailed)
-                        {
-                            AppLogger.Warn($"Skipping page {pageNum}: OCR/Extraction failed. Propagating error.");
-                            state.TranslatedText = state.OcrText;
-                            state.TranslationFailed = true;
-                            state.TranslationErrorMessage = state.OcrErrorMessage;
-                        }
-                        else
-                        {
-                            try
+                            if (!state.TranslationFailed && !string.IsNullOrEmpty(state.TranslatedText))
                             {
-                                state.TranslatedText = await translatorService.TranslateTextAsync(state.OcrText ?? string.Empty, pageNum);
-                                state.TranslationFailed = false;
+                                AppLogger.Info($"Page {pageNum}: Using cached translation from disk.");
+                                translatedWriter.SaveOrUpdatePage(pageNum, state.TranslatedText);
+                                continue;
                             }
-                            catch (Exception transEx)
+
+                            if (state.OcrFailed)
                             {
-                                // Fix layout: print a newline first to separate from the unfinished Console.Write inside TranslatorService
-                                Console.WriteLine();
-                                AppLogger.ErrorConsole($"Translation Error on page/chunk {pageNum}", transEx);
-                                
+                                AppLogger.Warn($"Skipping page {pageNum}: OCR/Extraction failed. Propagating error.");
+                                state.TranslatedText = state.OcrText;
                                 state.TranslationFailed = true;
-                                state.TranslationErrorMessage = transEx.Message;
-                                state.TranslatedText = $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*";
+                                state.TranslationErrorMessage = state.OcrErrorMessage;
                             }
-                        }
+                            else
+                            {
+                                try
+                                {
+                                    state.TranslatedText = await translatorService.TranslateTextAsync(state.OcrText ?? string.Empty, pageNum);
+                                    state.TranslationFailed = false;
+                                }
+                                catch (Exception transEx)
+                                {
+                                    // Fix layout: print a newline first to separate from the unfinished Console.Write inside TranslatorService
+                                    Console.WriteLine();
+                                    AppLogger.ErrorConsole($"Translation Error on page/chunk {pageNum}", transEx);
+                                    
+                                    state.TranslationFailed = true;
+                                    state.TranslationErrorMessage = transEx.Message;
+                                    state.TranslatedText = $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*";
+                                }
+                            }
 
-                        originalWriter.SaveOrUpdatePage(pageNum, state.OcrText ?? string.Empty);
-                        translatedWriter.SaveOrUpdatePage(pageNum, state.TranslatedText ?? string.Empty);
+                            originalWriter.SaveOrUpdatePage(pageNum, state.OcrText ?? string.Empty);
+                            translatedWriter.SaveOrUpdatePage(pageNum, state.TranslatedText ?? string.Empty);
+                        }
+                    }
+                    else
+                    {
+                        AppLogger.InfoConsole("Translation skipped.", ConsoleColor.Yellow);
                     }
 
                     // Phase 4: Retry Loop for Failed Pages of this file
@@ -350,7 +371,7 @@ namespace PolyglotCLI
                         var failedPages = new List<PageProcessState>();
                         foreach (var state in pageStates)
                         {
-                            if (state.OcrFailed || state.TranslationFailed)
+                            if ((options.Transcribe && state.OcrFailed) || (options.Translate && state.TranslationFailed))
                             {
                                 failedPages.Add(state);
                             }
@@ -508,14 +529,42 @@ namespace PolyglotCLI
                         AppLogger.InfoConsole($"\nSuccessfully completed translating {fileName} (all pages/chunks succeeded)!", ConsoleColor.Green);
                     }
 
-                    AppLogger.Info($"Original text saved to: {originalOutputPath}");
-                    AppLogger.Info($"Output saved to: {outputPath}");
+                    if (File.Exists(originalOutputPath))
+                    {
+                        AppLogger.Info($"Original text saved to: {originalOutputPath}");
+                    }
+                    if (File.Exists(outputPath))
+                    {
+                        AppLogger.Info($"Output saved to: {outputPath}");
+                    }
 
                     // Phase 5: Output Format Conversion
-                    if (!string.IsNullOrWhiteSpace(config.OutputFormats) && !config.OutputFormats.Trim().Equals("md", StringComparison.OrdinalIgnoreCase))
+                    if (options.GenerateDoc && !string.IsNullOrWhiteSpace(options.SelectedFormat))
                     {
-                        AppLogger.InfoConsole("Converting output to additional formats...", ConsoleColor.Cyan);
-                        OutputFormatConverter.ConvertToFormats(outputPath, config.OutputFormats);
+                        AppLogger.InfoConsole($"Converting output to {options.SelectedFormat.ToUpperInvariant()}...", ConsoleColor.Cyan);
+                        if (File.Exists(outputPath))
+                        {
+                            OutputFormatConverter.ConvertToFormats(outputPath, options.SelectedFormat);
+                        }
+                        if (File.Exists(originalOutputPath))
+                        {
+                            OutputFormatConverter.ConvertToFormats(originalOutputPath, options.SelectedFormat);
+                        }
+                    }
+
+                    // Clean up markdown files if not requested
+                    if (!config.SaveMarkdown)
+                    {
+                        AppLogger.Info("Cleaning up temporary Markdown files...");
+                        try
+                        {
+                            if (File.Exists(outputPath)) File.Delete(outputPath);
+                            if (File.Exists(originalOutputPath)) File.Delete(originalOutputPath);
+                        }
+                        catch (Exception cleanEx)
+                        {
+                            AppLogger.Warn($"Failed to clean up Markdown files: {cleanEx.Message}");
+                        }
                     }
                 }
                 catch (Exception ex)

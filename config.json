@@ -16,7 +16,7 @@
   "PreserveFormat": true,
   "EnableReview": true,
   "ReviewModel": "qwen/qwen3.5-9b",
-  "ReviewTimeoutSeconds": 300,
+  "ReviewTimeoutSeconds": 3000,
   "ReviewTemperature": 0.1,
   "OcrTemperature": 0.2,
   "OcrTimeoutSeconds": 300,

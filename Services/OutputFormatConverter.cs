@@ -128,10 +128,11 @@ namespace PolyglotCLI
                     {
                         ConvertToHtml(markdownPath, outputPath);
                     }
-                    else if (fmt == "docx" || fmt == "odt" || fmt == "pdf")
+                    else if (fmt == "docx" || fmt == "odt" || fmt == "odf" || fmt == "pdf")
                     {
+                        string pandocFormat = fmt == "odf" ? "odt" : fmt;
                         // Try pandoc first
-                        if (!TryConvertWithPandoc(markdownPath, outputPath, fmt))
+                        if (!TryConvertWithPandoc(markdownPath, outputPath, pandocFormat))
                         {
                             // Fallback: generate HTML instead
                             string htmlFallback = $"{basePath}.html";

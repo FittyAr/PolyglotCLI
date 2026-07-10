@@ -82,12 +82,30 @@ namespace PolyglotCLI
             var textScanDir = new TextField(config.LastScanDirectory ?? ".") { X = 1, Y = 2, Width = Dim.Fill(16) };
             var btnScan = new Button("Scan [F6]") { X = Pos.Right(textScanDir) + 1, Y = 2 };
 
-            var labelFiles = new Label("Documents Found (Space/Double-Click to select):") { X = 1, Y = 4 };
-            var tableHeader = new Label("Sel | File Name            | Type | Mode                 | Pages    ") { X = 1, Y = 5, ColorScheme = Colors.Base };
+            // Tasks Selection Row
+            var labelTasks = new Label("Tasks:") { X = 1, Y = 4 };
+            var checkTranscribe = new CheckBox("Transcribe") { X = 8, Y = 4, Checked = true };
+            var checkTranslate = new CheckBox("Translate") { X = 23, Y = 4, Checked = true };
+            var checkVerify = new CheckBox("Verify") { X = 37, Y = 4, Checked = config.EnableReview };
+            var checkGenerate = new CheckBox("Gen Doc:") { X = 48, Y = 4, Checked = !string.IsNullOrEmpty(config.DefaultOutputFormat) };
+
+            var formatsList = new List<string> { "html", "docx", "odf", "pdf" };
+            var comboFormat = new ComboBox()
+            {
+                X = 60,
+                Y = 4,
+                Width = 10,
+                Height = 5
+            };
+            comboFormat.SetSource(formatsList);
+            comboFormat.Text = string.IsNullOrEmpty(config.DefaultOutputFormat) ? "html" : config.DefaultOutputFormat;
+
+            var labelFiles = new Label("Documents Found (Space/Double-Click to select):") { X = 1, Y = 6 };
+            var tableHeader = new Label("Sel | File Name            | Type | Mode                 | Pages    ") { X = 1, Y = 7, ColorScheme = Colors.Base };
             var listFiles = new ListView(new List<string>())
             {
                 X = 1,
-                Y = 6,
+                Y = 8,
                 Width = Dim.Fill(2),
                 Height = Dim.Fill(2)
             };
@@ -102,6 +120,7 @@ namespace PolyglotCLI
 
             rightFrame.Add(
                 labelScanDir, textScanDir, btnScan,
+                labelTasks, checkTranscribe, checkTranslate, checkVerify, checkGenerate, comboFormat,
                 labelFiles, tableHeader, listFiles, labelShortcuts
             );
 
@@ -707,7 +726,12 @@ namespace PolyglotCLI
                     OutputDirectory = config.OutputDirectory ?? "output",
                     Debug = config.Debug,
                     AdditionalPrompt = textAddPrompt.Text?.ToString()?.Trim(),
-                    DocumentTargets = new List<DocumentTarget>()
+                    DocumentTargets = new List<DocumentTarget>(),
+                    Transcribe = checkTranscribe.Checked,
+                    Translate = checkTranslate.Checked,
+                    Verify = checkVerify.Checked,
+                    GenerateDoc = checkGenerate.Checked,
+                    SelectedFormat = checkGenerate.Checked ? comboFormat.Text?.ToString()?.Trim().ToLowerInvariant() : null
                 };
 
                 foreach (var f in selected)

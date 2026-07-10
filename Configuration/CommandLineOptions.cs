@@ -18,6 +18,12 @@ namespace PolyglotCLI
         public bool Debug { get; set; } = false;
         public string? AdditionalPrompt { get; set; }
 
+        public bool Transcribe { get; set; } = true;
+        public bool Translate { get; set; } = true;
+        public bool Verify { get; set; } = false;
+        public bool GenerateDoc { get; set; } = false;
+        public string? SelectedFormat { get; set; }
+
         public static CommandLineOptions? Parse(string[] args, AppConfig config)
         {
             var options = new CommandLineOptions
@@ -25,7 +31,10 @@ namespace PolyglotCLI
                 ApiUrl = config.ApiUrl,
                 ModelName = config.DefaultModel,
                 VisionModelName = config.DefaultVisionModel,
-                AdditionalPrompt = config.AdditionalPrompt
+                AdditionalPrompt = config.AdditionalPrompt,
+                Verify = config.EnableReview,
+                GenerateDoc = !string.IsNullOrEmpty(config.DefaultOutputFormat),
+                SelectedFormat = config.DefaultOutputFormat
             };
             var filesList = new List<string>();
 
@@ -98,6 +107,22 @@ namespace PolyglotCLI
                     case "-d":
                     case "--debug":
                         options.Debug = true;
+                        break;
+                    case "--no-transcribe":
+                        options.Transcribe = false;
+                        break;
+                    case "--no-translate":
+                        options.Translate = false;
+                        break;
+                    case "--verify":
+                        options.Verify = true;
+                        break;
+                    case "--generate-doc":
+                        if (i + 1 < args.Length)
+                        {
+                            options.GenerateDoc = true;
+                            options.SelectedFormat = args[++i].ToLowerInvariant();
+                        }
                         break;
                     default:
                         // Treat unflagged arguments as input files if filesList is empty
