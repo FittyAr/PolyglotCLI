@@ -332,7 +332,14 @@ namespace PolyglotCLI
             var btnCancel = new Button { Text = "Cancel", X = 26, Y = 4 };
             
             btnOk.Accepted += (s, e) => {
-                result = textInput.Text?.ToString() ?? "";
+                string input = textInput.Text?.ToString()?.Trim() ?? "";
+                if (!CommandLineOptions.IsValidPageRange(input))
+                {
+                    MessageBox.ErrorQuery(AppRequired, "Format Error", "Invalid page range format.\nExpected formats:\n- 'all'\n- Single pages: '1, 3, 5'\n- Ranges: '1-5'\n- Combined: '1-5, 8, 10-12'", new[] { "OK" });
+                    textInput.SetFocus();
+                    return;
+                }
+                result = input;
                 AppRequired.RequestStop(dialog);
             };
             
@@ -344,7 +351,15 @@ namespace PolyglotCLI
             textInput.KeyDown += (s, e) => {
                 if (e.KeyCode == KeyCode.Enter)
                 {
-                    result = textInput.Text?.ToString() ?? "";
+                    string input = textInput.Text?.ToString()?.Trim() ?? "";
+                    if (!CommandLineOptions.IsValidPageRange(input))
+                    {
+                        MessageBox.ErrorQuery(AppRequired, "Format Error", "Invalid page range format.\nExpected formats:\n- 'all'\n- Single pages: '1, 3, 5'\n- Ranges: '1-5'\n- Combined: '1-5, 8, 10-12'", new[] { "OK" });
+                        textInput.SetFocus();
+                        e.Handled = true;
+                        return;
+                    }
+                    result = input;
                     AppRequired.RequestStop(dialog);
                     e.Handled = true;
                 }

@@ -239,6 +239,48 @@ namespace PolyglotCLI
             return pages;
         }
 
+        public static bool IsValidPageRange(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return true;
+            string trimmed = input.Trim().ToLowerInvariant();
+            if (trimmed == "all") return true;
+
+            // Permitir únicamente dígitos, comas, guiones y espacios
+            foreach (char c in trimmed)
+            {
+                if (!char.IsDigit(c) && c != ',' && c != '-' && c != ' ')
+                {
+                    return false;
+                }
+            }
+
+            // Separar por comas y validar cada fragmento
+            string[] parts = trimmed.Split(',');
+            foreach (var part in parts)
+            {
+                string p = part.Trim();
+                if (string.IsNullOrEmpty(p)) return false;
+
+                if (p.Contains('-'))
+                {
+                    string[] rangeParts = p.Split('-');
+                    if (rangeParts.Length != 2) return false;
+                    if (!int.TryParse(rangeParts[0].Trim(), out int start) || 
+                        !int.TryParse(rangeParts[1].Trim(), out int end))
+                    {
+                        return false;
+                    }
+                    if (start <= 0 || end <= 0) return false;
+                }
+                else
+                {
+                    if (!int.TryParse(p, out int val) || val <= 0) return false;
+                }
+            }
+
+            return true;
+        }
+
         public static void PrintUsage()
         {
             Console.WriteLine("Usage:");

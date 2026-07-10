@@ -76,9 +76,14 @@ namespace PolyglotCLI
                 {
                     if (ext == ".pdf")
                     {
+                        string shortName = file.DisplayName;
+                        if (shortName.Length > 25)
+                        {
+                            shortName = shortName.Substring(0, 22) + "...";
+                        }
                         string? newPageRange = PromptTextDialog(
-                            "Page Range",
-                            $"Enter page range for {file.DisplayName}:",
+                            $"Page Range: {shortName}",
+                            "Enter pages (e.g. 'all', '1-5', '1,3,5'):",
                             file.PageRange);
 
                         if (newPageRange != null)
