@@ -30,6 +30,9 @@ namespace PolyglotCLI
         public string OutputFormats { get; set; } = "md";
         public bool SaveMarkdown { get; set; } = true;
         public string? DefaultOutputFormat { get; set; }
+        public string LogDirectory { get; set; } = "logs";
+        public string LogLevelConsole { get; set; } = "Information";
+        public string LogLevelFile { get; set; } = "Debug";
 
         public static AppConfig Load(string? configPath = null)
         {

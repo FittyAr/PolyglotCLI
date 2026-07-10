@@ -1,6 +1,9 @@
 using System;
 using System.IO;
-using System.Threading;
+using Serilog;
+using Serilog.Events;
+using Serilog.Core;
+using Serilog.Context;
 
 namespace PolyglotCLI
 {
@@ -15,11 +18,11 @@ namespace PolyglotCLI
 
     public static class AppLogger
     {
-        private static readonly object _lock = new object();
-        private static string _logFilePath = string.Empty;
+        private static bool _isInitialized = false;
 
         static AppLogger()
         {
+            // Initial fallback logger: logs only to a basic system.log in the execution directory
             try
             {
                 string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
@@ -27,66 +30,105 @@ namespace PolyglotCLI
                 {
                     Directory.CreateDirectory(logDir);
                 }
-                _logFilePath = Path.Combine(logDir, "polyglot.log");
 
-                // If log file exists and is larger than 10MB, rotate it
-                if (File.Exists(_logFilePath))
+                Log.Logger = new LoggerConfiguration()
+                    .MinimumLevel.Debug()
+                    .Enrich.FromLogContext()
+                    .Enrich.With(new ThreadIdEnricher())
+                    .WriteTo.File(
+                        Path.Combine(logDir, "system.log"),
+                        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] [{ThreadId}] {Message:lj}{NewLine}{Exception}",
+                        rollingInterval: RollingInterval.Day)
+                    .CreateLogger();
+            }
+            catch
+            {
+                // Fallback to no-op or Console if even logs dir cannot be created
+                Log.Logger = new LoggerConfiguration().CreateLogger();
+            }
+        }
+
+        public static void Initialize(AppConfig config)
+        {
+            if (_isInitialized) return;
+
+            try
+            {
+                string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, config.LogDirectory);
+                if (!Directory.Exists(logDir))
                 {
-                    var fileInfo = new FileInfo(_logFilePath);
-                    if (fileInfo.Length > 10 * 1024 * 1024) 
-                    {
-                        string backupPath = Path.Combine(logDir, $"polyglot_{DateTime.Now:yyyyMMdd_HHmmss}.log");
-                        File.Move(_logFilePath, backupPath);
-                    }
+                    Directory.CreateDirectory(logDir);
                 }
 
-                Info("==================================================");
-                Info($"Logger Initialized. Log file: {_logFilePath}");
-                Info("==================================================");
+                // Parse minimum level for file logs
+                if (!Enum.TryParse<LogEventLevel>(config.LogLevelFile, true, out var fileLevel))
+                {
+                    fileLevel = LogEventLevel.Debug;
+                }
+
+                var loggerConfig = new LoggerConfiguration()
+                    .MinimumLevel.Is(fileLevel)
+                    .Enrich.FromLogContext()
+                    .Enrich.With(new ThreadIdEnricher());
+
+                // 1. Unified log file sink (polyglot.log) - holds all logs
+                string unifiedLogPath = Path.Combine(logDir, "polyglot.log");
+                loggerConfig.WriteTo.File(
+                    unifiedLogPath,
+                    outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] [{ThreadId}] [{ProcessType}] {Message:lj}{NewLine}{Exception}",
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 31);
+
+                // 2. Process-specific split log files (e.g. logs/extraction.log)
+                loggerConfig.WriteTo.Map(
+                    "ProcessType",
+                    "System",
+                    (processType, wt) => {
+                        // Sanitize process name for filename compatibility
+                        string safeName = string.Join("_", processType.Split(Path.GetInvalidFileNameChars())).ToLowerInvariant();
+                        wt.File(
+                            Path.Combine(logDir, $"{safeName}.log"),
+                            outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] [{Level:u3}] [{ThreadId}] {Message:lj}{NewLine}{Exception}",
+                            rollingInterval: RollingInterval.Day,
+                            retainedFileCountLimit: 31);
+                    });
+
+                Log.Logger = loggerConfig.CreateLogger();
+                _isInitialized = true;
+
+                Log.Information("==================================================");
+                Log.Information("Logger Re-initialized with AppConfig settings.");
+                Log.Information("Log Directory: {LogDir}", logDir);
+                Log.Information("File Log Level: {FileLevel}", fileLevel);
+                Log.Information("==================================================");
             }
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[FATAL] Failed to initialize AppLogger: {ex.Message}");
+                Console.WriteLine($"[FATAL] Failed to initialize Serilog AppLogger: {ex.Message}");
                 Console.ResetColor();
             }
         }
 
-        private static void WriteLog(LogLevel level, string message, Exception? exception = null)
+        public static IDisposable BeginProcess(string processName)
         {
-            if (string.IsNullOrEmpty(_logFilePath)) return;
-
-            string formattedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{level}] [{Thread.CurrentThread.ManagedThreadId:D2}] {message}";
-            if (exception != null)
-            {
-                formattedMessage += $"\nException: {exception.GetType().FullName}: {exception.Message}\nStack Trace:\n{exception.StackTrace}";
-            }
-
-            lock (_lock)
-            {
-                try
-                {
-                    File.AppendAllText(_logFilePath, formattedMessage + Environment.NewLine);
-                }
-                catch
-                {
-                    // Ignore write failures to prevent crash loops
-                }
-            }
+            return LogContext.PushProperty("ProcessType", processName);
         }
 
-        public static void Debug(string message) => WriteLog(LogLevel.DEBUG, message);
-        public static void Info(string message) => WriteLog(LogLevel.INFO, message);
-        public static void Warn(string message) => WriteLog(LogLevel.WARN, message);
-        public static void Error(string message, Exception? ex = null) => WriteLog(LogLevel.ERROR, message, ex);
-        public static void Fatal(string message, Exception? ex = null) => WriteLog(LogLevel.FATAL, message, ex);
+        public static void Shutdown()
+        {
+            Log.CloseAndFlush();
+        }
 
-        /// <summary>
-        /// Logs the message to the log file and prints it to the Console with optional colors.
-        /// </summary>
+        public static void Debug(string message) => Log.Debug(message);
+        public static void Info(string message) => Log.Information(message);
+        public static void Warn(string message) => Log.Warning(message);
+        public static void Error(string message, Exception? ex = null) => Log.Error(ex, message);
+        public static void Fatal(string message, Exception? ex = null) => Log.Fatal(ex, message);
+
         public static void InfoConsole(string message, ConsoleColor? color = null)
         {
-            Info(message);
+            Log.Information(message);
             if (color.HasValue)
             {
                 Console.ForegroundColor = color.Value;
@@ -98,23 +140,17 @@ namespace PolyglotCLI
             }
         }
 
-        /// <summary>
-        /// Logs the warning message to the log file and prints it to the Console in Yellow.
-        /// </summary>
         public static void WarnConsole(string message)
         {
-            Warn(message);
+            Log.Warning(message);
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine(message);
             Console.ResetColor();
         }
 
-        /// <summary>
-        /// Logs the error message and exception details to the log file and prints it to the Console in Red.
-        /// </summary>
         public static void ErrorConsole(string message, Exception? ex = null)
         {
-            Error(message, ex);
+            Log.Error(ex, message);
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(message);
             if (ex != null)
@@ -122,6 +158,14 @@ namespace PolyglotCLI
                 Console.WriteLine($"Error details: {ex.Message}");
             }
             Console.ResetColor();
+        }
+
+        private class ThreadIdEnricher : ILogEventEnricher
+        {
+            public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
+            {
+                logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("ThreadId", Environment.CurrentManagedThreadId));
+            }
         }
     }
 }

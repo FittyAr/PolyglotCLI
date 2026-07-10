@@ -12,6 +12,7 @@ namespace PolyglotCLI
         public static async Task<int> ExecuteAsync(CommandLineOptions options, AppConfig config)
         {
             var totalPipelineStopwatch = Stopwatch.StartNew();
+            using var systemScope = AppLogger.BeginProcess("System");
             AppLogger.Info("==================================================");
             AppLogger.Info("         STARTING TRANSLATION PIPELINE            ");
             AppLogger.Info("==================================================");
@@ -132,141 +133,144 @@ namespace PolyglotCLI
             AppLogger.InfoConsole("        PHASE 1: TEXT EXTRACTION & OCR            ", ConsoleColor.White);
             AppLogger.InfoConsole("==================================================", ConsoleColor.White);
             
-            if (options.Debug)
-            {
-                AppLogger.WarnConsole("DEBUG MODE ACTIVE: Limiting processing to first 2 pages/chunks.");
-                foreach (var t in options.DocumentTargets)
-                {
-                    t.PageRange = "1-2";
-                }
-            }
-
             var documentStateCache = new Dictionary<string, List<PageProcessState>>();
             var extractorFactory = new DocumentExtractorFactory();
 
-            foreach (var target in options.DocumentTargets)
             {
-                string filePath = target.FilePath;
-                string fileName = Path.GetFileName(filePath);
-                string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
-                string outputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_{options.TargetLanguage}.md");
-                string originalOutputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_original.md");
-
-                AppLogger.InfoConsole($"\nProcessing file: {fileName} (Mode: {target.Mode.ToUpperInvariant()})", ConsoleColor.Cyan);
-                
-                try
+                using var extractionScope = AppLogger.BeginProcess("Extraction");
+                if (options.Debug)
                 {
-                    var extractor = extractorFactory.GetExtractor(filePath);
-                    AppLogger.Info($"Running extractor {extractor.GetType().Name} for {fileName}");
-                    
-                    // Parse existing output files to see what is already processed
-                    var cachedStates = new List<PageProcessState>();
-                    var originalPages = MarkdownWriter.ReadPages(originalOutputPath);
-                    var translatedPages = MarkdownWriter.ReadPages(outputPath);
-
-                    var allPages = new HashSet<int>(originalPages.Keys);
-                    allPages.UnionWith(translatedPages.Keys);
-
-                    foreach (var pageNum in allPages)
+                    AppLogger.WarnConsole("DEBUG MODE ACTIVE: Limiting processing to first 2 pages/chunks.");
+                    foreach (var t in options.DocumentTargets)
                     {
-                        var state = new PageProcessState { PageNumber = pageNum };
-                        
-                        if (originalPages.TryGetValue(pageNum, out var ocrText))
-                        {
-                            state.OcrText = ocrText;
-                            state.OcrFailed = string.IsNullOrEmpty(ocrText) || ocrText.StartsWith("*Failed to", StringComparison.OrdinalIgnoreCase);
-                            if (state.OcrFailed)
-                            {
-                                state.OcrErrorMessage = "Loaded failed OCR page from disk";
-                            }
-                        }
-                        else
-                        {
-                            state.OcrFailed = true;
-                        }
-
-                        if (translatedPages.TryGetValue(pageNum, out var transText))
-                        {
-                            state.TranslatedText = transText;
-                            state.TranslationFailed = string.IsNullOrEmpty(transText) || transText.StartsWith("*Failed to", StringComparison.OrdinalIgnoreCase);
-                            if (state.TranslationFailed)
-                            {
-                                state.TranslationErrorMessage = "Loaded failed translation page from disk";
-                            }
-                        }
-                        else
-                        {
-                            state.TranslationFailed = true;
-                        }
-
-                        cachedStates.Add(state);
+                        t.PageRange = "1-2";
                     }
-
-                    List<PageProcessState> pageStates;
-                    if (options.Transcribe)
-                    {
-                        originalWriter.InitializeOrKeep(originalOutputPath, fileName, "Original");
-                        pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer, cachedStates, originalWriter);
-                        
-                        int successCount = 0;
-                        foreach (var s in pageStates)
-                        {
-                            if (!s.OcrFailed) successCount++;
-                        }
-                        AppLogger.InfoConsole($"Extracted {successCount}/{pageStates.Count} pages/chunks successfully.", ConsoleColor.Green);
-                        
-                        int textLength = 0;
-                        foreach (var s in pageStates)
-                        {
-                            textLength += s.OcrText?.Trim().Length ?? 0;
-                        }
-                        AppLogger.Debug($"Total extracted text length for {fileName}: {textLength} characters.");
-
-                        if (textLength == 0 && target.Mode.Equals("text", StringComparison.OrdinalIgnoreCase) && Path.GetExtension(filePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
-                        {
-                            AppLogger.WarnConsole($"[WARNING] No selectable text was found in '{fileName}'.");
-                            AppLogger.Warn("Scanned document warning: document appears to contain images only. User should run OCR mode.");
-                        }
-                    }
-                    else
-                    {
-                        pageStates = cachedStates;
-                        AppLogger.InfoConsole($"Transcribe skipped. Loaded {pageStates.Count} pages/chunks from cache.", ConsoleColor.Yellow);
-                    }
-                    
-                    // Filter pageStates by target.PageRange if specified
-                    if (!string.IsNullOrWhiteSpace(target.PageRange) && !target.PageRange.Equals("all", StringComparison.OrdinalIgnoreCase))
-                    {
-                        int maxPage = 0;
-                        foreach (var state in pageStates)
-                        {
-                            if (state.PageNumber > maxPage) maxPage = state.PageNumber;
-                        }
-                        var pageFilter = CommandLineOptions.ParsePageRange(target.PageRange, maxPage);
-                        if (pageFilter != null)
-                        {
-                            pageStates = pageStates.FindAll(s => pageFilter.Contains(s.PageNumber));
-                            AppLogger.Info($"Filtered page states to range '{target.PageRange}'. Active pages: {string.Join(", ", pageStates.ConvertAll(s => s.PageNumber))}");
-                        }
-                    }
-                    
-                    documentStateCache[filePath] = pageStates;
                 }
-                catch (Exception ex)
+
+                foreach (var target in options.DocumentTargets)
                 {
-                    AppLogger.ErrorConsole($"Fatal error extracting text from {fileName}", ex);
+                    string filePath = target.FilePath;
+                    string fileName = Path.GetFileName(filePath);
+                    string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+                    string outputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_{options.TargetLanguage}.md");
+                    string originalOutputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_original.md");
+
+                    AppLogger.InfoConsole($"\nProcessing file: {fileName} (Mode: {target.Mode.ToUpperInvariant()})", ConsoleColor.Cyan);
                     
-                    var failedStates = new List<PageProcessState>
+                    try
                     {
-                        new PageProcessState 
-                        { 
-                            PageNumber = 1, 
-                            OcrFailed = true, 
-                            OcrErrorMessage = ex.Message,
-                            OcrText = $"*Failed to read file due to fatal error: {ex.Message}*" 
+                        var extractor = extractorFactory.GetExtractor(filePath);
+                        AppLogger.Info($"Running extractor {extractor.GetType().Name} for {fileName}");
+                        
+                        // Parse existing output files to see what is already processed
+                        var cachedStates = new List<PageProcessState>();
+                        var originalPages = MarkdownWriter.ReadPages(originalOutputPath);
+                        var translatedPages = MarkdownWriter.ReadPages(outputPath);
+
+                        var allPages = new HashSet<int>(originalPages.Keys);
+                        allPages.UnionWith(translatedPages.Keys);
+
+                        foreach (var pageNum in allPages)
+                        {
+                            var state = new PageProcessState { PageNumber = pageNum };
+                            
+                            if (originalPages.TryGetValue(pageNum, out var ocrText))
+                            {
+                                state.OcrText = ocrText;
+                                state.OcrFailed = string.IsNullOrEmpty(ocrText) || ocrText.StartsWith("*Failed to", StringComparison.OrdinalIgnoreCase);
+                                if (state.OcrFailed)
+                                {
+                                    state.OcrErrorMessage = "Loaded failed OCR page from disk";
+                                }
+                            }
+                            else
+                            {
+                                state.OcrFailed = true;
+                            }
+
+                            if (translatedPages.TryGetValue(pageNum, out var transText))
+                            {
+                                state.TranslatedText = transText;
+                                state.TranslationFailed = string.IsNullOrEmpty(transText) || transText.StartsWith("*Failed to", StringComparison.OrdinalIgnoreCase);
+                                if (state.TranslationFailed)
+                                {
+                                    state.TranslationErrorMessage = "Loaded failed translation page from disk";
+                                }
+                            }
+                            else
+                            {
+                                state.TranslationFailed = true;
+                            }
+
+                            cachedStates.Add(state);
                         }
-                    };
-                    documentStateCache[filePath] = failedStates;
+
+                        List<PageProcessState> pageStates;
+                        if (options.Transcribe)
+                        {
+                            originalWriter.InitializeOrKeep(originalOutputPath, fileName, "Original");
+                            pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer, cachedStates, originalWriter);
+                            
+                            int successCount = 0;
+                            foreach (var s in pageStates)
+                            {
+                                if (!s.OcrFailed) successCount++;
+                            }
+                            AppLogger.InfoConsole($"Extracted {successCount}/{pageStates.Count} pages/chunks successfully.", ConsoleColor.Green);
+                            
+                            int textLength = 0;
+                            foreach (var s in pageStates)
+                            {
+                                textLength += s.OcrText?.Trim().Length ?? 0;
+                            }
+                            AppLogger.Debug($"Total extracted text length for {fileName}: {textLength} characters.");
+
+                            if (textLength == 0 && target.Mode.Equals("text", StringComparison.OrdinalIgnoreCase) && Path.GetExtension(filePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                            {
+                                AppLogger.WarnConsole($"[WARNING] No selectable text was found in '{fileName}'.");
+                                AppLogger.Warn("Scanned document warning: document appears to contain images only. User should run OCR mode.");
+                            }
+                        }
+                        else
+                        {
+                            pageStates = cachedStates;
+                            AppLogger.InfoConsole($"Transcribe skipped. Loaded {pageStates.Count} pages/chunks from cache.", ConsoleColor.Yellow);
+                        }
+                        
+                        // Filter pageStates by target.PageRange if specified
+                        if (!string.IsNullOrWhiteSpace(target.PageRange) && !target.PageRange.Equals("all", StringComparison.OrdinalIgnoreCase))
+                        {
+                            int maxPage = 0;
+                            foreach (var state in pageStates)
+                            {
+                                if (state.PageNumber > maxPage) maxPage = state.PageNumber;
+                            }
+                            var pageFilter = CommandLineOptions.ParsePageRange(target.PageRange, maxPage);
+                            if (pageFilter != null)
+                            {
+                                pageStates = pageStates.FindAll(s => pageFilter.Contains(s.PageNumber));
+                                AppLogger.Info($"Filtered page states to range '{target.PageRange}'. Active pages: {string.Join(", ", pageStates.ConvertAll(s => s.PageNumber))}");
+                            }
+                        }
+                        
+                        documentStateCache[filePath] = pageStates;
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.ErrorConsole($"Fatal error extracting text from {fileName}", ex);
+                        
+                        var failedStates = new List<PageProcessState>
+                        {
+                            new PageProcessState 
+                            { 
+                                PageNumber = 1, 
+                                OcrFailed = true, 
+                                OcrErrorMessage = ex.Message,
+                                OcrText = $"*Failed to read file due to fatal error: {ex.Message}*" 
+                            }
+                        };
+                        documentStateCache[filePath] = failedStates;
+                    }
                 }
             }
 
@@ -334,6 +338,7 @@ namespace PolyglotCLI
 
                     if (options.Translate)
                     {
+                        using var translationScope = AppLogger.BeginProcess("Translation");
                         foreach (var state in pageStates)
                         {
                             int pageNum = state.PageNumber;
@@ -407,6 +412,7 @@ namespace PolyglotCLI
 
                             if (state.OcrFailed)
                             {
+                                using var retryOcrScope = AppLogger.BeginProcess("Extraction");
                                 AppLogger.Info($"[RETRY] Page/Chunk {pageNum}: Retrying extraction...");
                                 string ext = Path.GetExtension(filePath).ToLowerInvariant();
                                 if (ext == ".pdf" && target.Mode.Equals("image", StringComparison.OrdinalIgnoreCase))
@@ -472,6 +478,7 @@ namespace PolyglotCLI
 
                             if (!state.OcrFailed && state.TranslationFailed)
                             {
+                                using var retryTransScope = AppLogger.BeginProcess("Translation");
                                 AppLogger.Info($"[RETRY] Page/Chunk {pageNum}: Retrying translation...");
                                 try
                                 {
@@ -496,6 +503,7 @@ namespace PolyglotCLI
                     // Phase 4.5: Post-Translation Review (if enabled)
                     if (reviewService != null)
                     {
+                        using var reviewScope = AppLogger.BeginProcess("Review");
                         AppLogger.InfoConsole($"\n[REVIEW] Running post-translation review for {fileName}...", ConsoleColor.Cyan);
 
                         foreach (var state in pageStates)
@@ -557,6 +565,7 @@ namespace PolyglotCLI
                     // Phase 5: Output Format Conversion
                     if (options.GenerateDoc && !string.IsNullOrWhiteSpace(options.SelectedFormat))
                     {
+                        using var conversionScope = AppLogger.BeginProcess("Conversion");
                         AppLogger.InfoConsole($"Converting output to {options.SelectedFormat.ToUpperInvariant()}...", ConsoleColor.Cyan);
                         if (File.Exists(outputPath))
                         {
