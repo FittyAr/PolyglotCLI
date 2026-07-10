@@ -20,8 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Aumentado el contraste y la definición visual de modales y paneles mediante la aplicación de bordes redondeados (`LineStyle.Rounded`) en todas las vistas de tipo `Dialog` y `FrameView`.
 - Corregido el solapamiento visual ("ghosting") entre paneles del diálogo de configuración avanzada al cambiar de categoría, forzando un redibujado explícito (`SetNeedsDraw`) en cada cambio de visibilidad.
 - Corregido el comportamiento de "Save Presets" que no persistía el estado del checkbox "Gen Doc", el formato seleccionado, ni el estado de revisión; ahora guarda `DefaultOutputFormat`, `OutputFormats` y `EnableReview` en `config.json`.
+- Eliminadas 57 advertencias de compilación (`CS8618`, `CS8604`, `CS8602`, `CS8622`) en los archivos de la TUI mediante declaración de campos UI como nullable, uso del accessor `AppRequired` en lugar de `_app` directamente, y firmas correctas en lambdas de `KeyDown`.
 
 ### Changed
+- Migración de `SafeTextView` desde el obsoleto `Terminal.Gui.Views.TextView` (CS0618) al nuevo `Terminal.Gui.Editor.Editor` del paquete `Terminal.Gui.Editor` v2.5.7; esta es la migración recomendada por la propia librería.
+- Corrección del crash en el constructor de `SafeTextView` al inicializar `IndentationSize = 0` (valor mínimo requerido es 1 por la API de `Terminal.Gui.Editor`).
+
 - Integración de las librerías open-source HtmlToOpenXml, PeachPDF y NetOdt como fallback local cuando pandoc no está disponible.
 - Actualización de los menús interactivos y de ajustes para consumir dinámicamente los formatos de salida soportados.
 - Adaptación de la configuración de agentes (`AGENTS.md`) de Rust/Pairee a C#/.NET 10/PolyglotCLI.

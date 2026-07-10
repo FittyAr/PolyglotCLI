@@ -23,23 +23,23 @@ namespace PolyglotCLI
             {
                 displayList.Add(f.ToString());
             }
-            _listFiles.SetSource(new ObservableCollection<string>(displayList));
+            _listFiles!.SetSource(new ObservableCollection<string>(displayList));
         }
 
         // Perform directory scanning
         private void PerformScan()
         {
-            string dirPath = _textScanDir.Text?.ToString()?.Trim() ?? "";
+            string dirPath = _textScanDir!.Text?.ToString()?.Trim() ?? "";
             if (string.IsNullOrEmpty(dirPath))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", "Directory to Scan cannot be empty.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Directory to Scan cannot be empty.", new[] { "OK" });
                 _textScanDir.SetFocus();
                 return;
             }
 
             if (!Directory.Exists(dirPath))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", $"The directory to scan '{dirPath}' does not exist on the system.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", $"The directory to scan '{dirPath}' does not exist on the system.", new[] { "OK" });
                 _textScanDir.SetFocus();
                 return;
             }
@@ -74,12 +74,12 @@ namespace PolyglotCLI
 
                 if (_filesSource.Count == 0)
                 {
-                    MessageBox.Query(_app, "Scan Results", "No supported documents found in this directory.", new[] { "OK" });
+                    MessageBox.Query(AppRequired, "Scan Results", "No supported documents found in this directory.", new[] { "OK" });
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.ErrorQuery(_app, "Scanning Error", ex.Message, new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Scanning Error", ex.Message, new[] { "OK" });
             }
         }
 
@@ -89,13 +89,13 @@ namespace PolyglotCLI
             string apiUrl = _config.ApiUrl;
             if (string.IsNullOrEmpty(apiUrl))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", "LM Studio API URL cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "LM Studio API URL cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
                 return false;
             }
             if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out var uriResult) || 
                 (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", "LM Studio API URL must be a valid HTTP or HTTPS URL (e.g., http://localhost:1234/v1).\nConfigure it in settings [F8].", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "LM Studio API URL must be a valid HTTP or HTTPS URL (e.g., http://localhost:1234/v1).\nConfigure it in settings [F8].", new[] { "OK" });
                 return false;
             }
 
@@ -103,7 +103,7 @@ namespace PolyglotCLI
             string translationModel = _config.DefaultModel ?? "";
             if (string.IsNullOrEmpty(translationModel))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", "Translation Model Name cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Translation Model Name cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
                 return false;
             }
 
@@ -135,7 +135,7 @@ namespace PolyglotCLI
 
                 if (needsVision)
                 {
-                    MessageBox.ErrorQuery(_app, "Validation Error", "Vision/OCR Model Name cannot be empty.\nIt is required to translate images or PDFs in OCR mode.\nConfigure it in settings [F8].", new[] { "OK" });
+                    MessageBox.ErrorQuery(AppRequired, "Validation Error", "Vision/OCR Model Name cannot be empty.\nIt is required to translate images or PDFs in OCR mode.\nConfigure it in settings [F8].", new[] { "OK" });
                     return false;
                 }
             }
@@ -144,12 +144,12 @@ namespace PolyglotCLI
             string targetLang = _config.TargetLanguage ?? "";
             if (string.IsNullOrEmpty(targetLang))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", "Target Language cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Target Language cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
                 return false;
             }
             if (!System.Text.RegularExpressions.Regex.IsMatch(targetLang, @"^[a-zA-Z\s\-]+$"))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", "Target Language must contain only letters, spaces, or hyphens (e.g., 'English' or 'Brazilian-Portuguese').\nConfigure it in settings [F8].", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Target Language must contain only letters, spaces, or hyphens (e.g., 'English' or 'Brazilian-Portuguese').\nConfigure it in settings [F8].", new[] { "OK" });
                 return false;
             }
 
@@ -157,27 +157,27 @@ namespace PolyglotCLI
             string outDir = _config.OutputDirectory ?? "";
             if (string.IsNullOrEmpty(outDir))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", "Output Directory cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Output Directory cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
                 return false;
             }
             char[] invalidChars = Path.GetInvalidPathChars();
             if (outDir.IndexOfAny(invalidChars) >= 0)
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", "Output Directory contains invalid path characters.\nConfigure it in settings [F8].", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Output Directory contains invalid path characters.\nConfigure it in settings [F8].", new[] { "OK" });
                 return false;
             }
 
             // 6. Directory to Scan
-            string scanDir = _textScanDir.Text?.ToString()?.Trim() ?? "";
+            string scanDir = _textScanDir!.Text?.ToString()?.Trim() ?? "";
             if (string.IsNullOrEmpty(scanDir))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", "Directory to Scan cannot be empty.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Directory to Scan cannot be empty.", new[] { "OK" });
                 _textScanDir.SetFocus();
                 return false;
             }
             if (!Directory.Exists(scanDir))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", $"The directory to scan '{scanDir}' does not exist on the system.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", $"The directory to scan '{scanDir}' does not exist on the system.", new[] { "OK" });
                 _textScanDir.SetFocus();
                 return false;
             }
@@ -193,8 +193,8 @@ namespace PolyglotCLI
 
                 if (selectedCount == 0)
                 {
-                    MessageBox.ErrorQuery(_app, "Validation Error", "No documents have been selected.\nPlease select at least one document from the list using the [Space] key.", new[] { "OK" });
-                    _listFiles.SetFocus();
+                    MessageBox.ErrorQuery(AppRequired, "Validation Error", "No documents have been selected.\nPlease select at least one document from the list using the [Space] key.", new[] { "OK" });
+                    _listFiles!.SetFocus();
                     return false;
                 }
             }
@@ -204,21 +204,21 @@ namespace PolyglotCLI
 
         private void SavePresets()
         {
-            string scanDir = _textScanDir.Text?.ToString()?.Trim() ?? "";
+            string scanDir = _textScanDir!.Text?.ToString()?.Trim() ?? "";
             if (string.IsNullOrEmpty(scanDir) || !Directory.Exists(scanDir))
             {
-                MessageBox.ErrorQuery(_app, "Validation Error", "Please specify a valid Directory to Scan before saving presets.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Please specify a valid Directory to Scan before saving presets.", new[] { "OK" });
                 _textScanDir.SetFocus();
                 return;
             }
 
             _config.LastScanDirectory = scanDir;
-            _config.AdditionalPrompt = _textAddPrompt.Text?.ToString()?.Trim();
-            _config.EnableReview = _checkVerify.Value == CheckState.Checked;
+            _config.AdditionalPrompt = _textAddPrompt?.Text?.ToString()?.Trim();
+            _config.EnableReview = _checkVerify!.Value == CheckState.Checked;
 
             // Save Gen Doc / format selection
-            bool generateDoc = _checkGenerate.Value == CheckState.Checked;
-            string selectedFmt = _comboFormat.Text?.ToString()?.Trim().ToLowerInvariant() ?? "";
+            bool generateDoc = _checkGenerate!.Value == CheckState.Checked;
+            string selectedFmt = _comboFormat!.Text?.ToString()?.Trim().ToLowerInvariant() ?? "";
             _config.DefaultOutputFormat = generateDoc && !string.IsNullOrEmpty(selectedFmt) ? selectedFmt : null;
 
             var outputFormats = new List<string>();
@@ -228,7 +228,7 @@ namespace PolyglotCLI
             _config.OutputFormats = string.Join(",", outputFormats);
 
             _config.Save();
-            MessageBox.Query(_app, "Success", "Presets saved successfully to config.json!", new[] { "OK" });
+            MessageBox.Query(AppRequired, "Success", "Presets saved successfully to config.json!", new[] { "OK" });
         }
 
         private void StartTranslation()
@@ -247,13 +247,13 @@ namespace PolyglotCLI
                 TargetLanguage = _config.TargetLanguage ?? "Spanish",
                 OutputDirectory = _config.OutputDirectory ?? "output",
                 Debug = _config.Debug,
-                AdditionalPrompt = _textAddPrompt.Text?.ToString()?.Trim(),
+                AdditionalPrompt = _textAddPrompt?.Text?.ToString()?.Trim(),
                 DocumentTargets = new List<DocumentTarget>(),
-                Transcribe = _checkTranscribe.Value == CheckState.Checked,
-                Translate = _checkTranslate.Value == CheckState.Checked,
-                Verify = _checkVerify.Value == CheckState.Checked,
-                GenerateDoc = _checkGenerate.Value == CheckState.Checked,
-                SelectedFormat = _checkGenerate.Value == CheckState.Checked ? _comboFormat.Text?.ToString()?.Trim().ToLowerInvariant() : null
+                Transcribe = _checkTranscribe!.Value == CheckState.Checked,
+                Translate = _checkTranslate!.Value == CheckState.Checked,
+                Verify = _checkVerify!.Value == CheckState.Checked,
+                GenerateDoc = _checkGenerate!.Value == CheckState.Checked,
+                SelectedFormat = _checkGenerate.Value == CheckState.Checked ? _comboFormat!.Text?.ToString()?.Trim().ToLowerInvariant() : null
             };
 
             foreach (var f in selected)

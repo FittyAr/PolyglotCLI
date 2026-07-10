@@ -17,8 +17,9 @@ namespace PolyglotCLI
     {
         private void WireEvents()
         {
-            // Add key shortcuts for all UI buttons globally via KeyDown
-            _app.Keyboard.KeyDown += (object sender, Key keyEvent) => {
+            // Add key shortcuts for all UI buttons globally via KeyDown.
+            // _app is guaranteed non-null here — WireEvents() is called inside the using(app = ...) block.
+            AppRequired.Keyboard.KeyDown += (object? sender, Key keyEvent) => {
                 if (keyEvent.KeyCode == KeyCode.F1)
                 {
                     ShowHelpModal();
@@ -45,7 +46,7 @@ namespace PolyglotCLI
                 }
                 if (keyEvent.KeyCode == KeyCode.F8)
                 {
-                    SettingsDialog.Show(_app, _config);
+                    SettingsDialog.Show(AppRequired, _config);
                     keyEvent.Handled = true;
                     return;
                 }
@@ -69,17 +70,17 @@ namespace PolyglotCLI
                 }
             };
 
-            // Wire action buttons
-            _btnScan.Accepted += (s, e) => PerformScan();
-            _btnSavePresets.Accepted += (s, e) => SavePresets();
-            _btnConfig.Accepted += (s, e) => SettingsDialog.Show(_app, _config);
-            _btnImprovePrompt.Accepted += (s, e) => ImprovePromptWithAi();
-            _btnAnalyzeFilePrompt.Accepted += (s, e) => AnalyzeFileForPromptWithAi();
-            _btnCancel.Accepted += (s, e) => QuitApp();
-            _btnStart.Accepted += (s, e) => StartTranslation();
+            // Wire action buttons — fields are guaranteed non-null after BuildLayout()
+            _btnScan!.Accepted += (s, e) => PerformScan();
+            _btnSavePresets!.Accepted += (s, e) => SavePresets();
+            _btnConfig!.Accepted += (s, e) => SettingsDialog.Show(AppRequired, _config);
+            _btnImprovePrompt!.Accepted += (s, e) => ImprovePromptWithAi();
+            _btnAnalyzeFilePrompt!.Accepted += (s, e) => AnalyzeFileForPromptWithAi();
+            _btnCancel!.Accepted += (s, e) => QuitApp();
+            _btnStart!.Accepted += (s, e) => StartTranslation();
 
             // Toggle file selection on Space key or Double-Click
-            _listFiles.Accepted += (s, e) => {
+            _listFiles!.Accepted += (s, e) => {
                 int idx = _listFiles.SelectedItem ?? -1;
                 if (idx >= 0 && idx < _filesSource.Count)
                 {
@@ -91,7 +92,7 @@ namespace PolyglotCLI
             };
 
             // Keyboard navigation in ListView
-            _listFiles.KeyDown += (object sender, Key args) => {
+            _listFiles.KeyDown += (object? sender, Key args) => {
                 int idx = _listFiles.SelectedItem ?? -1;
                 if (idx < 0 || idx >= _filesSource.Count) return;
                 var file = _filesSource[idx];

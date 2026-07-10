@@ -53,21 +53,21 @@ namespace PolyglotCLI
             };
             
             var btnClose = new Button { Text = "Close", IsDefault = true };
-            btnClose.Accepted += (s, e) => _app?.RequestStop(dialog);
+            btnClose.Accepted += (s, e) => AppRequired.RequestStop(dialog);
             dialog.AddButton(btnClose);
             dialog.Add(content);
             
-            _app?.Run(dialog);
+            AppRequired.Run(dialog);
             dialog.Dispose();
         }
 
         // AI Prompt Improver modal flow
         private void ImprovePromptWithAi()
         {
-            string rawInput = _textAddPrompt.Text?.ToString()?.Trim() ?? "";
+            string rawInput = _textAddPrompt?.Text?.ToString()?.Trim() ?? "";
             if (string.IsNullOrEmpty(rawInput))
             {
-                MessageBox.ErrorQuery(_app, "Error", "Please write some text in the Additional Prompt box first.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Error", "Please write some text in the Additional Prompt box first.", new[] { "OK" });
                 return;
             }
 
@@ -75,7 +75,7 @@ namespace PolyglotCLI
             string model = _config.DefaultModel ?? "";
             if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
             {
-                MessageBox.ErrorQuery(_app, "Error", "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Error", "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.", new[] { "OK" });
                 return;
             }
 
@@ -104,25 +104,25 @@ namespace PolyglotCLI
                     }
                     finally
                     {
-                        _app.Invoke(() => {
-                            _app?.RequestStop(dProgress);
+                        AppRequired.Invoke(() => {
+                            AppRequired.RequestStop(dProgress);
                         });
                     }
                 });
             };
 
-            _app?.Run(dProgress);
+            AppRequired.Run(dProgress);
             dProgress.Dispose();
 
             if (!string.IsNullOrEmpty(errorMessage))
             {
-                MessageBox.ErrorQuery(_app, "Error", $"Failed to improve prompt: {errorMessage}", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Error", $"Failed to improve prompt: {errorMessage}", new[] { "OK" });
                 return;
             }
 
             if (string.IsNullOrEmpty(improvedResult))
             {
-                MessageBox.ErrorQuery(_app, "Error", "No output returned from AI.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Error", "No output returned from AI.", new[] { "OK" });
                 return;
             }
 
@@ -158,34 +158,34 @@ namespace PolyglotCLI
 
             btnApply.Accepted += (s, e) => {
                 apply = true;
-                _app?.RequestStop(dPreview);
+                AppRequired.RequestStop(dPreview);
             };
 
             btnDiscard.Accepted += (s, e) => {
                 apply = false;
-                _app?.RequestStop(dPreview);
+                AppRequired.RequestStop(dPreview);
             };
 
             dPreview.AddButton(btnApply);
             dPreview.AddButton(btnDiscard);
             dPreview.Add(lblOrig, textOrig, lblNew, textNew);
 
-            _app?.Run(dPreview);
+            AppRequired.Run(dPreview);
             dPreview.Dispose();
 
-            if (apply)
+            if (apply && _textAddPrompt is not null)
             {
                 _textAddPrompt.Text = improvedResult;
-                MessageBox.Query(_app, "Success", "Prompt updated successfully!", new[] { "OK" });
+                MessageBox.Query(AppRequired, "Success", "Prompt updated successfully!", new[] { "OK" });
             }
         }
 
         private void AnalyzeFileForPromptWithAi()
         {
-            int idx = _listFiles.SelectedItem ?? -1;
+            int idx = _listFiles?.SelectedItem ?? -1;
             if (idx < 0 || idx >= _filesSource.Count)
             {
-                MessageBox.ErrorQuery(_app, "Error", "Please select/highlight a file in the documents list to analyze.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Error", "Please select/highlight a file in the documents list to analyze.", new[] { "OK" });
                 return;
             }
             var file = _filesSource[idx];
@@ -195,7 +195,7 @@ namespace PolyglotCLI
             string visionModel = _config.DefaultVisionModel ?? "";
             if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
             {
-                MessageBox.ErrorQuery(_app, "Error", "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Error", "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.", new[] { "OK" });
                 return;
             }
 
@@ -219,7 +219,7 @@ namespace PolyglotCLI
                             model,
                             visionModel,
                             (status) => {
-                                _app.Invoke(() => {
+                                AppRequired.Invoke(() => {
                                     lblStatus.Text = status;
                                 });
                             }
@@ -231,25 +231,25 @@ namespace PolyglotCLI
                     }
                     finally
                     {
-                        _app.Invoke(() => {
-                            _app?.RequestStop(dProgress);
+                        AppRequired.Invoke(() => {
+                            AppRequired.RequestStop(dProgress);
                         });
                     }
                 });
             };
 
-            _app?.Run(dProgress);
+            AppRequired.Run(dProgress);
             dProgress.Dispose();
 
             if (!string.IsNullOrEmpty(errorMessage))
             {
-                MessageBox.ErrorQuery(_app, "Error", $"Failed to analyze file: {errorMessage}", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Error", $"Failed to analyze file: {errorMessage}", new[] { "OK" });
                 return;
             }
 
             if (string.IsNullOrEmpty(improvedPromptResult))
             {
-                MessageBox.ErrorQuery(_app, "Error", "No output returned from AI.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Error", "No output returned from AI.", new[] { "OK" });
                 return;
             }
 
@@ -273,25 +273,25 @@ namespace PolyglotCLI
 
             btnApply.Accepted += (s, e) => {
                 apply = true;
-                _app?.RequestStop(dPreview);
+                AppRequired.RequestStop(dPreview);
             };
 
             btnDiscard.Accepted += (s, e) => {
                 apply = false;
-                _app?.RequestStop(dPreview);
+                AppRequired.RequestStop(dPreview);
             };
 
             dPreview.AddButton(btnApply);
             dPreview.AddButton(btnDiscard);
             dPreview.Add(lblNew, textNew);
 
-            _app?.Run(dPreview);
+            AppRequired.Run(dPreview);
             dPreview.Dispose();
 
-            if (apply)
+            if (apply && _textAddPrompt is not null)
             {
                 _textAddPrompt.Text = improvedPromptResult;
-                MessageBox.Query(_app, "Success", "Additional Prompt updated with file analysis context!", new[] { "OK" });
+                MessageBox.Query(AppRequired, "Success", "Additional Prompt updated with file analysis context!", new[] { "OK" });
             }
         }
 
@@ -321,19 +321,19 @@ namespace PolyglotCLI
             
             btnOk.Accepted += (s, e) => {
                 result = textInput.Text?.ToString() ?? "";
-                _app?.RequestStop(dialog);
+                AppRequired.RequestStop(dialog);
             };
             
             btnCancel.Accepted += (s, e) => {
                 result = null;
-                _app?.RequestStop(dialog);
+                AppRequired.RequestStop(dialog);
             };
             
             dialog.AddButton(btnOk);
             dialog.AddButton(btnCancel);
             dialog.Add(label, textInput);
             
-            _app?.Run(dialog);
+            AppRequired.Run(dialog);
             dialog.Dispose();
             
             return result;
