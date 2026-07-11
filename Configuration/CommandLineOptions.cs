@@ -23,6 +23,7 @@ namespace PolyglotCLI
         public bool Verify { get; set; } = false;
         public bool GenerateDoc { get; set; } = false;
         public string? SelectedFormat { get; set; }
+        public string? ResumeJobId { get; set; }
 
         public static CommandLineOptions? Parse(string[] args, AppConfig config)
         {
@@ -124,6 +125,12 @@ namespace PolyglotCLI
                             options.SelectedFormat = args[++i].ToLowerInvariant();
                         }
                         break;
+                    case "--resume-job":
+                        if (i + 1 < args.Length)
+                        {
+                            options.ResumeJobId = args[++i];
+                        }
+                        break;
                     default:
                         // Treat unflagged arguments as input files if filesList is empty
                         if (!args[i].StartsWith("-"))
@@ -158,6 +165,11 @@ namespace PolyglotCLI
 
         private bool Validate()
         {
+            if (!string.IsNullOrEmpty(ResumeJobId))
+            {
+                return true; // El orquestador cargará y validará la configuración desde el manifiesto
+            }
+
             if (Files.Count == 0)
             {
                 Console.ForegroundColor = ConsoleColor.Red;

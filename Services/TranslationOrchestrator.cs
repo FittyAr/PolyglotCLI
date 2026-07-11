@@ -10,21 +10,23 @@ namespace PolyglotCLI
     public static class TranslationOrchestrator
     {
         public static string? CurrentJobDirectory { get; set; }
+        public static Action<string, int, bool, string?>? OnPageOcrCompleted { get; set; }
+
+        public static string GetJobsDirectory()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                return Path.Combine(appData, "PolyglotCLI", "jobs");
+            }
+            return Path.Combine(AppContext.BaseDirectory, "jobs");
+        }
 
         public static async Task<int> ExecuteAsync(CommandLineOptions options, AppConfig config)
         {
             // 0. Setup Job Directory
-            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            string jobDir;
-            if (OperatingSystem.IsWindows())
-            {
-                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                jobDir = Path.Combine(appData, "PolyglotCLI", "jobs", timestamp);
-            }
-            else
-            {
-                jobDir = Path.Combine(AppContext.BaseDirectory, "jobs", timestamp);
-            }
+            string timestamp = !string.IsNullOrEmpty(options.ResumeJobId) ? options.ResumeJobId : DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string jobDir = Path.Combine(GetJobsDirectory(), timestamp);
 
             if (!Directory.Exists(jobDir))
             {
@@ -36,6 +38,79 @@ namespace PolyglotCLI
             // Re-initialize logger to write to the job directory
             AppLogger.Initialize(config, jobDir);
 
+            // Load or initialize manifest
+            string manifestPath = Path.Combine(jobDir, "manifest.json");
+            JobManifest currentManifest;
+            if (!string.IsNullOrEmpty(options.ResumeJobId) && File.Exists(manifestPath))
+            {
+                currentManifest = JobManifest.Load(manifestPath);
+                
+                // Override options with manifest values so the run is consistent!
+                options.Mode = currentManifest.Mode;
+                options.TargetLanguage = currentManifest.TargetLanguage;
+                options.OutputDirectory = currentManifest.OutputDirectory;
+                options.PageRange = currentManifest.PageRange;
+                options.ModelName = currentManifest.ModelName;
+                options.VisionModelName = currentManifest.VisionModelName;
+                options.AdditionalPrompt = currentManifest.AdditionalPrompt;
+                options.Transcribe = currentManifest.Transcribe;
+                options.Translate = currentManifest.Translate;
+                options.Verify = currentManifest.Verify;
+                options.GenerateDoc = currentManifest.GenerateDoc;
+                options.SelectedFormat = currentManifest.SelectedFormat;
+                
+                // Rebuild files list and targets
+                options.Files.Clear();
+                options.DocumentTargets.Clear();
+                foreach (var fileM in currentManifest.Files)
+                {
+                    options.Files.Add(fileM.SourceFilePath);
+                    options.DocumentTargets.Add(new DocumentTarget
+                    {
+                        FilePath = fileM.SourceFilePath,
+                        Mode = currentManifest.Mode,
+                        PageRange = currentManifest.PageRange
+                    });
+                }
+                
+                AppLogger.Info($"Resuming past job: '{options.ResumeJobId}'");
+            }
+            else
+            {
+                currentManifest = new JobManifest
+                {
+                    JobId = timestamp,
+                    CreatedAt = DateTime.Now,
+                    LastUpdatedAt = DateTime.Now,
+                    Status = "InProgress",
+                    TargetLanguage = options.TargetLanguage,
+                    Mode = options.Mode,
+                    OutputDirectory = options.OutputDirectory,
+                    PageRange = options.PageRange,
+                    ModelName = options.ModelName,
+                    VisionModelName = options.VisionModelName,
+                    AdditionalPrompt = options.AdditionalPrompt,
+                    Transcribe = options.Transcribe,
+                    Translate = options.Translate,
+                    Verify = options.Verify,
+                    GenerateDoc = options.GenerateDoc,
+                    SelectedFormat = options.SelectedFormat
+                };
+                
+                // Populate files in manifest
+                foreach (var target in options.DocumentTargets)
+                {
+                    currentManifest.Files.Add(new JobFileManifest
+                    {
+                        SourceFilePath = target.FilePath,
+                        FileName = Path.GetFileName(target.FilePath),
+                        TargetLanguage = options.TargetLanguage
+                    });
+                }
+                
+                currentManifest.Save(manifestPath);
+            }
+
             // Save config copy
             try
             {
@@ -45,6 +120,14 @@ namespace PolyglotCLI
             {
                 AppLogger.Warn($"Failed to save config.json copy to job directory: {cfgEx.Message}");
             }
+
+            OnPageOcrCompleted = (filePath, pageNum, success, error) =>
+            {
+                UpdatePageOcrInManifest(currentManifest, manifestPath, filePath, pageNum, success, error);
+            };
+
+            try
+            {
 
             var totalPipelineStopwatch = Stopwatch.StartNew();
             using var systemScope = AppLogger.BeginProcess("System");
@@ -190,6 +273,32 @@ namespace PolyglotCLI
                     string outputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_{options.TargetLanguage}.md");
                     string originalOutputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_original.md");
 
+                    // If resuming, copy back files from job directory if they are missing in output directory
+                    if (!string.IsNullOrEmpty(options.ResumeJobId))
+                    {
+                        string jobOutputPath = Path.Combine(jobDir, Path.GetFileName(outputPath));
+                        string jobOriginalOutputPath = Path.Combine(jobDir, Path.GetFileName(originalOutputPath));
+                        
+                        if (!File.Exists(outputPath) && File.Exists(jobOutputPath))
+                        {
+                            File.Copy(jobOutputPath, outputPath, true);
+                            AppLogger.Info($"Restored partial output file from job directory: {outputPath}");
+                        }
+                        if (!File.Exists(originalOutputPath) && File.Exists(jobOriginalOutputPath))
+                        {
+                            File.Copy(jobOriginalOutputPath, originalOutputPath, true);
+                            AppLogger.Info($"Restored partial original file from job directory: {originalOutputPath}");
+                        }
+                    }
+
+                    // Check if file is already completed in manifest
+                    var fileM = currentManifest.Files.Find(f => f.SourceFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase));
+                    if (fileM != null && fileM.Completed)
+                    {
+                        AppLogger.InfoConsole($"File already completed in past attempts: {fileName}. Skipping.", ConsoleColor.Green);
+                        continue;
+                    }
+
                     AppLogger.InfoConsole($"\nProcessing file: {fileName} (Mode: {target.Mode.ToUpperInvariant()})", ConsoleColor.Cyan);
                     
                     try
@@ -253,6 +362,12 @@ namespace PolyglotCLI
                             }
                             AppLogger.InfoConsole($"Extracted {successCount}/{pageStates.Count} pages/chunks successfully.", ConsoleColor.Green);
                             
+                            // Mark all extracted pages as completed in the manifest
+                            foreach (var s in pageStates)
+                            {
+                                UpdatePageOcrInManifest(currentManifest, manifestPath, filePath, s.PageNumber, !s.OcrFailed, s.OcrFailed ? s.OcrErrorMessage : null);
+                            }
+
                             int textLength = 0;
                             foreach (var s in pageStates)
                             {
@@ -305,6 +420,7 @@ namespace PolyglotCLI
                             }
                         };
                         documentStateCache[filePath] = failedStates;
+                        UpdatePageOcrInManifest(currentManifest, manifestPath, filePath, 1, false, ex.Message);
                     }
                 }
             }
@@ -351,6 +467,13 @@ namespace PolyglotCLI
                 string outputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_{options.TargetLanguage}.md");
                 string originalOutputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_original.md");
 
+                // Check if file is already completed in manifest
+                var fileM = currentManifest.Files.Find(f => f.SourceFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase));
+                if (fileM != null && fileM.Completed)
+                {
+                    continue;
+                }
+
                 AppLogger.InfoConsole($"\nTranslating: {fileName}", ConsoleColor.Cyan);
 
                 if (!documentStateCache.TryGetValue(filePath, out var pageStates) || pageStates.Count == 0)
@@ -378,10 +501,20 @@ namespace PolyglotCLI
                         {
                             int pageNum = state.PageNumber;
 
+                            // Check manifest first if resuming
+                            var pageM = fileM?.Pages.Find(p => p.PageNumber == pageNum);
+                            if (pageM != null && pageM.TranslationCompleted && !string.IsNullOrEmpty(state.TranslatedText) && !state.TranslationFailed)
+                            {
+                                AppLogger.Info($"Page {pageNum}: Translation already completed.");
+                                translatedWriter.SaveOrUpdatePage(pageNum, state.TranslatedText);
+                                continue;
+                            }
+
                             if (!state.TranslationFailed && !string.IsNullOrEmpty(state.TranslatedText))
                             {
                                 AppLogger.Info($"Page {pageNum}: Using cached translation from disk.");
                                 translatedWriter.SaveOrUpdatePage(pageNum, state.TranslatedText);
+                                UpdatePageTranslationInManifest(currentManifest, manifestPath, filePath, pageNum, true, null);
                                 continue;
                             }
 
@@ -391,6 +524,7 @@ namespace PolyglotCLI
                                 state.TranslatedText = state.OcrText;
                                 state.TranslationFailed = true;
                                 state.TranslationErrorMessage = state.OcrErrorMessage;
+                                UpdatePageTranslationInManifest(currentManifest, manifestPath, filePath, pageNum, false, state.OcrErrorMessage);
                             }
                             else
                             {
@@ -398,6 +532,7 @@ namespace PolyglotCLI
                                 {
                                     state.TranslatedText = await translatorService.TranslateTextAsync(state.OcrText ?? string.Empty, pageNum);
                                     state.TranslationFailed = false;
+                                    UpdatePageTranslationInManifest(currentManifest, manifestPath, filePath, pageNum, true, null);
                                 }
                                 catch (Exception transEx)
                                 {
@@ -408,6 +543,7 @@ namespace PolyglotCLI
                                     state.TranslationFailed = true;
                                     state.TranslationErrorMessage = transEx.Message;
                                     state.TranslatedText = $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*";
+                                    UpdatePageTranslationInManifest(currentManifest, manifestPath, filePath, pageNum, false, transEx.Message);
                                 }
                             }
 
@@ -460,6 +596,7 @@ namespace PolyglotCLI
                                         state.OcrErrorMessage = null;
                                         originalWriter.SaveOrUpdatePage(pageNum, state.OcrText ?? string.Empty);
                                         AppLogger.Info($"[RETRY] Page {pageNum}: Extraction successful on retry.");
+                                        UpdatePageOcrInManifest(currentManifest, manifestPath, filePath, pageNum, true, null);
                                     }
                                     catch (Exception ocrEx)
                                     {
@@ -467,6 +604,7 @@ namespace PolyglotCLI
                                         AppLogger.ErrorConsole($"[RETRY] Page {pageNum} OCR extraction retry failed", ocrEx);
                                         state.OcrFailed = true;
                                         state.OcrErrorMessage = ocrEx.Message;
+                                        UpdatePageOcrInManifest(currentManifest, manifestPath, filePath, pageNum, false, ocrEx.Message);
                                     }
                                 }
                                 else if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff")
@@ -479,6 +617,7 @@ namespace PolyglotCLI
                                         state.OcrErrorMessage = null;
                                         originalWriter.SaveOrUpdatePage(pageNum, state.OcrText ?? string.Empty);
                                         AppLogger.Info($"[RETRY] Image OCR retry successful.");
+                                        UpdatePageOcrInManifest(currentManifest, manifestPath, filePath, pageNum, true, null);
                                     }
                                     catch (Exception imgEx)
                                     {
@@ -486,6 +625,7 @@ namespace PolyglotCLI
                                         AppLogger.ErrorConsole($"[RETRY] Image OCR retry failed", imgEx);
                                         state.OcrFailed = true;
                                         state.OcrErrorMessage = imgEx.Message;
+                                        UpdatePageOcrInManifest(currentManifest, manifestPath, filePath, pageNum, false, imgEx.Message);
                                     }
                                 }
                                 else
@@ -502,11 +642,17 @@ namespace PolyglotCLI
                                             state.OcrErrorMessage = null;
                                             originalWriter.SaveOrUpdatePage(pageNum, state.OcrText ?? string.Empty);
                                             AppLogger.Info($"[RETRY] Page {pageNum}: Re-extraction successful.");
+                                            UpdatePageOcrInManifest(currentManifest, manifestPath, filePath, pageNum, true, null);
+                                        }
+                                        else
+                                        {
+                                            UpdatePageOcrInManifest(currentManifest, manifestPath, filePath, pageNum, false, "Re-extraction returned failed or empty result.");
                                         }
                                     }
                                     catch (Exception ex)
                                     {
                                         AppLogger.ErrorConsole($"[RETRY] Re-extraction of {fileName} failed", ex);
+                                        UpdatePageOcrInManifest(currentManifest, manifestPath, filePath, pageNum, false, ex.Message);
                                     }
                                 }
                             }
@@ -522,6 +668,7 @@ namespace PolyglotCLI
                                     state.TranslationErrorMessage = null;
                                     translatedWriter.SaveOrUpdatePage(pageNum, state.TranslatedText ?? string.Empty);
                                     AppLogger.Info($"[RETRY] Page {pageNum}: Translation successful on retry.");
+                                    UpdatePageTranslationInManifest(currentManifest, manifestPath, filePath, pageNum, true, null);
                                 }
                                 catch (Exception transEx)
                                 {
@@ -530,6 +677,7 @@ namespace PolyglotCLI
                                     state.TranslationFailed = true;
                                     state.TranslationErrorMessage = transEx.Message;
                                     translatedWriter.SaveOrUpdatePage(pageNum, $"*Failed to translate page/chunk {pageNum} due to error: {transEx.Message}*");
+                                    UpdatePageTranslationInManifest(currentManifest, manifestPath, filePath, pageNum, false, transEx.Message);
                                 }
                             }
                         }
@@ -548,6 +696,14 @@ namespace PolyglotCLI
                                 continue;
                             }
 
+                            // Check review completed in manifest
+                            var pageM = fileM?.Pages.Find(p => p.PageNumber == state.PageNumber);
+                            if (pageM != null && pageM.ReviewCompleted && !string.IsNullOrEmpty(state.TranslatedText))
+                            {
+                                AppLogger.Info($"[REVIEW] Page {state.PageNumber}: Review already completed.");
+                                continue;
+                            }
+
                             try
                             {
                                 string reviewed = await reviewService.ReviewTranslationAsync(
@@ -560,11 +716,13 @@ namespace PolyglotCLI
 
                                 state.TranslatedText = reviewed;
                                 translatedWriter.SaveOrUpdatePage(state.PageNumber, reviewed);
+                                UpdatePageReviewInManifest(currentManifest, manifestPath, filePath, state.PageNumber, true, null);
                             }
                             catch (Exception revEx)
                             {
                                 Console.WriteLine(); // fix line break
                                 AppLogger.WarnConsole($"[REVIEW] Page {state.PageNumber} review failed (keeping current translation): {revEx.Message}");
+                                UpdatePageReviewInManifest(currentManifest, manifestPath, filePath, state.PageNumber, false, revEx.Message);
                             }
                         }
                     }
@@ -573,7 +731,9 @@ namespace PolyglotCLI
                     var finalFailed = new List<int>();
                     foreach (var state in pageStates)
                     {
-                        if (state.OcrFailed || state.TranslationFailed)
+                        if ((options.Transcribe && state.OcrFailed) || 
+                            (options.Translate && state.TranslationFailed) || 
+                            (options.Verify && state.ReviewFailed))
                         {
                             finalFailed.Add(state.PageNumber);
                         }
@@ -586,6 +746,14 @@ namespace PolyglotCLI
                     else
                     {
                         AppLogger.InfoConsole($"\nSuccessfully completed translating {fileName} (all pages/chunks succeeded)!", ConsoleColor.Green);
+                        
+                        // Mark file completed in manifest
+                        var fileManifest = currentManifest.Files.Find(f => f.SourceFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase));
+                        if (fileManifest != null)
+                        {
+                            fileManifest.Completed = true;
+                            currentManifest.Save(manifestPath);
+                        }
                     }
 
                     if (File.Exists(originalOutputPath))
@@ -602,13 +770,22 @@ namespace PolyglotCLI
                     {
                         using var conversionScope = AppLogger.BeginProcess("Conversion");
                         AppLogger.InfoConsole($"Converting output to {options.SelectedFormat.ToUpperInvariant()}...", ConsoleColor.Cyan);
-                        if (File.Exists(outputPath))
+                        try
                         {
-                            await OutputFormatConverter.ConvertToFormatsAsync(outputPath, options.SelectedFormat);
+                            if (File.Exists(outputPath))
+                            {
+                                await OutputFormatConverter.ConvertToFormatsAsync(outputPath, options.SelectedFormat);
+                            }
+                            if (File.Exists(originalOutputPath))
+                            {
+                                await OutputFormatConverter.ConvertToFormatsAsync(originalOutputPath, options.SelectedFormat);
+                            }
+                            UpdateFileConversionInManifest(currentManifest, manifestPath, filePath, true);
                         }
-                        if (File.Exists(originalOutputPath))
+                        catch (Exception convEx)
                         {
-                            await OutputFormatConverter.ConvertToFormatsAsync(originalOutputPath, options.SelectedFormat);
+                            AppLogger.ErrorConsole($"Conversion Error", convEx);
+                            UpdateFileConversionInManifest(currentManifest, manifestPath, filePath, false);
                         }
                     }
 
@@ -653,11 +830,155 @@ namespace PolyglotCLI
                 }
             }
 
+            // Determine overall status
+            bool overallSuccess = true;
+            foreach (var fileM in currentManifest.Files)
+            {
+                if (!fileM.Completed)
+                {
+                    overallSuccess = false;
+                    break;
+                }
+            }
+
+            currentManifest.Status = overallSuccess ? "Completed" : "Failed";
+            currentManifest.Save(manifestPath);
+
             totalPipelineStopwatch.Stop();
             AppLogger.Info("==================================================");
             AppLogger.Info($"Translation Process Finished in {totalPipelineStopwatch.Elapsed.TotalSeconds:F2} seconds.");
             AppLogger.Info("==================================================");
-            return 0;
+            return overallSuccess ? 0 : 1;
+            }
+            catch (Exception pipelineEx)
+            {
+                currentManifest.Status = "Failed";
+                currentManifest.Save(manifestPath);
+                AppLogger.ErrorConsole("Pipeline Execution Failed with Exception", pipelineEx);
+                return 1;
+            }
+            finally
+            {
+                OnPageOcrCompleted = null;
+            }
+        }
+
+        private static void UpdatePageOcrInManifest(JobManifest manifest, string manifestPath, string filePath, int pageNum, bool success, string? error)
+        {
+            var file = manifest.Files.Find(f => f.SourceFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase));
+            if (file == null)
+            {
+                file = new JobFileManifest
+                {
+                    SourceFilePath = filePath,
+                    FileName = Path.GetFileName(filePath),
+                    TargetLanguage = manifest.TargetLanguage
+                };
+                manifest.Files.Add(file);
+            }
+
+            var page = file.Pages.Find(p => p.PageNumber == pageNum);
+            if (page == null)
+            {
+                page = new JobPageManifest { PageNumber = pageNum };
+                file.Pages.Add(page);
+            }
+
+            if (success)
+            {
+                page.OcrCompleted = true;
+                page.OcrError = null;
+            }
+            else
+            {
+                page.OcrCompleted = false;
+                page.OcrError = error;
+            }
+
+            manifest.Save(manifestPath);
+        }
+
+        private static void UpdatePageTranslationInManifest(JobManifest manifest, string manifestPath, string filePath, int pageNum, bool success, string? error)
+        {
+            var file = manifest.Files.Find(f => f.SourceFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase));
+            if (file == null)
+            {
+                file = new JobFileManifest
+                {
+                    SourceFilePath = filePath,
+                    FileName = Path.GetFileName(filePath),
+                    TargetLanguage = manifest.TargetLanguage
+                };
+                manifest.Files.Add(file);
+            }
+
+            var page = file.Pages.Find(p => p.PageNumber == pageNum);
+            if (page == null)
+            {
+                page = new JobPageManifest { PageNumber = pageNum };
+                file.Pages.Add(page);
+            }
+
+            if (success)
+            {
+                page.TranslationCompleted = true;
+                page.TranslationError = null;
+            }
+            else
+            {
+                page.TranslationCompleted = false;
+                page.TranslationError = error;
+            }
+
+            manifest.Save(manifestPath);
+        }
+
+        private static void UpdatePageReviewInManifest(JobManifest manifest, string manifestPath, string filePath, int pageNum, bool success, string? error)
+        {
+            var file = manifest.Files.Find(f => f.SourceFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase));
+            if (file == null)
+            {
+                file = new JobFileManifest
+                {
+                    SourceFilePath = filePath,
+                    FileName = Path.GetFileName(filePath),
+                    TargetLanguage = manifest.TargetLanguage
+                };
+                manifest.Files.Add(file);
+            }
+
+            var page = file.Pages.Find(p => p.PageNumber == pageNum);
+            if (page == null)
+            {
+                page = new JobPageManifest { PageNumber = pageNum };
+                file.Pages.Add(page);
+            }
+
+            if (success)
+            {
+                page.ReviewCompleted = true;
+                page.ReviewError = null;
+            }
+            else
+            {
+                page.ReviewCompleted = false;
+                page.ReviewError = error;
+            }
+
+            manifest.Save(manifestPath);
+        }
+
+        private static void UpdateFileConversionInManifest(JobManifest manifest, string manifestPath, string filePath, bool success)
+        {
+            var file = manifest.Files.Find(f => f.SourceFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase));
+            if (file != null)
+            {
+                foreach (var page in file.Pages)
+                {
+                    page.ConversionCompleted = success;
+                }
+                manifest.Save(manifestPath);
+            }
         }
     }
 }

@@ -80,12 +80,14 @@ namespace PolyglotCLI
 
                         state.OcrText = await ocrService.PerformOcrAsync(pngBytes, pageNum);
                         state.OcrFailed = false;
+                        TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, pageNum, true, null);
                     }
                     catch (Exception ocrEx)
                     {
                         state.OcrFailed = true;
                         state.OcrErrorMessage = ocrEx.Message;
                         state.OcrText = $"*Failed to perform OCR on page {pageNum} due to error: {ocrEx.Message}*";
+                        TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, pageNum, false, ocrEx.Message);
                     }
                 }
                 else
@@ -94,12 +96,14 @@ namespace PolyglotCLI
                     {
                         state.OcrText = textExtractor.ExtractTextFromPage(pageNum);
                         state.OcrFailed = false;
+                        TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, pageNum, true, null);
                     }
                     catch (Exception extractEx)
                     {
                         state.OcrFailed = true;
                         state.OcrErrorMessage = extractEx.Message;
                         state.OcrText = $"*Failed to extract text on page {pageNum} due to error: {extractEx.Message}*";
+                        TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, pageNum, false, extractEx.Message);
                     }
                 }
 

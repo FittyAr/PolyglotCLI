@@ -54,6 +54,19 @@ namespace PolyglotCLI
         private Button? _btnStart;
         private Button? _btnCancel;
 
+        // Tab UI controls
+        private ListView? _tabList;
+        private View? _tabContainer;
+        private View? _translatorView;
+        private View? _jobsHistoryView;
+
+        // Jobs History UI controls
+        private ListView? _listJobs;
+        private SafeTextView? _textJobDetails;
+        private Button? _btnRetryJob;
+        private Button? _btnRefreshJobs;
+        private readonly List<JobManifest> _pastJobs = new();
+
         public InteractiveMenu(AppConfig config)
         {
             _config = config;

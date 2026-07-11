@@ -8,9 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Pestaña "Historial de Trabajos" en la interfaz de usuario (TUI) para visualizar el estado detallado de trabajos anteriores y reanudarlos manualmente.
+- Sistema de manifiesto (`JobManifest` / `manifest.json`) que guarda de forma incremental y persistente el progreso de OCR, traducción y revisión de cada página/chunk solo cuando finaliza exitosamente.
+- Soporte en el orquestador (`TranslationOrchestrator`) para reanudar trabajos a partir de su manifiesto, recuperando archivos parciales de la carpeta del trabajo y omitiendo páginas procesadas con éxito.
+- Opción `--resume-job <id>` en la interfaz de línea de comandos para reanudar trabajos directamente.
 - Soporte nativo para conversiones a DOCX, PDF y ODT de forma local (C#).
 - Configuraciones dinámicas de extensiones de entrada y formatos de salida en config.json.
 - Modo de prueba CLI `--test-conversion` para validación rápida del conversor de formatos.
+
+### Changed
+- Reestructurada la interfaz principal de la TUI incorporando navegación lateral por pestañas ("Traductor" e "Historial de Trabajos").
+- Modificado `CommandLineOptions` para aceptar el identificador de reanudación y omitir la validación de archivos de entrada cuando se retoma un trabajo.
+- Modificados `PdfDocumentExtractor` e `ImageDocumentExtractor` para notificar el éxito o fallo de OCR de forma inmediata al orquestador.
 
 - Corregido el foco inicial en los diálogos modales (como el modal de rango de páginas y el selector de modelos); se cambiaron los botones a adición normal en coordenadas explícitas en lugar de usar `dialog.AddButton()`, logrando que el foco caiga de inmediato sobre el cuadro de texto (`textInput`) o el listado de modelos (`listModels`) y permitiendo la escritura y navegación instantáneas sin necesidad de presionar la tecla `Tab` para enfocar los controles.
 - Corregida la selección del modelo en `ModelSelectionDialog` mediante la lectura directa de la propiedad nativa `listModels.SelectedItem` al confirmar el diálogo, eliminando variables de seguimiento inestables y asegurando la correcta actualización tanto de la interfaz de usuario como del archivo de configuración.

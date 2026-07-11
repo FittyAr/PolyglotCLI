@@ -49,6 +49,8 @@ namespace PolyglotCLI
                 };
                 pageStates.Add(state);
 
+                TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, 1, true, null);
+
                 if (originalWriter != null)
                 {
                     originalWriter.SaveOrUpdatePage(1, state.OcrText ?? string.Empty);
@@ -64,6 +66,8 @@ namespace PolyglotCLI
                     OcrText = $"*Failed to perform OCR on image: {ex.Message}*"
                 };
                 pageStates.Add(state);
+
+                TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, 1, false, ex.Message);
 
                 if (originalWriter != null)
                 {

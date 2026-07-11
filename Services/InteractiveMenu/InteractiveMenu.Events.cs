@@ -26,14 +26,28 @@ namespace PolyglotCLI
                 // While a modal dialog is open, let all keys pass through to the dialog's controls
                 if (IsModalOpen) return;
 
+                bool isTranslator = (_tabList?.SelectedItem ?? 0) == 0;
+
                 // ---- Function-key shortcuts (always active) ----
                 if (keyEvent.KeyCode == KeyCode.F1)  { ShowHelpModal();                        keyEvent.Handled = true; return; }
                 if (keyEvent.KeyCode == KeyCode.F4)  { SavePresets();                          keyEvent.Handled = true; return; }
                 if (keyEvent.KeyCode == KeyCode.F5)  { ImprovePromptWithAi();                  keyEvent.Handled = true; return; }
-                if (keyEvent.KeyCode == KeyCode.F6)  { PerformScan();                          keyEvent.Handled = true; return; }
+                if (keyEvent.KeyCode == KeyCode.F6)
+                {
+                    if (isTranslator) PerformScan();
+                    else { LoadPastJobs(); UpdateJobsList(); }
+                    keyEvent.Handled = true;
+                    return;
+                }
                 if (keyEvent.KeyCode == KeyCode.F7)  { AnalyzeFileForPromptWithAi();           keyEvent.Handled = true; return; }
                 if (keyEvent.KeyCode == KeyCode.F8)  { SettingsDialog.Show(AppRequired, _config); keyEvent.Handled = true; return; }
-                if (keyEvent.KeyCode == KeyCode.F9)  { StartTranslation();                     keyEvent.Handled = true; return; }
+                if (keyEvent.KeyCode == KeyCode.F9)
+                {
+                    if (isTranslator) StartTranslation();
+                    else ResumeSelectedJob();
+                    keyEvent.Handled = true;
+                    return;
+                }
                 if (keyEvent.KeyCode == KeyCode.F12) { QuitApp();                              keyEvent.Handled = true; return; }
 
                 // ---- ListView navigation keys (only when the file list has focus) ----
@@ -58,7 +72,7 @@ namespace PolyglotCLI
 
                 // [T] / [M] — toggle OCR mode (Text ↔ Image) for PDFs
                 if (keyEvent.KeyCode == (KeyCode)'t' || keyEvent.KeyCode == (KeyCode)'T' ||
-                    keyEvent.KeyCode == (KeyCode)'m' || keyEvent.KeyCode == (KeyCode)'M')
+                     keyEvent.KeyCode == (KeyCode)'m' || keyEvent.KeyCode == (KeyCode)'M')
                 {
                     if (ext == ".pdf")
                     {
@@ -99,6 +113,33 @@ namespace PolyglotCLI
                 }
             };
 
+            // Wire Tab Menu selection changed
+            _tabList!.ValueChanged += (s, e) =>
+            {
+                bool isTranslator = (_tabList.SelectedItem ?? 0) == 0;
+                _translatorView!.Visible = isTranslator;
+                _jobsHistoryView!.Visible = !isTranslator;
+                
+                if (!isTranslator)
+                {
+                    LoadPastJobs();
+                    UpdateJobsList();
+                    _listJobs!.SetFocus();
+                }
+                else
+                {
+                    _textScanDir!.SetFocus();
+                }
+                
+                _win!.SetNeedsDraw();
+            };
+
+            // Wire Jobs list selected item changed
+            _listJobs!.ValueChanged += (s, e) =>
+            {
+                ShowSelectedJobDetails();
+            };
+
             // Wire action buttons — fields are guaranteed non-null after BuildLayout()
             _btnScan!.Accepted             += (s, e) => PerformScan();
             _btnSavePresets!.Accepted      += (s, e) => SavePresets();
@@ -107,6 +148,10 @@ namespace PolyglotCLI
             _btnAnalyzeFilePrompt!.Accepted += (s, e) => AnalyzeFileForPromptWithAi();
             _btnCancel!.Accepted           += (s, e) => QuitApp();
             _btnStart!.Accepted            += (s, e) => StartTranslation();
+
+            // Wire Jobs History buttons
+            _btnRetryJob!.Accepted += (s, e) => ResumeSelectedJob();
+            _btnRefreshJobs!.Accepted += (s, e) => { LoadPastJobs(); UpdateJobsList(); };
 
             // Double-click / Enter on a list item toggles selection
             _listFiles!.Accepted += (s, e) =>

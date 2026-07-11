@@ -278,5 +278,150 @@ namespace PolyglotCLI
             _resultOptions = null;
             _app?.RequestStop(_win);
         }
+
+        private void LoadPastJobs()
+        {
+            _pastJobs.Clear();
+            string jobsDir = TranslationOrchestrator.GetJobsDirectory();
+            if (!Directory.Exists(jobsDir))
+            {
+                return;
+            }
+
+            try
+            {
+                var dirs = Directory.GetDirectories(jobsDir);
+                foreach (var dir in dirs)
+                {
+                    string manifestPath = Path.Combine(dir, "manifest.json");
+                    if (File.Exists(manifestPath))
+                    {
+                        var manifest = JobManifest.Load(manifestPath);
+                        if (manifest != null && !string.IsNullOrEmpty(manifest.JobId))
+                        {
+                            _pastJobs.Add(manifest);
+                        }
+                    }
+                }
+                
+                // Sort jobs descending by JobId (newest first)
+                _pastJobs.Sort((a, b) => string.Compare(b.JobId, a.JobId, StringComparison.OrdinalIgnoreCase));
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn($"Error scanning past jobs: {ex.Message}");
+            }
+        }
+
+        private void UpdateJobsList()
+        {
+            var displayList = new List<string>();
+            foreach (var job in _pastJobs)
+            {
+                string dateStr = job.JobId;
+                if (job.JobId.Length == 15 && job.JobId.Contains('_'))
+                {
+                    string y = job.JobId.Substring(0, 4);
+                    string m = job.JobId.Substring(4, 2);
+                    string d = job.JobId.Substring(6, 2);
+                    string h = job.JobId.Substring(9, 2);
+                    string min = job.JobId.Substring(11, 2);
+                    string s = job.JobId.Substring(13, 2);
+                    dateStr = $"{y}-{m}-{d} {h}:{min}:{s}";
+                }
+                
+                string modeStr = job.Mode.ToUpperInvariant();
+                string statusStr = job.Status;
+                
+                displayList.Add($"{dateStr} | {modeStr.PadRight(5)} | {statusStr}");
+            }
+            
+            _listJobs!.SetSource(new ObservableCollection<string>(displayList));
+            
+            if (_pastJobs.Count == 0)
+            {
+                _textJobDetails!.Text = "No past jobs found.";
+            }
+            else
+            {
+                _listJobs.SelectedItem = 0;
+                ShowSelectedJobDetails();
+            }
+        }
+
+        private void ShowSelectedJobDetails()
+        {
+            int idx = _listJobs!.SelectedItem ?? -1;
+            if (idx < 0 || idx >= _pastJobs.Count)
+            {
+                _textJobDetails!.Text = "";
+                return;
+            }
+
+            var job = _pastJobs[idx];
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Job ID: {job.JobId}");
+            sb.AppendLine($"Created At: {job.CreatedAt:yyyy-MM-dd HH:mm:ss}");
+            sb.AppendLine($"Last Update: {job.LastUpdatedAt:yyyy-MM-dd HH:mm:ss}");
+            sb.AppendLine($"Status: {job.Status}");
+            sb.AppendLine($"Target Language: {job.TargetLanguage}");
+            sb.AppendLine($"OCR/Vision Model: {job.VisionModelName ?? "None"}");
+            sb.AppendLine($"Translation Model: {job.ModelName ?? "None"}");
+            sb.AppendLine($"Mode: {job.Mode}");
+            sb.AppendLine($"Page Range: {job.PageRange}");
+            sb.AppendLine($"Tasks: Transcribe={job.Transcribe}, Translate={job.Translate}, Verify={job.Verify}, GenerateDoc={job.GenerateDoc} ({job.SelectedFormat ?? "None"})");
+            if (!string.IsNullOrEmpty(job.AdditionalPrompt))
+            {
+                sb.AppendLine("Additional Prompt Guidance:");
+                sb.AppendLine($"  {job.AdditionalPrompt}");
+            }
+            sb.AppendLine();
+            sb.AppendLine("Files & Pages Progress:");
+            foreach (var f in job.Files)
+            {
+                sb.AppendLine($" - {f.FileName} (Completed: {f.Completed})");
+                foreach (var p in f.Pages)
+                {
+                    var steps = new List<string>();
+                    if (job.Transcribe) steps.Add($"OCR: {(p.OcrCompleted ? "OK" : (string.IsNullOrEmpty(p.OcrError) ? "Pending" : $"FAILED ({p.OcrError})"))}");
+                    if (job.Translate) steps.Add($"Trans: {(p.TranslationCompleted ? "OK" : (string.IsNullOrEmpty(p.TranslationError) ? "Pending" : $"FAILED ({p.TranslationError})"))}");
+                    if (job.Verify) steps.Add($"Review: {(p.ReviewCompleted ? "OK" : (string.IsNullOrEmpty(p.ReviewError) ? "Pending" : $"FAILED ({p.ReviewError})"))}");
+                    if (job.GenerateDoc) steps.Add($"Conv: {(p.ConversionCompleted ? "OK" : "Pending")}");
+                    
+                    sb.AppendLine($"    Page {p.PageNumber}: {string.Join(" | ", steps)}");
+                }
+            }
+
+            _textJobDetails!.Text = sb.ToString();
+        }
+
+        private void ResumeSelectedJob()
+        {
+            int idx = _listJobs!.SelectedItem ?? -1;
+            if (idx < 0 || idx >= _pastJobs.Count)
+            {
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "No job selected.", new[] { "OK" });
+                return;
+            }
+
+            var job = _pastJobs[idx];
+            if (job.Status == "Completed")
+            {
+                var queryResult = MessageBox.Query(AppRequired, "Job Completed", "This job has already completed successfully.\nAre you sure you want to run it again?", new[] { "Yes", "No" });
+                if (queryResult != 0)
+                {
+                    return;
+                }
+            }
+
+            // Create command line options to resume this job
+            _resultOptions = new CommandLineOptions
+            {
+                ResumeJobId = job.JobId,
+                ApiUrl = _config.ApiUrl // Required for verification, but will be overwritten by manifest
+            };
+
+            _app?.RequestStop(_win);
+        }
     }
 }

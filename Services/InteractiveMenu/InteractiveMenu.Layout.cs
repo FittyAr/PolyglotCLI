@@ -26,6 +26,35 @@ namespace PolyglotCLI
                 Height = Dim.Fill() 
             };
 
+            // Left Tab menu list
+            _tabList = new ListView
+            {
+                X = 0,
+                Y = 0,
+                Width = 16,
+                Height = Dim.Fill(),
+                BorderStyle = LineStyle.Single
+            };
+            _tabList.SetSource(new ObservableCollection<string>(new List<string> { " Translator", " Jobs History" }));
+
+            // Right container view
+            _tabContainer = new View()
+            {
+                X = 17,
+                Y = 0,
+                Width = Dim.Fill(),
+                Height = Dim.Fill()
+            };
+
+            // --- 1. Translator Tab Panel ---
+            _translatorView = new View()
+            {
+                X = 0,
+                Y = 0,
+                Width = Dim.Fill(),
+                Height = Dim.Fill()
+            };
+
             // Left Panel: Translation Prompt & Actions
             _leftFrame = new FrameView 
             { 
@@ -211,7 +240,7 @@ namespace PolyglotCLI
                 _labelFiles, _tableHeader, _listFiles, _labelShortcuts
             );
 
-            // Bottom Actions
+            // Bottom Actions inside Translator tab panel
             _btnStart = new Button 
             { 
                 Text = "Start Translation [F9]", 
@@ -226,7 +255,77 @@ namespace PolyglotCLI
                 Y = Pos.AnchorEnd(1) 
             };
 
-            _win.Add(_leftFrame, _rightFrame, _btnStart, _btnCancel);
+            _translatorView.Add(_leftFrame, _rightFrame, _btnStart, _btnCancel);
+
+            // --- 2. Jobs History Tab Panel ---
+            _jobsHistoryView = new View()
+            {
+                X = 0,
+                Y = 0,
+                Width = Dim.Fill(),
+                Height = Dim.Fill(),
+                Visible = false
+            };
+
+            var jobsListFrame = new FrameView 
+            { 
+                Title = "Past Jobs", 
+                X = 0, 
+                Y = 0, 
+                Width = Dim.Percent(38), 
+                Height = Dim.Fill(),
+                BorderStyle = LineStyle.Rounded
+            };
+
+            _listJobs = new ListView
+            {
+                X = 1,
+                Y = 1,
+                Width = Dim.Fill(2),
+                Height = Dim.Fill(2)
+            };
+            jobsListFrame.Add(_listJobs);
+
+            var jobDetailsFrame = new FrameView 
+            { 
+                Title = "Job Details", 
+                X = Pos.Right(jobsListFrame), 
+                Y = 0, 
+                Width = Dim.Fill(), 
+                Height = Dim.Fill(),
+                BorderStyle = LineStyle.Rounded
+            };
+
+            _textJobDetails = new SafeTextView
+            {
+                X = 1,
+                Y = 1,
+                Width = Dim.Fill(2),
+                Height = Dim.Fill(4),
+                ReadOnly = true,
+                WordWrap = true
+            };
+
+            _btnRetryJob = new Button
+            {
+                Text = "Resume/Retry Job [F9]",
+                X = 1,
+                Y = Pos.Bottom(_textJobDetails) + 1
+            };
+
+            _btnRefreshJobs = new Button
+            {
+                Text = "Refresh [F6]",
+                X = Pos.Right(_btnRetryJob) + 2,
+                Y = Pos.Bottom(_textJobDetails) + 1
+            };
+
+            jobDetailsFrame.Add(_textJobDetails, _btnRetryJob, _btnRefreshJobs);
+            _jobsHistoryView.Add(jobsListFrame, jobDetailsFrame);
+
+            // Add panels to tab container and elements to window
+            _tabContainer.Add(_translatorView, _jobsHistoryView);
+            _win.Add(_tabList, _tabContainer);
         }
     }
 }
