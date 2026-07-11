@@ -45,6 +45,31 @@ namespace PolyglotCLI
             {
                 currentManifest = JobManifest.Load(manifestPath);
                 
+                string jobConfigPath = Path.Combine(jobDir, "config.json");
+                if (File.Exists(jobConfigPath))
+                {
+                    try
+                    {
+                        var jobConfig = AppConfig.Load(jobConfigPath);
+                        config.TranslationTimeoutSeconds = jobConfig.TranslationTimeoutSeconds;
+                        config.OcrTimeoutSeconds = jobConfig.OcrTimeoutSeconds;
+                        config.ReviewTimeoutSeconds = jobConfig.ReviewTimeoutSeconds;
+                        config.Temperature = jobConfig.Temperature;
+                        config.OcrTemperature = jobConfig.OcrTemperature;
+                        config.ReviewTemperature = jobConfig.ReviewTemperature;
+                        config.MaxCharactersPerChunk = jobConfig.MaxCharactersPerChunk;
+                        config.ChunkOverlapCharacters = jobConfig.ChunkOverlapCharacters;
+                        config.PreserveFormat = jobConfig.PreserveFormat;
+                        config.EnableReview = jobConfig.EnableReview;
+                        config.ReviewModel = jobConfig.ReviewModel;
+                        AppLogger.Info($"Loaded custom configuration settings from job copy of config.json.");
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.Warn($"Failed to load config.json copy from job directory: {ex.Message}");
+                    }
+                }
+
                 // Override options with manifest values so the run is consistent!
                 options.Mode = currentManifest.Mode;
                 options.TargetLanguage = currentManifest.TargetLanguage;
