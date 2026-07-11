@@ -170,7 +170,7 @@ namespace PolyglotCLI
 
                 string updatedContent = before + newBlock.ToString() + after;
                 File.WriteAllText(_filePath, updatedContent, Encoding.UTF8);
-                Console.WriteLine($"[RETRY] Updated page {pageNumber} in markdown.");
+                Console.WriteLine($"Updated page {pageNumber} in markdown.");
             }
             catch (Exception ex)
             {
