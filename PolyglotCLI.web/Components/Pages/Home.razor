@@ -4,6 +4,8 @@
 @using System.Text.Json
 @using System.IO
 @inject PolyglotCLI.AppConfig Config
+@inject DialogService DialogService
+@inject NotificationService NotificationService
 @implements IDisposable
 
 <PageTitle>Traductor - PolyglotCLI</PageTitle>
@@ -40,7 +42,7 @@
                 <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Selección de Archivos y Configuración Individual</RadzenText>
                 @if (fileSystemItems.Count > 0)
                 {
-                    <RadzenDataGrid Data="@fileSystemItems" TItem="FileSystemItem" AllowFiltering="false" AllowSorting="false" PageSize="100" class="rz-mb-4" RowClick="@OnRowClick" Style="max-height: 400px; overflow-y: auto;">
+                    <RadzenDataGrid Data="@fileSystemItems" TItem="FileSystemItem" SelectionMode="DataGridSelectionMode.Single" @bind-Value="@selectedRows" AllowFiltering="false" AllowSorting="false" PageSize="100" class="rz-mb-4" Style="max-height: 400px; overflow-y: auto;">
                         <Columns>
                             <!-- Selección -->
                             <RadzenDataGridColumn TItem="FileSystemItem" Width="55px" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
@@ -60,13 +62,17 @@
                                 <Template Context="item">
                                     @if (item.IsDirectory)
                                     {
-                                        <RadzenIcon Icon="folder" Style="margin-right: 8px; vertical-align: middle; color: #ffca28;" />
-                                        <span style="font-weight: bold; cursor: pointer; color: #64b5f6;">@item.Name</span>
+                                        <span @onclick="@(() => LoadDirectory(item.FullPath))" style="cursor: pointer; font-weight: bold; color: #64b5f6; display: inline-flex; align-items: center;">
+                                            <RadzenIcon Icon="folder" Style="margin-right: 8px; color: #ffca28; vertical-align: middle;" />
+                                            @item.Name
+                                        </span>
                                     }
                                     else
                                     {
-                                        <RadzenIcon Icon="insert_drive_file" Style="margin-right: 8px; vertical-align: middle;" />
-                                        <span>@item.Name</span>
+                                        <span style="display: inline-flex; align-items: center;">
+                                            <RadzenIcon Icon="insert_drive_file" Style="margin-right: 8px; color: #90a4ae; vertical-align: middle;" />
+                                            @item.Name
+                                        </span>
                                     }
                                 </Template>
                             </RadzenDataGridColumn>
@@ -128,25 +134,42 @@
 
                 <RadzenRow Gap="1rem" class="rz-mb-4">
                     <RadzenColumn Size="6">
-                        <RadzenLabel Text="Modelo LM Studio" class="rz-mb-2" />
-                        <RadzenDropDown @bind-Value="options.ModelName" Data="@availableModels" class="rz-w-100" 
-                                        Placeholder="Seleccionar modelo..." AllowClear="true" />
-                    </RadzenColumn>
-                    <RadzenColumn Size="6">
                         <RadzenLabel Text="Idioma Destino" class="rz-mb-2" />
                         <RadzenTextBox @bind-Value="options.TargetLanguage" class="rz-w-100" />
                     </RadzenColumn>
-                </RadzenRow>
-                
-                <RadzenRow Gap="1rem" class="rz-mb-4">
-                    <RadzenColumn Size="12">
+                    <RadzenColumn Size="6">
                         <RadzenLabel Text="Formato de Salida Generado" class="rz-mb-2" />
                         <RadzenDropDown @bind-Value="options.SelectedFormat" Data="@Config.SupportedOutputFormats" class="rz-w-100" Placeholder="Ninguno (Solo MD)" AllowClear="true" />
                     </RadzenColumn>
                 </RadzenRow>
+                
+                <!-- Prompt personalizado e IA -->
+                <RadzenCard class="rz-mb-4 rz-p-4" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-mb-2" style="font-weight: bold;">Instrucciones de Traducción Adicionales (Prompt)</RadzenText>
+                    <RadzenRow class="rz-mb-3">
+                        <RadzenColumn Size="12">
+                            <RadzenTextArea @bind-Value="options.AdditionalPrompt" Rows="5" class="rz-w-100" Placeholder="Instrucciones adicionales para guiar la traducción..." />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow>
+                        <RadzenColumn Size="12">
+                            <RadzenButton Text="Analizar Archivo (IA)" Icon="analytics" ButtonStyle="ButtonStyle.Info" 
+                                          Click="@(async () => await AnalyzeFilePrompt())" 
+                                          Disabled="@(isProcessing || selectedRows.Count != 1 || selectedRows[0].IsDirectory)" />
+                                          
+                            <RadzenButton Text="Mejorar Prompt (IA)" Icon="upgrade" ButtonStyle="ButtonStyle.Secondary" 
+                                          Click="@(async () => await ImprovePrompt())" 
+                                          Disabled="@(isProcessing || string.IsNullOrWhiteSpace(options.AdditionalPrompt))" class="rz-ml-2" />
+                                          
+                            <RadzenButton Text="Guardar Preajustes" Icon="save" ButtonStyle="ButtonStyle.Warning" 
+                                          Click="@(async () => await SavePresets())" 
+                                          Disabled="@isProcessing" class="rz-ml-2" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenCard>
 
                 <RadzenButton ButtonType="ButtonType.Submit" Text="Iniciar Traducción" Icon="play_arrow" 
-                               ButtonStyle="ButtonStyle.Primary" BusyText="Procesando..." IsBusy="@isProcessing" class="rz-mt-4" />
+                               ButtonStyle="ButtonStyle.Primary" BusyText="Procesando..." IsBusy="@isProcessing" class="rz-mt-2" />
             </RadzenTemplateForm>
         </RadzenCard>
     </RadzenColumn>
@@ -182,6 +205,7 @@
     string currentDirectory = "";
     List<FileSystemItem> fileSystemItems = new List<FileSystemItem>();
     bool allSelected = false;
+    IList<FileSystemItem> selectedRows = new List<FileSystemItem>();
 
     public class FileSystemItem
     {
@@ -198,35 +222,12 @@
 
     protected override async Task OnInitializedAsync()
     {
-        options.ModelName = Config.DefaultModel;
         options.TargetLanguage = Config.TargetLanguage;
         options.OutputDirectory = Config.OutputDirectory;
         options.SelectedFormat = Config.DefaultOutputFormat;
         options.Verify = Config.EnableReview;
         options.GenerateDoc = !string.IsNullOrEmpty(Config.DefaultOutputFormat);
-
-        // Fetch models from LM Studio API
-        try {
-            using var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(5);
-            var response = await client.GetAsync($"{Config.ApiUrl.TrimEnd('/')}/models");
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(content);
-                if (doc.RootElement.TryGetProperty("data", out var dataArr))
-                {
-                    foreach(var m in dataArr.EnumerateArray()) {
-                        if(m.TryGetProperty("id", out var idProp))
-                            availableModels.Add(idProp.GetString() ?? "");
-                    }
-                }
-            }
-        } 
-        catch {
-            if (!string.IsNullOrEmpty(Config.DefaultModel))
-                availableModels.Add(Config.DefaultModel);
-        }
+        options.AdditionalPrompt = Config.AdditionalPrompt;
 
         // Initialize drives
         try
@@ -352,6 +353,7 @@
             fileSystemItems = items;
             currentDirectory = resolvedPath;
             allSelected = false;
+            selectedRows = new List<FileSystemItem>(); // Clear highlighted items on directory change
 
             // Save last scanned directory in config
             Config.LastScanDirectory = currentDirectory;
@@ -382,14 +384,6 @@
         }
     }
 
-    void OnRowClick(DataGridRowMouseEventArgs<FileSystemItem> args)
-    {
-        if (args.Data != null && args.Data.IsDirectory)
-        {
-            LoadDirectory(args.Data.FullPath);
-        }
-    }
-
     void SelectAllFiles(bool select)
     {
         allSelected = select;
@@ -398,6 +392,181 @@
             if (!item.IsDirectory)
             {
                 item.IsSelected = select;
+            }
+        }
+    }
+
+    async Task SavePresets()
+    {
+        if (string.IsNullOrEmpty(currentDirectory) || !Directory.Exists(currentDirectory))
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Warning, Summary = "Validación", Detail = "Por favor especifique un directorio de exploración válido." });
+            return;
+        }
+
+        Config.LastScanDirectory = currentDirectory;
+        Config.AdditionalPrompt = options.AdditionalPrompt?.Trim();
+        Config.DefaultOutputFormat = options.SelectedFormat;
+
+        var outputFormats = new List<string>();
+        if (Config.SaveMarkdown) outputFormats.Add("md");
+        if (!string.IsNullOrEmpty(options.SelectedFormat)) outputFormats.Add(options.SelectedFormat);
+        if (outputFormats.Count == 0) outputFormats.Add("md");
+        Config.OutputFormats = string.Join(",", outputFormats);
+
+        try
+        {
+            Config.Save();
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Preajustes Guardados", Detail = "Los ajustes por defecto han sido guardados en config.json" });
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error al Guardar", Detail = ex.Message });
+        }
+    }
+
+    async Task ImprovePrompt()
+    {
+        string rawInput = options.AdditionalPrompt?.Trim() ?? "";
+        if (string.IsNullOrEmpty(rawInput)) return;
+
+        string url = Config.ApiUrl;
+        string model = Config.DefaultModel ?? "";
+        if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error de Configuración", Detail = "Debe configurar la URL de API y el Modelo de Traducción en Configuración primero." });
+            return;
+        }
+
+        isProcessing = true;
+        StateHasChanged();
+        
+        string? improvedResult = null;
+        try
+        {
+            improvedResult = await Task.Run(() => PromptHelperService.ImprovePromptAsync(
+                rawInput, 
+                url, 
+                model, 
+                Config.PromptImproveTimeoutSeconds, 
+                Config.Temperature
+            ));
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error al Mejorar Prompt", Detail = ex.Message });
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+
+        if (!string.IsNullOrEmpty(improvedResult))
+        {
+            var result = await DialogService.OpenAsync("Previsualización de Prompt Mejorado por IA", ds => 
+                @<RadzenStack Gap="1.5rem">
+                    <RadzenRow>
+                        <RadzenColumn Size="6">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold;">Prompt Original</RadzenText>
+                            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 4px; white-space: pre-wrap; font-size: 0.85rem; max-height: 250px; overflow-y: auto;">
+                                @rawInput
+                            </div>
+                        </RadzenColumn>
+                        <RadzenColumn Size="6">
+                            <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold;">Prompt Mejorado (IA)</RadzenText>
+                            <div style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 4px; white-space: pre-wrap; font-size: 0.85rem; max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1);">
+                                @improvedResult
+                            </div>
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                        <RadzenButton Text="Aplicar Cambios" Click="@(() => ds.Close(true))" ButtonStyle="ButtonStyle.Primary" />
+                        <RadzenButton Text="Descartar" Click="@(() => ds.Close(false))" ButtonStyle="ButtonStyle.Light" />
+                    </RadzenStack>
+                </RadzenStack>
+            , new DialogOptions { Width = "750px" });
+
+            if (result == true)
+            {
+                options.AdditionalPrompt = improvedResult;
+                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Prompt actualizado con la versión mejorada por IA." });
+            }
+        }
+    }
+
+    async Task AnalyzeFilePrompt()
+    {
+        if (selectedRows.Count != 1 || selectedRows[0].IsDirectory) return;
+        var file = selectedRows[0];
+
+        string url = Config.ApiUrl;
+        string model = Config.DefaultModel ?? "";
+        string visionModel = Config.DefaultVisionModel ?? "";
+        if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error de Configuración", Detail = "Debe configurar la URL de API y el Modelo en Configuración primero." });
+            return;
+        }
+
+        isProcessing = true;
+        string currentStatus = "Preparando análisis...";
+        
+        // Show progress dialog
+        var progressDialog = DialogService.OpenAsync("Analizando Archivo", ds => 
+            @<RadzenStack AlignItems="AlignItems.Center" Gap="1.5rem" class="rz-p-4">
+                <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="width: 100%;" />
+                <RadzenText TextStyle="TextStyle.Body1">@currentStatus</RadzenText>
+            </RadzenStack>
+        , new DialogOptions { ShowTitle = true, ShowClose = false, Width = "400px" });
+
+        string? improvedPromptResult = null;
+        try
+        {
+            improvedPromptResult = await Task.Run(() => PromptHelperService.GenerateContextPromptAsync(
+                file.FullPath,
+                file.Mode,
+                file.PageRange,
+                Config,
+                url,
+                model,
+                visionModel,
+                (status) => {
+                    currentStatus = status;
+                    InvokeAsync(StateHasChanged);
+                }
+            ));
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error al Analizar Archivo", Detail = ex.Message });
+        }
+        finally
+        {
+            DialogService.Close(); // Close progress dialog
+            isProcessing = false;
+            StateHasChanged();
+        }
+
+        if (!string.IsNullOrEmpty(improvedPromptResult))
+        {
+            var result = await DialogService.OpenAsync("Previsualización de Prompt Basado en Contexto de Archivo", ds => 
+                @<RadzenStack Gap="1.5rem">
+                    <RadzenText TextStyle="TextStyle.Body1">El asistente de IA ha generado las siguientes instrucciones personalizadas basadas en el análisis de <b>@file.Name</b>:</RadzenText>
+                    <div style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 4px; white-space: pre-wrap; font-size: 0.85rem; max-height: 300px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1);">
+                        @improvedPromptResult
+                    </div>
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                        <RadzenButton Text="Aplicar a Instrucciones" Click="@(() => ds.Close(true))" ButtonStyle="ButtonStyle.Primary" />
+                        <RadzenButton Text="Descartar" Click="@(() => ds.Close(false))" ButtonStyle="ButtonStyle.Light" />
+                    </RadzenStack>
+                </RadzenStack>
+            , new DialogOptions { Width = "650px" });
+
+            if (result == true)
+            {
+                options.AdditionalPrompt = improvedPromptResult;
+                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Instrucciones de traducción actualizadas con el análisis del archivo." });
             }
         }
     }
@@ -422,6 +591,8 @@
         }).ToList();
         
         args.ApiUrl = Config.ApiUrl;
+        args.ModelName = Config.DefaultModel;
+        args.VisionModelName = Config.DefaultVisionModel;
         args.GenerateDoc = !string.IsNullOrWhiteSpace(args.SelectedFormat);
         args.Verify = Config.EnableReview;
 

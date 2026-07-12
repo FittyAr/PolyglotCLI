@@ -31,9 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Habilitada la interactividad global de Blazor Server en `App.razor` agregando el atributo `@rendermode="InteractiveServer"` a `HeadOutlet` y `Routes`, solucionando los problemas de botones e inputs que no respondían.
-- Rediseñada la pestaña "Traductor" (`Home.razor`) reemplazando el cuadro de texto de archivos de entrada por un explorador de carpetas interactivo con selector de unidades de disco, navegación mediante clicks sobre carpetas/`..` y un grid editable para configurar de forma individual el método y rango de páginas por archivo.
+- Rediseñada la pestaña "Traductor" (`Home.razor`) reemplazando el cuadro de texto de archivos de entrada por un explorador de carpetas interactivo con selector de unidades de disco, navegación mediante clicks sobre carpetas/`..` y un grid editable para configurar de forma individual el método y rango de páginas por archivo sin conflictos de foco.
+- Incorporado el panel de Prompt Adicional en la pestaña "Traductor" con botones de acción para Analizar Archivo (IA), Mejorar Prompt (IA) con previsualización lado a lado y Guardar Preajustes en `config.json`.
+- Rediseñada por completo la pestaña de "Configuración" (`Config.razor`) para alinearse con los menús de la TUI/CLI (General, OCR Process, Translation, Revision, Output Formats, Prompts del Sistema), incluyendo el botón para probar conexión de LM Studio y poblar modelos de forma dinámica.
 - Reemplazada la entrada libre de formato de salida por un control `RadzenDropDown` enlazado dinámicamente a los formatos admitidos desde la configuración (`Config.SupportedOutputFormats`).
-- Simplificada la interfaz de la pestaña "Traductor" removiendo los checkboxes redundantes de configuración global que ya se editan en la pestaña "Configuración".
+- Simplificada la interfaz de la pestaña "Traductor" removiendo los checkboxes redundantes de configuración global y el selector de modelo de traducción que ya se editan en la pestaña "Configuración", y eliminando el campo redundante de idioma de destino de la configuración global ya que se define en cada trabajo.
 - Ignorado el directorio de instalación local de .NET SDK (`local-dotnet/`) en `.gitignore`.
 - Reestructurada la interfaz principal de la TUI incorporando navegación lateral por pestañas ("Traductor" e "Historial de Trabajos").
 - Modificado `CommandLineOptions` para aceptar el identificador de reanudación y omitir la validación de archivos de entrada cuando se retoma un trabajo.
