@@ -1,62 +1,171 @@
 @page "/config"
+@using PolyglotCLI
+@using System.Net.Http
+@using System.Text.Json
 @inject PolyglotCLI.AppConfig AppConfig
 
 <PageTitle>Configuración - PolyglotCLI</PageTitle>
 
 <RadzenCard class="rz-my-4">
-    <RadzenText TextStyle="TextStyle.H4">Configuración de la Aplicación</RadzenText>
-    <div class="rz-p-4">
-        <RadzenTemplateForm Data="@AppConfig" Submit="@(async (PolyglotCLI.AppConfig args) => await SaveConfig(args))">
-            <RadzenRow Gap="1rem" class="rz-mb-4">
-                <RadzenColumn Size="12">
-                    <RadzenLabel Text="URL de la API" />
-                    <RadzenTextBox @bind-Value="AppConfig.ApiUrl" class="rz-w-100" />
-                </RadzenColumn>
-            </RadzenRow>
+    <RadzenText TextStyle="TextStyle.H4" class="rz-mb-4">Configuración de la Aplicación</RadzenText>
+    
+    <RadzenTemplateForm Data="@AppConfig" Submit="@(async (PolyglotCLI.AppConfig args) => await SaveConfig(args))">
+        <RadzenTabs>
+            <Tabs>
+                <!-- Pestaña 1: General & API -->
+                <RadzenTabsItem Text="General & API" Icon="settings">
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="12">
+                            <RadzenLabel Text="URL de la API LM Studio" class="rz-mb-2" />
+                            <RadzenTextBox @bind-Value="AppConfig.ApiUrl" class="rz-w-100" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="12">
+                            <RadzenLabel Text="Directorio de Salida" class="rz-mb-2" />
+                            <RadzenTextBox @bind-Value="AppConfig.OutputDirectory" class="rz-w-100" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="6">
+                            <RadzenLabel Text="Idioma Destino por Defecto" class="rz-mb-2" />
+                            <RadzenTextBox @bind-Value="AppConfig.TargetLanguage" class="rz-w-100" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="6">
+                            <RadzenLabel Text="Formato de Salida por Defecto" class="rz-mb-2" />
+                            <RadzenTextBox @bind-Value="AppConfig.DefaultOutputFormat" class="rz-w-100" Placeholder="pdf, docx, odt, html..." />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="4">
+                            <RadzenLabel Text="Directorio de Logs" class="rz-mb-2" />
+                            <RadzenTextBox @bind-Value="AppConfig.LogDirectory" class="rz-w-100" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="4">
+                            <RadzenLabel Text="Nivel Log Consola" class="rz-mb-2" />
+                            <RadzenTextBox @bind-Value="AppConfig.LogLevelConsole" class="rz-w-100" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="4">
+                            <RadzenLabel Text="Nivel Log Archivo" class="rz-mb-2" />
+                            <RadzenTextBox @bind-Value="AppConfig.LogLevelFile" class="rz-w-100" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenTabsItem>
 
-            <RadzenRow Gap="1rem" class="rz-mb-4">
-                <RadzenColumn Size="6">
-                    <RadzenLabel Text="Modelo por Defecto" />
-                    <RadzenTextBox @bind-Value="AppConfig.DefaultModel" class="rz-w-100" />
-                </RadzenColumn>
-                <RadzenColumn Size="6">
-                    <RadzenLabel Text="Idioma Destino por Defecto" />
-                    <RadzenTextBox @bind-Value="AppConfig.TargetLanguage" class="rz-w-100" />
-                </RadzenColumn>
-            </RadzenRow>
-            
-            <RadzenRow Gap="1rem" class="rz-mb-4">
-                <RadzenColumn Size="12">
-                    <RadzenLabel Text="Directorio de Salida" />
-                    <RadzenTextBox @bind-Value="AppConfig.OutputDirectory" class="rz-w-100" />
-                </RadzenColumn>
-            </RadzenRow>
-            
-            <RadzenRow Gap="1rem" class="rz-mb-4">
-                <RadzenColumn Size="6">
-                    <RadzenLabel Text="Directorio de Logs" />
-                    <RadzenTextBox @bind-Value="AppConfig.LogDirectory" class="rz-w-100" />
-                </RadzenColumn>
-                <RadzenColumn Size="6">
-                    <RadzenLabel Text="Nivel de Log" />
-                    <RadzenTextBox @bind-Value="AppConfig.LogLevelFile" class="rz-w-100" />
-                </RadzenColumn>
-            </RadzenRow>
-            
-            <RadzenRow Gap="1rem" class="rz-mb-4">
-                <RadzenColumn Size="6">
-                    <RadzenLabel Text="Timeout OCR (segundos)" />
-                    <RadzenNumeric @bind-Value="AppConfig.OcrTimeoutSeconds" class="rz-w-100" />
-                </RadzenColumn>
-                <RadzenColumn Size="6">
-                    <RadzenLabel Text="Timeout Traducción (segundos)" />
-                    <RadzenNumeric @bind-Value="AppConfig.TranslationTimeoutSeconds" class="rz-w-100" />
-                </RadzenColumn>
-            </RadzenRow>
+                <!-- Pestaña 2: Modelos LLM -->
+                <RadzenTabsItem Text="Modelos LLM" Icon="psychology">
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="12">
+                            <RadzenLabel Text="Modelo de Traducción por Defecto" class="rz-mb-2" />
+                            <RadzenDropDown @bind-Value="AppConfig.DefaultModel" Data="@availableModels" class="rz-w-100" Placeholder="Seleccionar modelo de texto..." AllowClear="true" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="12">
+                            <RadzenLabel Text="Modelo de Visión (OCR) por Defecto" class="rz-mb-2" />
+                            <RadzenDropDown @bind-Value="AppConfig.DefaultVisionModel" Data="@availableModels" class="rz-w-100" Placeholder="Seleccionar modelo de visión..." AllowClear="true" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="12">
+                            <RadzenLabel Text="Modelo de Revisión por Defecto" class="rz-mb-2" />
+                            <RadzenDropDown @bind-Value="AppConfig.ReviewModel" Data="@availableModels" class="rz-w-100" Placeholder="Seleccionar modelo de revisión..." AllowClear="true" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenTabsItem>
 
-            <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar Configuración" Icon="save" ButtonStyle="ButtonStyle.Primary" />
-        </RadzenTemplateForm>
-    </div>
+                <!-- Pestaña 3: OCR y Fragmentación -->
+                <RadzenTabsItem Text="OCR y Fragmentación" Icon="view_cozy">
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="4">
+                            <RadzenLabel Text="Temperatura Traducción" class="rz-mb-2" />
+                            <RadzenNumeric @bind-Value="AppConfig.Temperature" TValue="double" Step="0.1" Min="@((decimal)0)" Max="@((decimal)1)" class="rz-w-100" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="4">
+                            <RadzenLabel Text="Temperatura OCR" class="rz-mb-2" />
+                            <RadzenNumeric @bind-Value="AppConfig.OcrTemperature" TValue="double" Step="0.1" Min="@((decimal)0)" Max="@((decimal)1)" class="rz-w-100" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="4">
+                            <RadzenLabel Text="Temperatura Revisión" class="rz-mb-2" />
+                            <RadzenNumeric @bind-Value="AppConfig.ReviewTemperature" TValue="double" Step="0.1" Min="@((decimal)0)" Max="@((decimal)1)" class="rz-w-100" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="6">
+                            <RadzenLabel Text="Máx. Caracteres por Chunk" class="rz-mb-2" />
+                            <RadzenNumeric @bind-Value="AppConfig.MaxCharactersPerChunk" TValue="int" class="rz-w-100" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="6">
+                            <RadzenLabel Text="Solapamiento de Chunks" class="rz-mb-2" />
+                            <RadzenNumeric @bind-Value="AppConfig.ChunkOverlapCharacters" TValue="int" class="rz-w-100" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="4">
+                            <RadzenLabel Text="Timeout OCR (segundos)" class="rz-mb-2" />
+                            <RadzenNumeric @bind-Value="AppConfig.OcrTimeoutSeconds" TValue="int" class="rz-w-100" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="4">
+                            <RadzenLabel Text="Timeout Traducción (segundos)" class="rz-mb-2" />
+                            <RadzenNumeric @bind-Value="AppConfig.TranslationTimeoutSeconds" TValue="int" class="rz-w-100" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="4">
+                            <RadzenLabel Text="Timeout Revisión (segundos)" class="rz-mb-2" />
+                            <RadzenNumeric @bind-Value="AppConfig.ReviewTimeoutSeconds" TValue="int" class="rz-w-100" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="6">
+                            <RadzenLabel Text="Timeout Prompt Improve (segundos)" class="rz-mb-2" />
+                            <RadzenNumeric @bind-Value="AppConfig.PromptImproveTimeoutSeconds" TValue="int" class="rz-w-100" />
+                        </RadzenColumn>
+                        <RadzenColumn Size="6">
+                            <RadzenLabel Text="Timeout Check de Modelo (segundos)" class="rz-mb-2" />
+                            <RadzenNumeric @bind-Value="AppConfig.ModelCheckTimeoutSeconds" TValue="int" class="rz-w-100" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenTabsItem>
+
+                <!-- Pestaña 4: Formatos y Reglas -->
+                <RadzenTabsItem Text="Formatos y Reglas" Icon="rule">
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="12" class="rz-mt-2">
+                            <RadzenCheckBox @bind-Value="AppConfig.PreserveFormat" Name="cfgPreserve" />
+                            <RadzenLabel Text="Preservar formato original" Component="cfgPreserve" class="rz-ml-2 rz-mr-4" />
+                            
+                            <RadzenCheckBox @bind-Value="AppConfig.SaveMarkdown" Name="cfgSaveMd" />
+                            <RadzenLabel Text="Guardar archivo Markdown intermedio" Component="cfgSaveMd" class="rz-ml-2 rz-mr-4" />
+                            
+                            <RadzenCheckBox @bind-Value="AppConfig.EnableReview" Name="cfgReview" />
+                            <RadzenLabel Text="Habilitar Revisión con IA" Component="cfgReview" class="rz-ml-2" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="12">
+                            <RadzenLabel Text="Formatos de Salida Soportados (separados por coma)" class="rz-mb-2" />
+                            <RadzenTextBox @bind-Value="outputFormatsInput" class="rz-w-100" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenTabsItem>
+
+                <!-- Pestaña 5: Prompts del Sistema -->
+                <RadzenTabsItem Text="Prompts del Sistema" Icon="description">
+                    <RadzenRow Gap="1rem" class="rz-mb-4">
+                        <RadzenColumn Size="12">
+                            <RadzenLabel Text="Instrucciones / Guía del Sistema Adicional para la Traducción" class="rz-mb-2" />
+                            <RadzenTextArea @bind-Value="AppConfig.AdditionalPrompt" Rows="10" class="rz-w-100" Placeholder="Instrucciones personalizadas para guiar al modelo..." />
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenTabsItem>
+            </Tabs>
+        </RadzenTabs>
+
+        <RadzenRow class="rz-mt-6">
+            <RadzenColumn Size="12" class="rz-text-align-right">
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Guardar Configuración" Icon="save" ButtonStyle="ButtonStyle.Primary" />
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenTemplateForm>
 </RadzenCard>
 
 @if(!string.IsNullOrEmpty(saveMessage))
@@ -68,11 +177,48 @@
 
 @code {
     string saveMessage = "";
+    string outputFormatsInput = "";
+    List<string> availableModels = new List<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        outputFormatsInput = string.Join(", ", AppConfig.SupportedOutputFormats);
+
+        // Fetch models dynamically from LM Studio
+        try {
+            using var client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(3);
+            var response = await client.GetAsync($"{AppConfig.ApiUrl.TrimEnd('/')}/models");
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(content);
+                if (doc.RootElement.TryGetProperty("data", out var dataArr))
+                {
+                    foreach(var m in dataArr.EnumerateArray()) {
+                        if(m.TryGetProperty("id", out var idProp))
+                            availableModels.Add(idProp.GetString() ?? "");
+                    }
+                }
+            }
+        }
+        catch {
+            // Populate active defaults if LM Studio API is offline
+            if (!string.IsNullOrEmpty(AppConfig.DefaultModel)) availableModels.Add(AppConfig.DefaultModel);
+            if (!string.IsNullOrEmpty(AppConfig.DefaultVisionModel) && !availableModels.Contains(AppConfig.DefaultVisionModel)) availableModels.Add(AppConfig.DefaultVisionModel);
+            if (!string.IsNullOrEmpty(AppConfig.ReviewModel) && !availableModels.Contains(AppConfig.ReviewModel)) availableModels.Add(AppConfig.ReviewModel);
+        }
+    }
 
     async Task SaveConfig(PolyglotCLI.AppConfig args)
     {
+        args.SupportedOutputFormats = outputFormatsInput
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+            
         args.Save();
-        PolyglotCLI.AppLogger.Initialize(args); // Reinitialize logger with new config
+        PolyglotCLI.AppLogger.Initialize(args); // Reinitialize logging setup
+        
         saveMessage = "Configuración guardada exitosamente.";
         StateHasChanged();
         

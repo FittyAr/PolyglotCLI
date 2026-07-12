@@ -1,100 +1,129 @@
 /* Premium Dark Mode & Glassmorphism UI */
 body {
-    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-    color: #f8fafc;
+    background: linear-gradient(135deg, #0b0f19 0%, #111827 50%, #1e1b4b 100%) !important;
+    color: #f8fafc !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     min-height: 100vh;
     margin: 0;
 }
 
+/* Base text contrast */
+h1, h2, h3, h4, h5, h6, .rz-text {
+    color: #ffffff !important;
+}
+
 /* Glassmorphism Cards */
 .rz-card {
-    background: rgba(30, 41, 59, 0.7) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(17, 24, 39, 0.8) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: 16px !important;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.4) !important;
+    padding: 24px !important;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .rz-card:hover {
-    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4) !important;
+    box-shadow: 0 15px 45px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+/* General labels */
+.rz-label {
+    color: #cbd5e1 !important;
+    font-weight: 500 !important;
+    font-size: 0.9rem !important;
 }
 
 /* Inputs and Dropdowns */
-.rz-textbox, .rz-dropdown, .rz-numeric {
-    background: rgba(15, 23, 42, 0.6) !important;
+.rz-textbox, .rz-dropdown, .rz-numeric, .rz-textarea, .rz-multiselect {
+    background: rgba(10, 15, 26, 0.8) !important;
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    color: #e2e8f0 !important;
+    color: #ffffff !important;
     border-radius: 8px !important;
-    transition: all 0.2s ease;
+    padding: 8px 12px !important;
+    font-size: 0.95rem !important;
+    transition: all 0.25s ease;
 }
 
-.rz-textbox:focus, .rz-dropdown:focus, .rz-numeric:focus {
+.rz-textbox:focus, .rz-dropdown:focus, .rz-numeric:focus, .rz-textarea:focus, .rz-multiselect:focus {
     border-color: #6366f1 !important;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3) !important;
-    background: rgba(15, 23, 42, 0.8) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4) !important;
+    background: rgba(10, 15, 26, 0.95) !important;
 }
 
 /* Buttons */
-.rz-button.rz-button-md {
-    border-radius: 8px;
-    font-weight: 600;
+.rz-button {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
     letter-spacing: 0.5px;
-    transition: all 0.2s ease;
+    padding: 10px 20px !important;
+    transition: all 0.25s ease !important;
 }
 
 .rz-button.rz-primary {
     background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
     border: none !important;
-    color: white !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .rz-button.rz-primary:hover {
     background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%) !important;
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+}
+
+.rz-button.rz-secondary {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #cbd5e1 !important;
+}
+
+.rz-button.rz-secondary:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    color: #ffffff !important;
 }
 
 /* Sidebar and Header */
 .rz-header {
-    background: rgba(15, 23, 42, 0.8) !important;
+    background: rgba(10, 15, 26, 0.8) !important;
     backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .rz-sidebar {
-    background: rgba(15, 23, 42, 0.9) !important;
+    background: rgba(10, 15, 26, 0.9) !important;
     backdrop-filter: blur(12px);
-    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .rz-panel-menu .rz-navigation-item-link {
     color: #cbd5e1 !important;
+    font-weight: 500;
     transition: all 0.2s ease;
 }
 
 .rz-panel-menu .rz-navigation-item-link:hover,
 .rz-panel-menu .rz-navigation-item.rz-navigation-item-active > .rz-navigation-item-wrapper .rz-navigation-item-link {
-    background: rgba(99, 102, 241, 0.15) !important;
+    background: rgba(99, 102, 241, 0.18) !important;
     color: #818cf8 !important;
     border-right: 3px solid #6366f1;
 }
 
 /* Terminal Console UI */
 .virtual-console {
-    background-color: #0f172a;
-    color: #a5b4fc;
-    padding: 16px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    max-height: 400px;
+    background-color: #030712 !important;
+    color: #a5b4fc !important;
+    padding: 18px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    max-height: 450px;
     overflow-y: auto;
     font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.7);
 }
 
 .log-info { color: #cbd5e1; }
@@ -103,26 +132,65 @@ body {
 .log-debug { color: #64748b; }
 .log-fatal { color: #ef4444; font-weight: bold; }
 
+/* Tabs Styling */
+.rz-tabview {
+    background: transparent !important;
+    border: none !important;
+}
+
+.rz-tabview-nav {
+    background: rgba(10, 15, 26, 0.5) !important;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.08) !important;
+    padding: 0 8px;
+}
+
+.rz-tabview-nav li {
+    background: transparent !important;
+    margin-right: 4px;
+}
+
+.rz-tabview-nav li a {
+    color: #94a3b8 !important;
+    font-weight: 600 !important;
+    padding: 12px 18px !important;
+    border: none !important;
+    transition: all 0.2s ease;
+}
+
+.rz-tabview-nav li.rz-tabview-selected a {
+    color: #818cf8 !important;
+    border-bottom: 3px solid #6366f1 !important;
+}
+
+.rz-tabview-panels {
+    background: transparent !important;
+    color: #f8fafc !important;
+    padding: 20px 0 !important;
+    border: none !important;
+}
+
 /* DataGrid overrides for Dark Mode */
 .rz-datatable {
     background: transparent !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px;
     overflow: hidden;
 }
 
 .rz-datatable-header, .rz-datatable-thead th {
-    background: rgba(15, 23, 42, 0.8) !important;
-    color: #e2e8f0 !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(10, 15, 26, 0.8) !important;
+    color: #f1f5f9 !important;
+    font-weight: 600 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .rz-datatable-data td {
-    background: rgba(30, 41, 59, 0.4) !important;
+    background: rgba(17, 24, 39, 0.5) !important;
     color: #cbd5e1 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    padding: 12px 16px !important;
 }
 
 .rz-datatable-data tr:hover td {
-    background: rgba(99, 102, 241, 0.1) !important;
+    background: rgba(99, 102, 241, 0.15) !important;
 }

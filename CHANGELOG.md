@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Interfaz de configuración completa tabulada (`Config.razor`) con pestañas para General & API, Modelos LLM, OCR & Fragmentación, Formatos/Reglas y Prompts del Sistema, vinculando el 100% de las opciones en `AppConfig`.
+- Integrada la carga dinámica de modelos LLM desde la API local de LM Studio en todos los selectores de modelos del formulario de configuración.
+- Migración al tema nativo de Radzen `material-dark.css` en la UI Web para armonizar el contraste visual de textos, inputs y botones en modo oscuro.
+- Rediseño de la hoja de estilos (`app.css`) para corregir contrastes de color, añadir efectos de glassmorphism y mejorar la legibilidad general.
 - Nueva interfaz de usuario Web moderna para el dashboard principal, implementando Dark Mode, tipografía *Inter* y componentes avanzados de Blazor (Glassmorphism).
 - Consola virtual embebida en el frontend Web para monitorear el progreso de la traducción (y OCR) en tiempo real mediante *streaming asíncrono*.
 - Pestaña "Historial de Trabajos" (`History.razor`) en la UI Web que despliega un listado de trabajos en una tabla de datos (`RadzenDataGrid`), leyendo los metadatos dinámicamente de `/jobs/`.
