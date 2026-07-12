@@ -100,3 +100,42 @@ Se creará una solución de .NET (`PolyglotCLI.sln`) que agrupará tres proyecto
 ## Open Questions
 1. En caso de usar el directorio raíz para los 3 nuevos proyectos, ¿el archivo `PolyglotCLI.csproj` actual será eliminado luego de la división o renombrado?
 2. La configuración de Log nivel Consola, ¿la conservaremos independiente en el CLI, o también inyectaremos la salida de Log al frontend Web?
+
+## 4. Fase 6: Rediseño Profesional de UI Web (Radzen Blazor)
+Esta fase aborda la actualización integral de `PolyglotCLI.web` para dotarlo de una interfaz verdaderamente experta, dinámica y de alto impacto, recreando **toda** la funcionalidad disponible actualmente en la aplicación CLI (`PolyglotCLI.cli`).
+
+### 4.1 Principios de Diseño UI/UX
+* **Estética Premium**: Paleta de colores cuidada en "Dark Mode" (tonos grafito, acentos vibrantes p. ej. índigo/cyan), uso de *glassmorphism* (fondos semi-transparentes con blur), gradientes sutiles y bordes redondeados.
+* **Tipografía**: Implementación de fuentes modernas (ej. *Inter* o *Outfit*) para mejorar la legibilidad del texto de las traducciones.
+* **Micro-animaciones**: Transiciones suaves en modales, botones y selectores utilizando CSS vainilla complementario a Radzen.
+* **Layout Fluido**: Barra lateral colapsable dinámica y paneles de información reactivos.
+
+### 4.2 Paridad Funcional (CLI a Web)
+Se construirán tres vistas/componentes principales que cubrirán el 100% de la funcionalidad del CLI original:
+
+#### A. Traductor Principal (Dashboard)
+* Selección de archivos locales (con validación de rutas).
+* **Opciones de Ejecución (Presets)**: Selectores de formatos de salida (MD, DOCX, PDF, ODT), Toggles para "Preservar Formato" y "Revisión con IA".
+* **Selección de Modelos Dinámica**: Consumo del API local (`LmStudioClient.GetModelsAsync()`) para poblar un `RadzenDropDown` en tiempo real.
+* **Rango de Páginas**: Campo para especificar páginas concretas.
+* **Consola Integrada**: Un terminal virtual en el navegador que mostrará los logs de `AppLogger` en tiempo real para visualizar el progreso exacto sin tener que mirar la consola del backend.
+
+#### B. Historial de Trabajos (Job Viewer)
+* Un `RadzenDataGrid` sofisticado que leerá los manifiestos (`manifest.json`) del directorio `/jobs/`.
+* Mostrará: ID del trabajo, estado (Completed/Failed), Fecha, Archivos y modelo utilizado.
+* **Acciones por Trabajo**:
+  * Botón para ver los registros/metadatos detallados.
+  * Botón **Resume Job**: Retoma un trabajo fallido o pausado inyectando el ID al `TranslationOrchestrator`.
+  * Botón **AI Error Analysis**: Si el trabajo falló, invoca la herramienta LLM para diagnosticar los errores (recreando `ConsoleErrorAnalysisService`).
+
+#### C. Configuración Avanzada
+* Mapeo de todas las propiedades de `AppConfig` (URLs, tiempos de espera, temperaturas de OCR, prompts adicionales).
+* Validación de formularios y *toast notifications* de éxito al guardar.
+
+### 4.3 Integración de Eventos en Tiempo Real
+Dado que `TranslationOrchestrator` es sincrónico pero no bloqueante, se creará un servicio `WebLogMonitor` (o se utilizarán eventos estáticos de `AppLogger`) que propagará notificaciones asíncronas (`Action<string>`) a las vistas Blazor para que el frontend reaccione en tiempo real sin recargar la página.
+
+## User Review Required (Fase 6)
+> [!IMPORTANT]
+> - ¿Apruebas el estilo de diseño propuesto (Dark Mode, Glassmorphism, animaciones fluidas) implementando CSS adicional sobre los componentes base de Radzen?
+> - Para los eventos en tiempo real, se acoplará un Action delegado estático a `AppLogger` para que las páginas Blazor escuchen el stream de la consola. ¿Estás de acuerdo con este enfoque?

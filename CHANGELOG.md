@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Nueva interfaz de usuario Web moderna para el dashboard principal, implementando Dark Mode, tipografía *Inter* y componentes avanzados de Blazor (Glassmorphism).
+- Consola virtual embebida en el frontend Web para monitorear el progreso de la traducción (y OCR) en tiempo real mediante *streaming asíncrono*.
+- Pestaña "Historial de Trabajos" (`History.razor`) en la UI Web que despliega un listado de trabajos en una tabla de datos (`RadzenDataGrid`), leyendo los metadatos dinámicamente de `/jobs/`.
+- Integración en la vista web de la funcionalidad **Análisis de Errores IA** y la opción de retomar ejecuciones, igualando en funcionalidad a la interfaz CLI.
+- Sistema de eventos en `AppLogger` (`OnLogMessage`) para difundir de manera no-bloqueante registros directamente hacia clientes Blazor Server.
 - Pestaña "Historial de Trabajos" en la interfaz de usuario (TUI) para visualizar el estado detallado de trabajos anteriores y reanudarlos manualmente.
 - Sistema de manifiesto (`JobManifest` / `manifest.json`) que guarda de forma incremental y persistente el progreso de OCR, traducción y revisión de cada página/chunk solo cuando finaliza exitosamente.
 - Soporte en el orquestador (`TranslationOrchestrator`) para reanudar trabajos a partir de su manifiesto, recuperando archivos parciales de la carpeta del trabajo y omitiendo páginas procesadas con éxito.

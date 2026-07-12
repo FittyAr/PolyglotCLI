@@ -19,6 +19,9 @@ namespace PolyglotCLI
     public static class AppLogger
     {
         private static bool _isInitialized = false;
+        
+        // Event for UI binding (Blazor streaming)
+        public static event Action<string, LogLevel>? OnLogMessage;
 
         static AppLogger()
         {
@@ -138,15 +141,36 @@ namespace PolyglotCLI
             Log.CloseAndFlush();
         }
 
-        public static void Debug(string message) => Log.Debug(message);
-        public static void Info(string message) => Log.Information(message);
-        public static void Warn(string message) => Log.Warning(message);
-        public static void Error(string message, Exception? ex = null) => Log.Error(ex, message);
-        public static void Fatal(string message, Exception? ex = null) => Log.Fatal(ex, message);
+        public static void Debug(string message) 
+        { 
+            Log.Debug(message); 
+            OnLogMessage?.Invoke(message, LogLevel.DEBUG); 
+        }
+        public static void Info(string message) 
+        { 
+            Log.Information(message); 
+            OnLogMessage?.Invoke(message, LogLevel.INFO); 
+        }
+        public static void Warn(string message) 
+        { 
+            Log.Warning(message); 
+            OnLogMessage?.Invoke(message, LogLevel.WARN); 
+        }
+        public static void Error(string message, Exception? ex = null) 
+        { 
+            Log.Error(ex, message); 
+            OnLogMessage?.Invoke(message + (ex != null ? $" - {ex.Message}" : ""), LogLevel.ERROR); 
+        }
+        public static void Fatal(string message, Exception? ex = null) 
+        { 
+            Log.Fatal(ex, message); 
+            OnLogMessage?.Invoke(message + (ex != null ? $" - {ex.Message}" : ""), LogLevel.FATAL); 
+        }
 
         public static void InfoConsole(string message, ConsoleColor? color = null)
         {
             Log.Information(message);
+            OnLogMessage?.Invoke(message, LogLevel.INFO);
             if (color.HasValue)
             {
                 Console.ForegroundColor = color.Value;
@@ -161,6 +185,7 @@ namespace PolyglotCLI
         public static void WarnConsole(string message)
         {
             Log.Warning(message);
+            OnLogMessage?.Invoke(message, LogLevel.WARN);
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine(message);
             Console.ResetColor();
@@ -169,6 +194,7 @@ namespace PolyglotCLI
         public static void ErrorConsole(string message, Exception? ex = null)
         {
             Log.Error(ex, message);
+            OnLogMessage?.Invoke(message + (ex != null ? $" - {ex.Message}" : ""), LogLevel.ERROR);
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(message);
             if (ex != null)

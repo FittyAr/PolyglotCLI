@@ -1,90 +1,192 @@
 @page "/"
+@using PolyglotCLI
+@using System.Net.Http
+@using System.Text.Json
 @inject PolyglotCLI.AppConfig Config
+@implements IDisposable
 
-<PageTitle>Traducción - PolyglotCLI</PageTitle>
+<PageTitle>Traductor - PolyglotCLI</PageTitle>
 
-<RadzenCard class="rz-my-4">
-    <RadzenText TextStyle="TextStyle.H4">Nueva Traducción</RadzenText>
-    
-    <div class="rz-p-4">
-        <RadzenTemplateForm Data="@options" Submit="@(async (PolyglotCLI.CommandLineOptions args) => await RunTranslation(args))">
-            <RadzenRow Gap="1rem" class="rz-mb-4">
-                <RadzenColumn Size="12">
-                    <RadzenLabel Text="Archivos (separados por coma, rutas locales completas)" />
-                    <RadzenTextBox @bind-Value="filesInput" class="rz-w-100" />
-                </RadzenColumn>
-            </RadzenRow>
+<RadzenRow>
+    <RadzenColumn SizeMD="7" SizeLG="8">
+        <RadzenCard class="rz-mb-4">
+            <RadzenText TextStyle="TextStyle.H4" class="rz-mb-4">Nueva Traducción</RadzenText>
             
-            <RadzenRow Gap="1rem" class="rz-mb-4">
-                <RadzenColumn Size="6">
-                    <RadzenLabel Text="Modelo de Texto" />
-                    <RadzenTextBox @bind-Value="options.ModelName" class="rz-w-100" />
-                </RadzenColumn>
-                <RadzenColumn Size="6">
-                    <RadzenLabel Text="Idioma Destino" />
-                    <RadzenTextBox @bind-Value="options.TargetLanguage" class="rz-w-100" />
-                </RadzenColumn>
-            </RadzenRow>
+            <RadzenTemplateForm Data="@options" Submit="@(async (CommandLineOptions args) => await RunTranslation(args))">
+                <RadzenRow Gap="1rem" class="rz-mb-4">
+                    <RadzenColumn Size="12">
+                        <RadzenLabel Text="Archivos de entrada (rutas locales separadas por coma)" class="rz-mb-2" />
+                        <RadzenTextBox @bind-Value="filesInput" class="rz-w-100" Placeholder="C:\docs\archivo1.pdf, C:\docs\archivo2.docx" />
+                    </RadzenColumn>
+                </RadzenRow>
+                
+                <RadzenRow Gap="1rem" class="rz-mb-4">
+                    <RadzenColumn Size="6">
+                        <RadzenLabel Text="Modelo LM Studio" class="rz-mb-2" />
+                        <RadzenDropDown @bind-Value="options.ModelName" Data="@availableModels" class="rz-w-100" 
+                                        Placeholder="Seleccionar modelo..." AllowClear="true" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="6">
+                        <RadzenLabel Text="Idioma Destino" class="rz-mb-2" />
+                        <RadzenTextBox @bind-Value="options.TargetLanguage" class="rz-w-100" />
+                    </RadzenColumn>
+                </RadzenRow>
+                
+                <RadzenRow Gap="1rem" class="rz-mb-4">
+                    <RadzenColumn Size="6">
+                        <RadzenLabel Text="Páginas específicas (Ej: 1-5, 8)" class="rz-mb-2" />
+                        <RadzenTextBox @bind-Value="options.PageRange" class="rz-w-100" Placeholder="Todas" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="6">
+                        <RadzenLabel Text="Formato de Salida Generado" class="rz-mb-2" />
+                        <RadzenTextBox @bind-Value="options.SelectedFormat" class="rz-w-100" Placeholder="pdf, docx, odt" />
+                    </RadzenColumn>
+                </RadzenRow>
+                
+                <RadzenRow Gap="1rem" class="rz-mb-4">
+                    <RadzenColumn Size="12">
+                        <RadzenCheckBox @bind-Value="localPreserveFormat" Name="chkPreserve" />
+                        <RadzenLabel Text="Preservar formato Markdown" Component="chkPreserve" class="rz-ml-2 rz-mr-4" />
+                        
+                        <RadzenCheckBox @bind-Value="localSaveMarkdown" Name="chkSaveMd" />
+                        <RadzenLabel Text="Guardar MD intermedio" Component="chkSaveMd" class="rz-ml-2 rz-mr-4" />
+                        
+                        <RadzenCheckBox @bind-Value="options.Verify" Name="chkReview" />
+                        <RadzenLabel Text="Revisar con IA" Component="chkReview" class="rz-ml-2" />
+                    </RadzenColumn>
+                </RadzenRow>
 
-            <RadzenButton ButtonType="ButtonType.Submit" Text="Iniciar Traducción" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary" BusyText="Traduciendo..." IsBusy="@isProcessing" />
-        </RadzenTemplateForm>
-    </div>
-</RadzenCard>
+                <RadzenButton ButtonType="ButtonType.Submit" Text="Iniciar Traducción" Icon="play_arrow" 
+                              ButtonStyle="ButtonStyle.Primary" BusyText="Procesando..." IsBusy="@isProcessing" class="rz-mt-4" />
+            </RadzenTemplateForm>
+        </RadzenCard>
+    </RadzenColumn>
 
-@if(logs.Count > 0)
-{
-    <RadzenCard>
-        <RadzenText TextStyle="TextStyle.H6">Progreso</RadzenText>
-        <div style="background-color: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; max-height: 400px; overflow-y: auto; font-family: monospace;">
-            @foreach(var log in logs)
-            {
-                <div>@log</div>
-            }
-        </div>
-    </RadzenCard>
-}
+    <RadzenColumn SizeMD="5" SizeLG="4">
+        <RadzenCard class="rz-h-100" style="display: flex; flex-direction: column;">
+            <RadzenText TextStyle="TextStyle.H6" class="rz-mb-4">Consola de Progreso</RadzenText>
+            
+            <div class="virtual-console flex-grow-1" id="consoleOutput">
+                @foreach(var log in logs)
+                {
+                    <div class="@log.CssClass">@log.Message</div>
+                }
+                @if(logs.Count == 0)
+                {
+                    <div class="log-debug">Esperando iniciar trabajo...</div>
+                }
+            </div>
+            
+        </RadzenCard>
+    </RadzenColumn>
+</RadzenRow>
 
 @code {
-    PolyglotCLI.CommandLineOptions options = new PolyglotCLI.CommandLineOptions();
+    CommandLineOptions options = new CommandLineOptions();
     string filesInput = "";
     bool isProcessing = false;
-    List<string> logs = new List<string>();
+    List<LogEntry> logs = new List<LogEntry>();
+    List<string> availableModels = new List<string>();
+    bool localPreserveFormat;
+    bool localSaveMarkdown;
+    
+    struct LogEntry { public string Message; public string CssClass; }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         options.ModelName = Config.DefaultModel;
         options.TargetLanguage = Config.TargetLanguage;
         options.OutputDirectory = Config.OutputDirectory;
+        options.SelectedFormat = Config.DefaultOutputFormat;
+        localPreserveFormat = Config.PreserveFormat;
+        localSaveMarkdown = Config.SaveMarkdown;
+        options.Verify = Config.EnableReview;
+        options.GenerateDoc = !string.IsNullOrEmpty(Config.DefaultOutputFormat);
+
+        // Fetch models from LM Studio API
+        try {
+            using var client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(5);
+            var response = await client.GetAsync($"{Config.ApiUrl.TrimEnd('/')}/models");
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(content);
+                if (doc.RootElement.TryGetProperty("data", out var dataArr))
+                {
+                    foreach(var m in dataArr.EnumerateArray()) {
+                        if(m.TryGetProperty("id", out var idProp))
+                            availableModels.Add(idProp.GetString() ?? "");
+                    }
+                }
+            }
+        } 
+        catch {
+            if (!string.IsNullOrEmpty(Config.DefaultModel))
+                availableModels.Add(Config.DefaultModel);
+        }
+
+        AppLogger.OnLogMessage += HandleLog;
     }
 
-    async Task RunTranslation(PolyglotCLI.CommandLineOptions args)
+    public void Dispose()
+    {
+        AppLogger.OnLogMessage -= HandleLog;
+    }
+
+    private void HandleLog(string message, LogLevel level)
+    {
+        string cssClass = level switch {
+            LogLevel.DEBUG => "log-debug",
+            LogLevel.INFO => "log-info",
+            LogLevel.WARN => "log-warn",
+            LogLevel.ERROR => "log-error",
+            LogLevel.FATAL => "log-fatal",
+            _ => "log-info"
+        };
+        
+        InvokeAsync(() => {
+            logs.Add(new LogEntry { Message = $"[{DateTime.Now:HH:mm:ss}] {message}", CssClass = cssClass });
+            if(logs.Count > 100) logs.RemoveAt(0); // keep max 100 lines
+            StateHasChanged();
+        });
+    }
+
+    async Task RunTranslation(CommandLineOptions args)
     {
         if(string.IsNullOrWhiteSpace(filesInput)) return;
         
         args.Files = filesInput.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
         
-        args.DocumentTargets = new List<PolyglotCLI.DocumentTarget>();
+        args.DocumentTargets = new List<DocumentTarget>();
         foreach(var f in args.Files)
         {
-            args.DocumentTargets.Add(new PolyglotCLI.DocumentTarget { FilePath = f });
+            args.DocumentTargets.Add(new DocumentTarget { FilePath = f });
         }
         
-        // Ensure ApiUrl is populated
         args.ApiUrl = Config.ApiUrl;
+        args.GenerateDoc = !string.IsNullOrWhiteSpace(args.SelectedFormat);
+
+        // Update config with local selections so orchestrator uses them
+        Config.PreserveFormat = localPreserveFormat;
+        Config.SaveMarkdown = localSaveMarkdown;
 
         isProcessing = true;
         logs.Clear();
-        logs.Add("Iniciando traducción...");
         StateHasChanged();
 
         try
         {
-            int exitCode = await Task.Run(() => PolyglotCLI.TranslationOrchestrator.ExecuteAsync(args, Config));
-            logs.Add($"Traducción finalizada con código: {exitCode}. Revisa la carpeta {Config.OutputDirectory}");
+            int exitCode = await Task.Run(() => TranslationOrchestrator.ExecuteAsync(args, Config));
+            
+            if(exitCode == 0)
+                AppLogger.Info($"Traducción finalizada con éxito. Salida en: {Config.OutputDirectory}");
+            else
+                AppLogger.Error($"Traducción falló con código {exitCode}.");
         }
         catch(Exception ex)
         {
-            logs.Add($"Error fatal: {ex.Message}");
+            AppLogger.Fatal($"Error crítico: {ex.Message}");
         }
         finally
         {

@@ -1,0 +1,154 @@
+@page "/history"
+@using PolyglotCLI
+@using System.IO
+@inject PolyglotCLI.AppConfig Config
+
+<PageTitle>Historial de Trabajos - PolyglotCLI</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H4" class="rz-mb-4">Historial de Trabajos</RadzenText>
+
+<RadzenDataGrid Data="@manifests" TItem="JobManifest" AllowFiltering="true" FilterMode="FilterMode.Simple" AllowPaging="true" PageSize="10" AllowSorting="true" class="rz-mb-4">
+    <Columns>
+        <RadzenDataGridColumn TItem="JobManifest" Property="JobId" Title="ID Trabajo" Width="180px" />
+        <RadzenDataGridColumn TItem="JobManifest" Property="Status" Title="Estado" Width="120px">
+            <Template Context="job">
+                <RadzenBadge BadgeStyle="@GetBadgeStyle(job.Status)" Text="@job.Status" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="JobManifest" Property="CreatedAt" Title="Fecha" FormatString="{0:d/M/yyyy HH:mm}" Width="150px" />
+        <RadzenDataGridColumn TItem="JobManifest" Property="ModelName" Title="Modelo" Width="150px" />
+        <RadzenDataGridColumn TItem="JobManifest" Title="Acciones" Width="220px" Filterable="false" Sortable="false">
+            <Template Context="job">
+                <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" class="rz-mr-1" title="Reanudar Trabajo" 
+                              Disabled="@(job.Status == "Completed")" Click="@(() => ResumeJob(job))" />
+                
+                @if(job.Status == "Failed" || job.Status == "InProgress")
+                {
+                    <RadzenButton Icon="psychology" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" class="rz-mr-1" title="Análisis de Errores IA" 
+                                  Click="@(() => AnalyzeErrors(job))" />
+                }
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@if (selectedManifest != null && analysisResult != null)
+{
+    <RadzenCard class="rz-mt-4">
+        <RadzenText TextStyle="TextStyle.H6">Análisis de Errores - @selectedManifest.JobId</RadzenText>
+        <div class="virtual-console">@((MarkupString)analysisResult.Replace("\n", "<br/>"))</div>
+        <RadzenButton Text="Cerrar" class="rz-mt-2" Click="@(() => analysisResult = null)" />
+    </RadzenCard>
+}
+
+@code {
+    List<JobManifest> manifests = new List<JobManifest>();
+    JobManifest? selectedManifest = null;
+    string? analysisResult = null;
+
+    protected override void OnInitialized()
+    {
+        LoadManifests();
+    }
+
+    private void LoadManifests()
+    {
+        manifests.Clear();
+        string outputDir = Path.IsPathRooted(Config.OutputDirectory) 
+            ? Config.OutputDirectory 
+            : Path.Combine(Directory.GetCurrentDirectory(), Config.OutputDirectory);
+        
+        string jobsDir = Path.Combine(outputDir, "jobs");
+        if (Directory.Exists(jobsDir))
+        {
+            foreach (var dir in Directory.GetDirectories(jobsDir))
+            {
+                string manifestPath = Path.Combine(dir, "manifest.json");
+                if (File.Exists(manifestPath))
+                {
+                    try
+                    {
+                        var m = JobManifest.Load(manifestPath);
+                        manifests.Add(m);
+                    }
+                    catch { /* Ignore invalid manifests */ }
+                }
+            }
+        }
+        manifests = manifests.OrderByDescending(m => m.CreatedAt).ToList();
+    }
+
+    BadgeStyle GetBadgeStyle(string status)
+    {
+        return status switch {
+            "Completed" => BadgeStyle.Success,
+            "Failed" => BadgeStyle.Danger,
+            "InProgress" => BadgeStyle.Warning,
+            _ => BadgeStyle.Info
+        };
+    }
+
+    async Task ResumeJob(JobManifest job)
+    {
+        analysisResult = "Reanudando trabajo... por favor dirígete a la pestaña de Traducción, la integración de reanudación automática está en desarrollo.";
+        
+        // Fully executing a resume here requires modifying TranslationOrchestrator to take the JobID parameter directly in Web.
+        var args = new CommandLineOptions { ResumeJobId = job.JobId };
+        analysisResult += "\nLanzando proceso...";
+        StateHasChanged();
+        
+        try {
+            int exitCode = await Task.Run(() => TranslationOrchestrator.ExecuteAsync(args, Config));
+            analysisResult += $"\nProceso finalizado con código: {exitCode}";
+        } catch(Exception ex) {
+            analysisResult += $"\nError: {ex.Message}";
+        }
+        
+        LoadManifests();
+        StateHasChanged();
+    }
+
+    async Task AnalyzeErrors(JobManifest job)
+    {
+        selectedManifest = job;
+        analysisResult = "Analizando errores con IA... por favor espera.";
+        StateHasChanged();
+
+        try 
+        {
+            var errorList = new List<string>();
+            foreach (var f in job.Files)
+            {
+                foreach (var p in f.Pages)
+                {
+                    if (!p.OcrCompleted && !string.IsNullOrEmpty(p.OcrError))
+                        errorList.Add($"Page {p.PageNumber} (OCR): {p.OcrError}");
+                    if (!p.TranslationCompleted && !string.IsNullOrEmpty(p.TranslationError))
+                        errorList.Add($"Page {p.PageNumber} (Translation): {p.TranslationError}");
+                }
+            }
+
+            if (errorList.Count == 0)
+            {
+                analysisResult = "No se encontraron mensajes de error registrados en el manifiesto.";
+                return;
+            }
+
+            string combinedErrors = string.Join("\n", errorList);
+            
+            var recommendation = await PromptHelperService.AnalyzeErrorsAsync(
+                combinedErrors, 
+                Config.ApiUrl, 
+                Config.DefaultModel ?? "", 
+                Config.TranslationTimeoutSeconds, 
+                Config.Temperature
+            );
+            analysisResult = recommendation;
+        }
+        catch (Exception ex)
+        {
+            analysisResult = $"Error durante el análisis: {ex.Message}";
+        }
+        StateHasChanged();
+    }
+}
