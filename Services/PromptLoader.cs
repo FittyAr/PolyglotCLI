@@ -34,6 +34,11 @@ namespace PolyglotCLI
             return LoadPromptFile("review_prompt.md");
         }
 
+        public string LoadErrorAnalysisPrompt()
+        {
+            return LoadPromptFile("error_analysis_prompt.md");
+        }
+
         private string LoadPromptFile(string filename)
         {
             string fullPath = Path.Combine(_promptsDirectory, filename);

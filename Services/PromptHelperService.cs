@@ -165,5 +165,56 @@ namespace PolyglotCLI
 
             throw new Exception("No output returned from AI.");
         }
+
+        public static async Task<string> AnalyzeErrorsAsync(string errorReport, string apiUrl, string model, int timeoutSeconds, double temperature)
+        {
+            string promptTemplate = "";
+            try 
+            {
+                var loader = new PromptLoader();
+                promptTemplate = loader.LoadErrorAnalysisPrompt();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to load error analysis prompt: {ex.Message}");
+            }
+
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+
+            var requestBody = new
+            {
+                model = model,
+                messages = new[]
+                {
+                    new { role = "system", content = promptTemplate },
+                    new { role = "user", content = errorReport }
+                },
+                temperature = temperature
+            };
+
+            string jsonString = JsonSerializer.Serialize(requestBody);
+            using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
+
+            var response = await httpClient.PostAsync($"{apiUrl.TrimEnd('/')}/chat/completions", content);
+            if (response.IsSuccessStatusCode)
+            {
+                string responseJson = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(responseJson);
+                var choices = doc.RootElement.GetProperty("choices");
+                if (choices.GetArrayLength() > 0)
+                {
+                    string text = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+                    return text.Trim();
+                }
+            }
+            else
+            {
+                string errContent = await response.Content.ReadAsStringAsync();
+                throw new HttpRequestException($"API returned status code: {response.StatusCode}. Details: {errContent}");
+            }
+
+            throw new Exception("No output returned from AI.");
+        }
     }
 }

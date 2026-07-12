@@ -15,11 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Soporte nativo para conversiones a DOCX, PDF y ODT de forma local (C#).
 - Configuraciones dinámicas de extensiones de entrada y formatos de salida en config.json.
 - Modo de prueba CLI `--test-conversion` para validación rápida del conversor de formatos.
+- Visor de trabajos (`JobViewerDialog`) que muestra los metadatos JSON y estados de error mediante un árbol de directorios directamente en la TUI, e incluye la exportación manual a Markdown (`[V]`).
+- Prompt interactivo de Análisis de Errores al fallar un trabajo en consola, el cual recopila errores OCR y de traducción y sugiere modificaciones empleando el asistente LLM (Prompt Helper).
 
 ### Changed
 - Reestructurada la interfaz principal de la TUI incorporando navegación lateral por pestañas ("Traductor" e "Historial de Trabajos").
 - Modificado `CommandLineOptions` para aceptar el identificador de reanudación y omitir la validación de archivos de entrada cuando se retoma un trabajo.
-- Modificados `PdfDocumentExtractor` e `ImageDocumentExtractor` para notificar el éxito o fallo de OCR de forma inmediata al orquestador.
+- Eliminada la generación y escritura de archivos intermedios `.md` (live-writing) en tiempo real, migrando la persistencia de los extractores a retornos asíncronos y almacenamiento exclusivo en los archivos de estado `manifest.json` mediante metadatos.
+- Implementada lógica de reintento dinámico no recursivo para fallos de traducción no relacionados a red, escalando gradualmente la temperatura del LLM desde su valor inicial hasta un límite seguro máximo de `0.6`.
+- Refactorizado el orquestador monolítico `TranslationOrchestrator.cs` aplicando el Principio de Responsabilidad Única (SRP), extrayendo la persistencia de manifiestos a `JobManifestService.cs`, la gestión de modelos y memoria a `ModelManagerService.cs` y la interactividad de consola a `ConsoleErrorAnalysisService.cs`.
 
 - Corregido el foco inicial en los diálogos modales (como el modal de rango de páginas y el selector de modelos); se cambiaron los botones a adición normal en coordenadas explícitas en lugar de usar `dialog.AddButton()`, logrando que el foco caiga de inmediato sobre el cuadro de texto (`textInput`) o el listado de modelos (`listModels`) y permitiendo la escritura y navegación instantáneas sin necesidad de presionar la tecla `Tab` para enfocar los controles.
 - Corregida la selección del modelo en `ModelSelectionDialog` mediante la lectura directa de la propiedad nativa `listModels.SelectedItem` al confirmar el diálogo, eliminando variables de seguimiento inestables y asegurando la correcta actualización tanto de la interfaz de usuario como del archivo de configuración.

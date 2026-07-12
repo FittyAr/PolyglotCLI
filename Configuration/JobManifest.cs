@@ -72,7 +72,9 @@ namespace PolyglotCLI
     public class JobFileManifest
     {
         public string SourceFilePath { get; set; } = string.Empty;
-        public string FileName { get; set; } = string.Empty;
+        public string OriginalFileName { get; set; } = string.Empty;
+        public string NormalizedFileName { get; set; } = string.Empty;
+        public string CopiedFilePath { get; set; } = string.Empty;
         public string TargetLanguage { get; set; } = "Spanish";
         public bool Completed { get; set; } = false;
         public List<JobPageManifest> Pages { get; set; } = new();

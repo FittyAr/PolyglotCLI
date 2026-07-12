@@ -48,6 +48,12 @@ namespace PolyglotCLI
                     keyEvent.Handled = true;
                     return;
                 }
+                if (keyEvent.KeyCode == (KeyCode)'v' || keyEvent.KeyCode == (KeyCode)'V')
+                {
+                    if (!isTranslator) ViewSelectedJob();
+                    keyEvent.Handled = true;
+                    return;
+                }
                 if (keyEvent.KeyCode == KeyCode.F12) { QuitApp();                              keyEvent.Handled = true; return; }
 
                 // ---- ListView navigation keys (only when the file list has focus) ----
@@ -152,6 +158,7 @@ namespace PolyglotCLI
             // Wire Jobs History buttons
             _btnRetryJob!.Accepted += (s, e) => ResumeSelectedJob();
             _btnRefreshJobs!.Accepted += (s, e) => { LoadPastJobs(); UpdateJobsList(); };
+            _btnViewJob!.Accepted += (s, e) => ViewSelectedJob();
 
             // Double-click / Enter on a list item toggles selection
             _listFiles!.Accepted += (s, e) =>

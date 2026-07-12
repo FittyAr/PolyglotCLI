@@ -65,6 +65,7 @@ namespace PolyglotCLI
         private SafeTextView? _textJobDetails;
         private Button? _btnRetryJob;
         private Button? _btnRefreshJobs;
+        private Button? _btnViewJob;
         private readonly List<JobManifest> _pastJobs = new();
 
         public InteractiveMenu(AppConfig config)

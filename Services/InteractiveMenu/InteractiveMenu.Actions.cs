@@ -379,7 +379,7 @@ namespace PolyglotCLI
             sb.AppendLine("Files & Pages Progress:");
             foreach (var f in job.Files)
             {
-                sb.AppendLine($" - {f.FileName} (Completed: {f.Completed})");
+                sb.AppendLine($" - {f.OriginalFileName} (Completed: {f.Completed})");
                 foreach (var p in f.Pages)
                 {
                     var steps = new List<string>();
@@ -422,6 +422,30 @@ namespace PolyglotCLI
             };
 
             _app?.RequestStop(_win);
+        }
+
+        private void ViewSelectedJob()
+        {
+            int idx = _listJobs!.SelectedItem ?? -1;
+            if (idx < 0 || idx >= _pastJobs.Count)
+            {
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "No job selected.", new[] { "OK" });
+                return;
+            }
+
+            var job = _pastJobs[idx];
+            string jobDir = Path.Combine(Directory.GetCurrentDirectory(), "jobs", job.JobId);
+            if (!Directory.Exists(jobDir))
+            {
+                MessageBox.ErrorQuery(AppRequired, "Error", $"Job directory not found:\n{jobDir}", new[] { "OK" });
+                return;
+            }
+
+            var dialog = new JobViewerDialog(jobDir, _config, AppRequired);
+            InteractiveMenu.OpenModal();
+            AppRequired.Run(dialog);
+            InteractiveMenu.CloseModal();
+            dialog.Dispose();
         }
     }
 }

@@ -320,7 +320,14 @@ namespace PolyglotCLI
                 Y = Pos.Bottom(_textJobDetails) + 1
             };
 
-            jobDetailsFrame.Add(_textJobDetails, _btnRetryJob, _btnRefreshJobs);
+            _btnViewJob = new Button
+            {
+                Text = "View & Export [V]",
+                X = Pos.Right(_btnRefreshJobs) + 2,
+                Y = Pos.Bottom(_textJobDetails) + 1
+            };
+
+            jobDetailsFrame.Add(_textJobDetails, _btnRetryJob, _btnRefreshJobs, _btnViewJob);
             _jobsHistoryView.Add(jobsListFrame, jobDetailsFrame);
 
             // Add panels to tab container and elements to window
