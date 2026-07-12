@@ -349,7 +349,7 @@ namespace PolyglotCLI
             };
 
             textInput.KeyDown += (s, e) => {
-                if (e.KeyCode == KeyCode.Enter)
+                if (e == Key.Enter)
                 {
                     string input = textInput.Text?.ToString()?.Trim() ?? "";
                     if (!CommandLineOptions.IsValidPageRange(input))

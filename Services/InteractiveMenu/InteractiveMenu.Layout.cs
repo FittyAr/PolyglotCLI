@@ -43,7 +43,8 @@ namespace PolyglotCLI
                 X = 17,
                 Y = 0,
                 Width = Dim.Fill(),
-                Height = Dim.Fill()
+                Height = Dim.Fill(),
+                CanFocus = true
             };
 
             // --- 1. Translator Tab Panel ---
@@ -52,7 +53,8 @@ namespace PolyglotCLI
                 X = 0,
                 Y = 0,
                 Width = Dim.Fill(),
-                Height = Dim.Fill()
+                Height = Dim.Fill(),
+                CanFocus = true
             };
 
             // Left Panel: Translation Prompt & Actions
@@ -264,7 +266,8 @@ namespace PolyglotCLI
                 Y = 0,
                 Width = Dim.Fill(),
                 Height = Dim.Fill(),
-                Visible = false
+                Visible = false,
+                CanFocus = true
             };
 
             var jobsListFrame = new FrameView 

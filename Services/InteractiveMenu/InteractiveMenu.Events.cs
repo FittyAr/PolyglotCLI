@@ -29,32 +29,32 @@ namespace PolyglotCLI
                 bool isTranslator = (_tabList?.SelectedItem ?? 0) == 0;
 
                 // ---- Function-key shortcuts (always active) ----
-                if (keyEvent.KeyCode == KeyCode.F1)  { ShowHelpModal();                        keyEvent.Handled = true; return; }
-                if (keyEvent.KeyCode == KeyCode.F4)  { SavePresets();                          keyEvent.Handled = true; return; }
-                if (keyEvent.KeyCode == KeyCode.F5)  { ImprovePromptWithAi();                  keyEvent.Handled = true; return; }
-                if (keyEvent.KeyCode == KeyCode.F6)
+                if (keyEvent == Key.F1)  { ShowHelpModal();                        keyEvent.Handled = true; return; }
+                if (keyEvent == Key.F4)  { SavePresets();                          keyEvent.Handled = true; return; }
+                if (keyEvent == Key.F5)  { ImprovePromptWithAi();                  keyEvent.Handled = true; return; }
+                if (keyEvent == Key.F6)
                 {
                     if (isTranslator) PerformScan();
                     else { LoadPastJobs(); UpdateJobsList(); }
                     keyEvent.Handled = true;
                     return;
                 }
-                if (keyEvent.KeyCode == KeyCode.F7)  { AnalyzeFileForPromptWithAi();           keyEvent.Handled = true; return; }
-                if (keyEvent.KeyCode == KeyCode.F8)  { SettingsDialog.Show(AppRequired, _config); keyEvent.Handled = true; return; }
-                if (keyEvent.KeyCode == KeyCode.F9)
+                if (keyEvent == Key.F7)  { AnalyzeFileForPromptWithAi();           keyEvent.Handled = true; return; }
+                if (keyEvent == Key.F8)  { SettingsDialog.Show(AppRequired, _config); keyEvent.Handled = true; return; }
+                if (keyEvent == Key.F9)
                 {
                     if (isTranslator) StartTranslation();
                     else ResumeSelectedJob();
                     keyEvent.Handled = true;
                     return;
                 }
-                if (keyEvent.KeyCode == (KeyCode)'v' || keyEvent.KeyCode == (KeyCode)'V')
+                if (keyEvent.NoShift == Key.V)
                 {
                     if (!isTranslator) ViewSelectedJob();
                     keyEvent.Handled = true;
                     return;
                 }
-                if (keyEvent.KeyCode == KeyCode.F12) { QuitApp();                              keyEvent.Handled = true; return; }
+                if (keyEvent == Key.F12) { QuitApp();                              keyEvent.Handled = true; return; }
 
                 // ---- ListView navigation keys (only when the file list has focus) ----
                 if (_listFiles?.HasFocus != true) return;
@@ -66,7 +66,7 @@ namespace PolyglotCLI
                 string ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
 
                 // [Space] — toggle selection
-                if (keyEvent.KeyCode == KeyCode.Space)
+                if (keyEvent == Key.Space)
                 {
                     file.IsSelected = !file.IsSelected;
                     int saved = _listFiles.SelectedItem ?? -1;
@@ -77,8 +77,7 @@ namespace PolyglotCLI
                 }
 
                 // [T] / [M] — toggle OCR mode (Text ↔ Image) for PDFs
-                if (keyEvent.KeyCode == (KeyCode)'t' || keyEvent.KeyCode == (KeyCode)'T' ||
-                     keyEvent.KeyCode == (KeyCode)'m' || keyEvent.KeyCode == (KeyCode)'M')
+                if (keyEvent.NoShift == Key.T || keyEvent.NoShift == Key.M)
                 {
                     if (ext == ".pdf")
                     {
@@ -92,7 +91,7 @@ namespace PolyglotCLI
                 }
 
                 // [P] — set page range for PDFs
-                if (keyEvent.KeyCode == (KeyCode)'p' || keyEvent.KeyCode == (KeyCode)'P')
+                if (keyEvent.NoShift == Key.P)
                 {
                     if (ext == ".pdf")
                     {
