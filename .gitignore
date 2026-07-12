@@ -18,3 +18,7 @@ output/
 
 # Logs
 *.log
+
+# Local .NET SDK
+local-dotnet/
+

@@ -2,6 +2,7 @@
 @using PolyglotCLI
 @using System.Net.Http
 @using System.Text.Json
+@using System.IO
 @inject PolyglotCLI.AppConfig Config
 @implements IDisposable
 
@@ -13,13 +14,118 @@
             <RadzenText TextStyle="TextStyle.H4" class="rz-mb-4">Nueva Traducción</RadzenText>
             
             <RadzenTemplateForm Data="@options" Submit="@(async (CommandLineOptions args) => await RunTranslation(args))">
-                <RadzenRow Gap="1rem" class="rz-mb-4">
-                    <RadzenColumn Size="12">
-                        <RadzenLabel Text="Archivos de entrada (rutas locales separadas por coma)" class="rz-mb-2" />
-                        <RadzenTextBox @bind-Value="filesInput" class="rz-w-100" Placeholder="C:\docs\archivo1.pdf, C:\docs\archivo2.docx" />
-                    </RadzenColumn>
-                </RadzenRow>
                 
+                <!-- Explorador de carpetas y discos -->
+                <RadzenCard class="rz-mb-4 rz-p-4" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-mb-2" style="font-weight: bold;">Explorador de Carpetas</RadzenText>
+                    <RadzenRow Gap="1rem" AlignItems="AlignItems.Center">
+                        @if (drives.Count > 0)
+                        {
+                            <RadzenColumn Size="3">
+                                <RadzenLabel Text="Unidad" class="rz-mb-1" style="font-size: 0.85rem;" />
+                                <RadzenDropDown @bind-Value="selectedDrive" Data="@drives" Change="@ChangeDrive" class="rz-w-100" />
+                            </RadzenColumn>
+                        }
+                        <RadzenColumn Size="@(drives.Count > 0 ? 9 : 12)">
+                            <RadzenLabel Text="Ruta del Directorio" class="rz-mb-1" style="font-size: 0.85rem;" />
+                            <div style="display: flex; gap: 0.5rem;">
+                                <RadzenTextBox @bind-Value="currentDirectory" style="flex-grow: 1;" />
+                                <RadzenButton Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Click="@(() => LoadDirectory(currentDirectory))" Tooltip="Cargar directorio" />
+                            </div>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenCard>
+
+                <!-- Grid de selección y configuración por archivo -->
+                <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Selección de Archivos y Configuración Individual</RadzenText>
+                @if (fileSystemItems.Count > 0)
+                {
+                    <RadzenDataGrid Data="@fileSystemItems" TItem="FileSystemItem" AllowFiltering="false" AllowSorting="false" PageSize="100" class="rz-mb-4" RowClick="@OnRowClick" Style="max-height: 400px; overflow-y: auto;">
+                        <Columns>
+                            <!-- Selección -->
+                            <RadzenDataGridColumn TItem="FileSystemItem" Width="55px" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
+                                <HeaderTemplate>
+                                    <RadzenCheckBox Value="@allSelected" TValue="bool" Change="@(val => SelectAllFiles(val))" />
+                                </HeaderTemplate>
+                                <Template Context="item">
+                                    @if (!item.IsDirectory)
+                                    {
+                                        <RadzenCheckBox @bind-Value="item.IsSelected" />
+                                    }
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <!-- Nombre -->
+                            <RadzenDataGridColumn TItem="FileSystemItem" Title="Nombre" Width="260px">
+                                <Template Context="item">
+                                    @if (item.IsDirectory)
+                                    {
+                                        <RadzenIcon Icon="folder" Style="margin-right: 8px; vertical-align: middle; color: #ffca28;" />
+                                        <span style="font-weight: bold; cursor: pointer; color: #64b5f6;">@item.Name</span>
+                                    }
+                                    else
+                                    {
+                                        <RadzenIcon Icon="insert_drive_file" Style="margin-right: 8px; vertical-align: middle;" />
+                                        <span>@item.Name</span>
+                                    }
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <!-- Tipo -->
+                            <RadzenDataGridColumn TItem="FileSystemItem" Title="Tipo" Width="80px">
+                                <Template Context="item">
+                                    @(item.IsDirectory ? "<DIR>" : item.Extension.ToUpperInvariant())
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <!-- Método (sólo PDF) -->
+                            <RadzenDataGridColumn TItem="FileSystemItem" Title="Método" Width="150px">
+                                <Template Context="item">
+                                    @if (!item.IsDirectory)
+                                    {
+                                        @if (item.Extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <RadzenSelectBar @bind-Value="item.Mode" Size="ButtonSize.Small" TValue="string" style="font-size: 0.8rem;">
+                                                <Items>
+                                                    <RadzenSelectBarItem Value="@("text")" Text="Texto" />
+                                                    <RadzenSelectBarItem Value="@("image")" Text="Imagen" />
+                                                </Items>
+                                            </RadzenSelectBar>
+                                        }
+                                        else
+                                        {
+                                            <span style="font-size: 0.85rem; color: #b0bec5;">@(item.Mode == "image" ? "Imagen" : "Texto")</span>
+                                        }
+                                    }
+                                </Template>
+                            </RadzenDataGridColumn>
+
+                            <!-- Rango Páginas (sólo PDF) -->
+                            <RadzenDataGridColumn TItem="FileSystemItem" Title="Páginas" Width="110px">
+                                <Template Context="item">
+                                    @if (!item.IsDirectory)
+                                    {
+                                        @if (item.Extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <RadzenTextBox @bind-Value="item.PageRange" Style="width: 100%; height: 28px; font-size: 0.85rem;" Placeholder="todas" />
+                                        }
+                                        else
+                                        {
+                                            <span style="font-size: 0.85rem; color: #b0bec5;">-</span>
+                                        }
+                                    }
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                }
+                else
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" class="rz-mb-4">
+                        No hay archivos compatibles ni carpetas en este directorio.
+                    </RadzenAlert>
+                }
+
                 <RadzenRow Gap="1rem" class="rz-mb-4">
                     <RadzenColumn Size="6">
                         <RadzenLabel Text="Modelo LM Studio" class="rz-mb-2" />
@@ -33,31 +139,14 @@
                 </RadzenRow>
                 
                 <RadzenRow Gap="1rem" class="rz-mb-4">
-                    <RadzenColumn Size="6">
-                        <RadzenLabel Text="Páginas específicas (Ej: 1-5, 8)" class="rz-mb-2" />
-                        <RadzenTextBox @bind-Value="options.PageRange" class="rz-w-100" Placeholder="Todas" />
-                    </RadzenColumn>
-                    <RadzenColumn Size="6">
-                        <RadzenLabel Text="Formato de Salida Generado" class="rz-mb-2" />
-                        <RadzenTextBox @bind-Value="options.SelectedFormat" class="rz-w-100" Placeholder="pdf, docx, odt" />
-                    </RadzenColumn>
-                </RadzenRow>
-                
-                <RadzenRow Gap="1rem" class="rz-mb-4">
                     <RadzenColumn Size="12">
-                        <RadzenCheckBox @bind-Value="localPreserveFormat" Name="chkPreserve" />
-                        <RadzenLabel Text="Preservar formato Markdown" Component="chkPreserve" class="rz-ml-2 rz-mr-4" />
-                        
-                        <RadzenCheckBox @bind-Value="localSaveMarkdown" Name="chkSaveMd" />
-                        <RadzenLabel Text="Guardar MD intermedio" Component="chkSaveMd" class="rz-ml-2 rz-mr-4" />
-                        
-                        <RadzenCheckBox @bind-Value="options.Verify" Name="chkReview" />
-                        <RadzenLabel Text="Revisar con IA" Component="chkReview" class="rz-ml-2" />
+                        <RadzenLabel Text="Formato de Salida Generado" class="rz-mb-2" />
+                        <RadzenDropDown @bind-Value="options.SelectedFormat" Data="@Config.SupportedOutputFormats" class="rz-w-100" Placeholder="Ninguno (Solo MD)" AllowClear="true" />
                     </RadzenColumn>
                 </RadzenRow>
 
                 <RadzenButton ButtonType="ButtonType.Submit" Text="Iniciar Traducción" Icon="play_arrow" 
-                              ButtonStyle="ButtonStyle.Primary" BusyText="Procesando..." IsBusy="@isProcessing" class="rz-mt-4" />
+                               ButtonStyle="ButtonStyle.Primary" BusyText="Procesando..." IsBusy="@isProcessing" class="rz-mt-4" />
             </RadzenTemplateForm>
         </RadzenCard>
     </RadzenColumn>
@@ -83,13 +172,28 @@
 
 @code {
     CommandLineOptions options = new CommandLineOptions();
-    string filesInput = "";
     bool isProcessing = false;
     List<LogEntry> logs = new List<LogEntry>();
     List<string> availableModels = new List<string>();
-    bool localPreserveFormat;
-    bool localSaveMarkdown;
     
+    // File Browser State
+    List<string> drives = new List<string>();
+    string selectedDrive = "";
+    string currentDirectory = "";
+    List<FileSystemItem> fileSystemItems = new List<FileSystemItem>();
+    bool allSelected = false;
+
+    public class FileSystemItem
+    {
+        public bool IsDirectory { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string FullPath { get; set; } = string.Empty;
+        public bool IsSelected { get; set; }
+        public string Mode { get; set; } = "text";
+        public string PageRange { get; set; } = "all";
+        public string Extension { get; set; } = string.Empty;
+    }
+
     struct LogEntry { public string Message; public string CssClass; }
 
     protected override async Task OnInitializedAsync()
@@ -98,8 +202,6 @@
         options.TargetLanguage = Config.TargetLanguage;
         options.OutputDirectory = Config.OutputDirectory;
         options.SelectedFormat = Config.DefaultOutputFormat;
-        localPreserveFormat = Config.PreserveFormat;
-        localSaveMarkdown = Config.SaveMarkdown;
         options.Verify = Config.EnableReview;
         options.GenerateDoc = !string.IsNullOrEmpty(Config.DefaultOutputFormat);
 
@@ -125,6 +227,35 @@
             if (!string.IsNullOrEmpty(Config.DefaultModel))
                 availableModels.Add(Config.DefaultModel);
         }
+
+        // Initialize drives
+        try
+        {
+            drives = DriveInfo.GetDrives()
+                .Where(d => d.IsReady)
+                .Select(d => d.Name)
+                .ToList();
+        }
+        catch
+        {
+            drives = new List<string>();
+        }
+
+        // Set starting directory
+        currentDirectory = Config.LastScanDirectory;
+        if (string.IsNullOrEmpty(currentDirectory) || !Directory.Exists(currentDirectory))
+        {
+            currentDirectory = Directory.GetCurrentDirectory();
+        }
+        currentDirectory = Path.GetFullPath(currentDirectory);
+
+        if (drives.Count > 0)
+        {
+            var root = Path.GetPathRoot(currentDirectory);
+            selectedDrive = drives.FirstOrDefault(d => d.Equals(root, StringComparison.OrdinalIgnoreCase)) ?? drives[0];
+        }
+
+        LoadDirectory(currentDirectory);
 
         AppLogger.OnLogMessage += HandleLog;
     }
@@ -152,24 +283,147 @@
         });
     }
 
+    void LoadDirectory(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            {
+                return;
+            }
+
+            var resolvedPath = Path.GetFullPath(path);
+            var items = new List<FileSystemItem>();
+
+            // Add parent directory item ".." if not at root
+            var root = Path.GetPathRoot(resolvedPath);
+            if (!resolvedPath.Equals(root, StringComparison.OrdinalIgnoreCase))
+            {
+                var parent = Directory.GetParent(resolvedPath);
+                if (parent != null)
+                {
+                    items.Add(new FileSystemItem
+                    {
+                        IsDirectory = true,
+                        Name = "..",
+                        FullPath = parent.FullName
+                    });
+                }
+            }
+
+            // Get subdirectories
+            foreach (var dir in Directory.GetDirectories(resolvedPath))
+            {
+                items.Add(new FileSystemItem
+                {
+                    IsDirectory = true,
+                    Name = Path.GetFileName(dir),
+                    FullPath = dir
+                });
+            }
+
+            // Get files with supported extensions
+            var supportedExtensions = new HashSet<string>(Config.SupportedInputExtensions ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+            
+            foreach (var file in Directory.GetFiles(resolvedPath))
+            {
+                string ext = Path.GetExtension(file);
+                if (supportedExtensions.Contains(ext))
+                {
+                    bool isImage = ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                   ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                                   ext.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+                                   ext.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
+                                   ext.Equals(".tiff", StringComparison.OrdinalIgnoreCase);
+                    
+                    items.Add(new FileSystemItem
+                    {
+                        IsDirectory = false,
+                        Name = Path.GetFileName(file),
+                        FullPath = file,
+                        Extension = ext.ToLowerInvariant(),
+                        Mode = isImage ? "image" : "text",
+                        PageRange = "all",
+                        IsSelected = false
+                    });
+                }
+            }
+
+            fileSystemItems = items;
+            currentDirectory = resolvedPath;
+            allSelected = false;
+
+            // Save last scanned directory in config
+            Config.LastScanDirectory = currentDirectory;
+            Config.Save();
+            
+            // Set drive selection to match current path
+            if (drives.Count > 0)
+            {
+                var currentRoot = Path.GetPathRoot(currentDirectory);
+                var match = drives.FirstOrDefault(d => d.Equals(currentRoot, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                {
+                    selectedDrive = match;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error($"No se pudo acceder al directorio {path}: {ex.Message}");
+        }
+    }
+
+    void ChangeDrive(object value)
+    {
+        if (value is string driveName && Directory.Exists(driveName))
+        {
+            LoadDirectory(driveName);
+        }
+    }
+
+    void OnRowClick(DataGridRowMouseEventArgs<FileSystemItem> args)
+    {
+        if (args.Data != null && args.Data.IsDirectory)
+        {
+            LoadDirectory(args.Data.FullPath);
+        }
+    }
+
+    void SelectAllFiles(bool select)
+    {
+        allSelected = select;
+        foreach (var item in fileSystemItems)
+        {
+            if (!item.IsDirectory)
+            {
+                item.IsSelected = select;
+            }
+        }
+    }
+
     async Task RunTranslation(CommandLineOptions args)
     {
-        if(string.IsNullOrWhiteSpace(filesInput)) return;
-        
-        args.Files = filesInput.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-        
-        args.DocumentTargets = new List<DocumentTarget>();
-        foreach(var f in args.Files)
+        var selectedFiles = fileSystemItems.Where(i => !i.IsDirectory && i.IsSelected).ToList();
+        if (selectedFiles.Count == 0)
         {
-            args.DocumentTargets.Add(new DocumentTarget { FilePath = f });
+            AppLogger.Warn("No hay archivos seleccionados para traducir.");
+            return;
         }
+
+        args.Files = selectedFiles.Select(i => i.FullPath).ToList();
+        args.DocumentTargets = selectedFiles.Select(i => new DocumentTarget
+        {
+            FilePath = i.FullPath,
+            Mode = i.Mode,
+            PageRange = i.PageRange,
+            MaxCharactersPerChunk = Config.MaxCharactersPerChunk,
+            ChunkOverlapCharacters = Config.ChunkOverlapCharacters
+        }).ToList();
         
         args.ApiUrl = Config.ApiUrl;
         args.GenerateDoc = !string.IsNullOrWhiteSpace(args.SelectedFormat);
-
-        // Update config with local selections so orchestrator uses them
-        Config.PreserveFormat = localPreserveFormat;
-        Config.SaveMarkdown = localSaveMarkdown;
+        args.Verify = Config.EnableReview;
 
         isProcessing = true;
         logs.Clear();

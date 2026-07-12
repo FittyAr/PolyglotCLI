@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Creada la solución multiproyecto para separar la lógica core compartida (`PolyglotCLI.core`) de las interfaces de CLI y Web.
 
 ### Changed
+- Habilitada la interactividad global de Blazor Server en `App.razor` agregando el atributo `@rendermode="InteractiveServer"` a `HeadOutlet` y `Routes`, solucionando los problemas de botones e inputs que no respondían.
+- Rediseñada la pestaña "Traductor" (`Home.razor`) reemplazando el cuadro de texto de archivos de entrada por un explorador de carpetas interactivo con selector de unidades de disco, navegación mediante clicks sobre carpetas/`..` y un grid editable para configurar de forma individual el método y rango de páginas por archivo.
+- Reemplazada la entrada libre de formato de salida por un control `RadzenDropDown` enlazado dinámicamente a los formatos admitidos desde la configuración (`Config.SupportedOutputFormats`).
+- Simplificada la interfaz de la pestaña "Traductor" removiendo los checkboxes redundantes de configuración global que ya se editan en la pestaña "Configuración".
+- Ignorado el directorio de instalación local de .NET SDK (`local-dotnet/`) en `.gitignore`.
 - Reestructurada la interfaz principal de la TUI incorporando navegación lateral por pestañas ("Traductor" e "Historial de Trabajos").
 - Modificado `CommandLineOptions` para aceptar el identificador de reanudación y omitir la validación de archivos de entrada cuando se retoma un trabajo.
 - Eliminada la generación y escritura de archivos intermedios `.md` (live-writing) en tiempo real, migrando la persistencia de los extractores a retornos asíncronos y almacenamiento exclusivo en los archivos de estado `manifest.json` mediante metadatos.
