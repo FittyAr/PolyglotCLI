@@ -51,7 +51,16 @@ namespace PolyglotCLI
                 return o.ToString() ?? "";
             };
 
-            var files = Directory.GetFiles(_jobDir, "*_data.json");
+            var files = new List<string>();
+            string dataDir = Path.Combine(_jobDir, "data");
+            if (Directory.Exists(dataDir))
+            {
+                files.AddRange(Directory.GetFiles(dataDir, "*_data.json"));
+            }
+            foreach (var file in Directory.GetFiles(_jobDir, "*_data.json"))
+            {
+                if (!files.Contains(file)) files.Add(file);
+            }
             foreach (var file in files)
             {
                 _treeView.AddObject(file);
@@ -68,7 +77,16 @@ namespace PolyglotCLI
 
         private void ExportJob()
         {
-            var files = Directory.GetFiles(_jobDir, "*_data.json");
+            var files = new List<string>();
+            string dataDir = Path.Combine(_jobDir, "data");
+            if (Directory.Exists(dataDir))
+            {
+                files.AddRange(Directory.GetFiles(dataDir, "*_data.json"));
+            }
+            foreach (var file in Directory.GetFiles(_jobDir, "*_data.json"))
+            {
+                if (!files.Contains(file)) files.Add(file);
+            }
             int count = 0;
             foreach (var file in files)
             {

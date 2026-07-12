@@ -32,8 +32,9 @@ namespace PolyglotCLI
 
             CurrentJobDirectory = jobDir;
 
-            // Re-initialize logger to write to the job directory
-            AppLogger.Initialize(config, jobDir);
+            // Re-initialize logger to write to the logs folder under job directory
+            string logsDir = Path.Combine(jobDir, "logs");
+            AppLogger.Initialize(config, logsDir);
 
             // Load or initialize manifest
             string manifestPath = Path.Combine(jobDir, "manifest.json");
@@ -172,9 +173,20 @@ namespace PolyglotCLI
                     // If resuming, copy back files from job directory if they are missing in output directory
                     if (!string.IsNullOrEmpty(options.ResumeJobId))
                     {
-                        string jobOutputPath = Path.Combine(jobDir, Path.GetFileName(outputPath));
-                        string jobOriginalOutputPath = Path.Combine(jobDir, Path.GetFileName(originalOutputPath));
+                        string outputsDir = Path.Combine(jobDir, "outputs");
+                        string jobOutputPath = Path.Combine(outputsDir, Path.GetFileName(outputPath));
+                        string jobOriginalOutputPath = Path.Combine(outputsDir, Path.GetFileName(originalOutputPath));
                         
+                        // Fallback to job root for legacy jobs
+                        if (!File.Exists(jobOutputPath) && File.Exists(Path.Combine(jobDir, Path.GetFileName(outputPath))))
+                        {
+                            jobOutputPath = Path.Combine(jobDir, Path.GetFileName(outputPath));
+                        }
+                        if (!File.Exists(jobOriginalOutputPath) && File.Exists(Path.Combine(jobDir, Path.GetFileName(originalOutputPath))))
+                        {
+                            jobOriginalOutputPath = Path.Combine(jobDir, Path.GetFileName(originalOutputPath));
+                        }
+
                         if (!File.Exists(outputPath) && File.Exists(jobOutputPath))
                         {
                             File.Copy(jobOutputPath, outputPath, true);
@@ -204,7 +216,11 @@ namespace PolyglotCLI
                         
                         // Parse existing output files to see what is already processed
                         var cachedStates = new List<PageProcessState>();
-                        string dataJsonPath = Path.Combine(jobDir, $"{fileNameWithoutExt}_data.json");
+                        string dataJsonPath = Path.Combine(jobDir, "data", $"{fileNameWithoutExt}_data.json");
+                        if (!File.Exists(dataJsonPath) && File.Exists(Path.Combine(jobDir, $"{fileNameWithoutExt}_data.json")))
+                        {
+                            dataJsonPath = Path.Combine(jobDir, $"{fileNameWithoutExt}_data.json");
+                        }
                         
                         if (File.Exists(dataJsonPath))
                         {
@@ -358,7 +374,11 @@ namespace PolyglotCLI
                 try
                 {
                     AppLogger.Debug($"Processing pages for {fileName} and updating JSON state.");
-                    string dataJsonPath = Path.Combine(jobDir, $"{fileNameWithoutExt}_data.json");
+                    string dataJsonPath = Path.Combine(jobDir, "data", $"{fileNameWithoutExt}_data.json");
+                    if (!File.Exists(dataJsonPath) && File.Exists(Path.Combine(jobDir, $"{fileNameWithoutExt}_data.json")))
+                    {
+                        dataJsonPath = Path.Combine(jobDir, $"{fileNameWithoutExt}_data.json");
+                    }
 
                     if (options.Translate)
                     {
@@ -681,18 +701,24 @@ namespace PolyglotCLI
                         }
                     }
 
-                    // Save copies of markdown files to job directory
+                    // Save copies of markdown files to job directory (under outputs/ subdirectory)
                     if (!string.IsNullOrEmpty(CurrentJobDirectory))
                     {
                         try
                         {
+                            string outputsDir = Path.Combine(CurrentJobDirectory, "outputs");
+                            if (!Directory.Exists(outputsDir))
+                            {
+                                Directory.CreateDirectory(outputsDir);
+                            }
+
                             if (File.Exists(outputPath))
                             {
-                                File.Copy(outputPath, Path.Combine(CurrentJobDirectory, Path.GetFileName(outputPath)), true);
+                                File.Copy(outputPath, Path.Combine(outputsDir, Path.GetFileName(outputPath)), true);
                             }
                             if (File.Exists(originalOutputPath))
                             {
-                                File.Copy(originalOutputPath, Path.Combine(CurrentJobDirectory, Path.GetFileName(originalOutputPath)), true);
+                                File.Copy(originalOutputPath, Path.Combine(outputsDir, Path.GetFileName(originalOutputPath)), true);
                             }
                         }
                         catch (Exception copyEx)

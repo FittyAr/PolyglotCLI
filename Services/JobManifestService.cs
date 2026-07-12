@@ -116,11 +116,17 @@ namespace PolyglotCLI
                 };
                 
                 // Populate files in manifest
+                string sourcesDir = Path.Combine(jobDir, "sources");
+                if (!Directory.Exists(sourcesDir))
+                {
+                    Directory.CreateDirectory(sourcesDir);
+                }
+
                 foreach (var target in options.DocumentTargets)
                 {
                     string originalFileName = Path.GetFileName(target.FilePath);
                     string normalizedFileName = Regex.Replace(originalFileName, @"[^a-zA-Z0-9_\-\.]", "");
-                    string copiedFilePath = Path.Combine(jobDir, normalizedFileName);
+                    string copiedFilePath = Path.Combine(sourcesDir, normalizedFileName);
                     
                     try
                     {
@@ -129,7 +135,7 @@ namespace PolyglotCLI
                     }
                     catch (Exception ex)
                     {
-                        AppLogger.Error($"Failed to copy {originalFileName} to jobs directory: {ex.Message}");
+                        AppLogger.Error($"Failed to copy {originalFileName} to sources directory: {ex.Message}");
                     }
 
                     target.FilePath = copiedFilePath;
@@ -275,6 +281,12 @@ namespace PolyglotCLI
         {
             try
             {
+                string? dir = Path.GetDirectoryName(dataJsonPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
                 var dataList = new List<DocumentPageData>();
                 foreach (var state in pageStates)
                 {
