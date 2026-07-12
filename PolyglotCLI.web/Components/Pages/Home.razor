@@ -1,7 +1,95 @@
-﻿@page "/"
+@page "/"
+@inject PolyglotCLI.AppConfig Config
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Traducción - PolyglotCLI</PageTitle>
 
-<h1>Hello, world!</h1>
+<RadzenCard class="rz-my-4">
+    <RadzenText TextStyle="TextStyle.H4">Nueva Traducción</RadzenText>
+    
+    <div class="rz-p-4">
+        <RadzenTemplateForm Data="@options" Submit="@(async (PolyglotCLI.CommandLineOptions args) => await RunTranslation(args))">
+            <RadzenRow Gap="1rem" class="rz-mb-4">
+                <RadzenColumn Size="12">
+                    <RadzenLabel Text="Archivos (separados por coma, rutas locales completas)" />
+                    <RadzenTextBox @bind-Value="filesInput" class="rz-w-100" />
+                </RadzenColumn>
+            </RadzenRow>
+            
+            <RadzenRow Gap="1rem" class="rz-mb-4">
+                <RadzenColumn Size="6">
+                    <RadzenLabel Text="Modelo de Texto" />
+                    <RadzenTextBox @bind-Value="options.ModelName" class="rz-w-100" />
+                </RadzenColumn>
+                <RadzenColumn Size="6">
+                    <RadzenLabel Text="Idioma Destino" />
+                    <RadzenTextBox @bind-Value="options.TargetLanguage" class="rz-w-100" />
+                </RadzenColumn>
+            </RadzenRow>
 
-Welcome to your new app.
+            <RadzenButton ButtonType="ButtonType.Submit" Text="Iniciar Traducción" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary" BusyText="Traduciendo..." IsBusy="@isProcessing" />
+        </RadzenTemplateForm>
+    </div>
+</RadzenCard>
+
+@if(logs.Count > 0)
+{
+    <RadzenCard>
+        <RadzenText TextStyle="TextStyle.H6">Progreso</RadzenText>
+        <div style="background-color: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; max-height: 400px; overflow-y: auto; font-family: monospace;">
+            @foreach(var log in logs)
+            {
+                <div>@log</div>
+            }
+        </div>
+    </RadzenCard>
+}
+
+@code {
+    PolyglotCLI.CommandLineOptions options = new PolyglotCLI.CommandLineOptions();
+    string filesInput = "";
+    bool isProcessing = false;
+    List<string> logs = new List<string>();
+
+    protected override void OnInitialized()
+    {
+        options.ModelName = Config.DefaultModel;
+        options.TargetLanguage = Config.TargetLanguage;
+        options.OutputDirectory = Config.OutputDirectory;
+    }
+
+    async Task RunTranslation(PolyglotCLI.CommandLineOptions args)
+    {
+        if(string.IsNullOrWhiteSpace(filesInput)) return;
+        
+        args.Files = filesInput.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        
+        args.DocumentTargets = new List<PolyglotCLI.DocumentTarget>();
+        foreach(var f in args.Files)
+        {
+            args.DocumentTargets.Add(new PolyglotCLI.DocumentTarget { FilePath = f });
+        }
+        
+        // Ensure ApiUrl is populated
+        args.ApiUrl = Config.ApiUrl;
+
+        isProcessing = true;
+        logs.Clear();
+        logs.Add("Iniciando traducción...");
+        StateHasChanged();
+
+        try
+        {
+            int exitCode = await Task.Run(() => PolyglotCLI.TranslationOrchestrator.ExecuteAsync(args, Config));
+            logs.Add($"Traducción finalizada con código: {exitCode}. Revisa la carpeta {Config.OutputDirectory}");
+        }
+        catch(Exception ex)
+        {
+            logs.Add($"Error fatal: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -45,7 +45,7 @@ namespace PolyglotCLI
             stopwatch.Stop();
 
             AppLogger.Info($"Format Conversion: HTML saved in {stopwatch.ElapsedMilliseconds}ms at {outputPath}");
-            Console.WriteLine($"  → HTML saved to: {outputPath}");
+            AppLogger.Info($"  → HTML saved to: {outputPath}");
         }
 
         /// <summary>
@@ -81,7 +81,7 @@ namespace PolyglotCLI
                 if (process.ExitCode == 0 && File.Exists(outputPath))
                 {
                     AppLogger.Info($"Format Conversion (Pandoc): Conversion to {format} succeeded in {stopwatch.ElapsedMilliseconds}ms.");
-                    Console.WriteLine($"  → {format.ToUpperInvariant()} saved to: {outputPath}");
+                    AppLogger.Info($"  → {format.ToUpperInvariant()} saved to: {outputPath}");
                     return true;
                 }
                 else
@@ -89,9 +89,7 @@ namespace PolyglotCLI
                     string error = process.StandardError.ReadToEnd();
                     AppLogger.Error($"Format Conversion (Pandoc): pandoc to {format} conversion failed (Exit code: {process.ExitCode}). Error details: {error.Trim()}");
                     
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"  [WARNING] pandoc conversion to {format} failed: {error}");
-                    Console.ResetColor();
+                    AppLogger.Warn($"  [WARNING] pandoc conversion to {format} failed: {error}");
                     return false;
                 }
             }
@@ -180,17 +178,13 @@ namespace PolyglotCLI
                     else
                     {
                         AppLogger.Warn($"Format Conversion: Unknown requested output format '{fmt}'. Skipping.");
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine($"  [WARNING] Unknown output format '{fmt}'. Skipping.");
-                        Console.ResetColor();
+                        AppLogger.Warn($"  [WARNING] Unknown output format '{fmt}'. Skipping.");
                     }
                 }
                 catch (Exception ex)
                 {
                     AppLogger.Error($"Format Conversion: Exception during format conversion to '{fmt}'.", ex);
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"  [ERROR] Failed to convert to {fmt}: {ex.Message}");
-                    Console.ResetColor();
+                    AppLogger.Error($"  [ERROR] Failed to convert to {fmt}: {ex.Message}");
                 }
             }
         }
@@ -216,7 +210,7 @@ namespace PolyglotCLI
                 File.WriteAllBytes(outputPath, memoryStream.ToArray());
             }
             AppLogger.Info($"Local Format Conversion (Docx): Succeeded saving docx to '{outputPath}'");
-            Console.WriteLine($"  → DOCX saved (locally) to: {outputPath}");
+            AppLogger.Info($"  → DOCX saved (locally) to: {outputPath}");
         }
 
         public static async Task ConvertHtmlToPdfLocalAsync(string htmlContent, string outputPath)
@@ -234,7 +228,7 @@ namespace PolyglotCLI
                 document.Save(fileStream);
             }
             AppLogger.Info($"Local Format Conversion (Pdf): Succeeded saving pdf to '{outputPath}'");
-            Console.WriteLine($"  → PDF saved (locally) to: {outputPath}");
+            AppLogger.Info($"  → PDF saved (locally) to: {outputPath}");
         }
 
         public static void ConvertMarkdownToOdtLocal(string markdownPath, string outputPath)
@@ -376,7 +370,7 @@ namespace PolyglotCLI
                 }
             }
             AppLogger.Info($"Local Format Conversion (Odt): Succeeded saving odt to '{outputPath}'");
-            Console.WriteLine($"  → ODT/ODF saved (locally) to: {outputPath}");
+            AppLogger.Info($"  → ODT/ODF saved (locally) to: {outputPath}");
         }
 
         private static string WrapInHtmlDocument(string title, string body)

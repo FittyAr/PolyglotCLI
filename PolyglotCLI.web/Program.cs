@@ -1,10 +1,18 @@
 using PolyglotCLI.web.Components;
+using Radzen;
+using PolyglotCLI;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Config and Logger initialization
+var config = AppConfig.Load();
+AppLogger.Initialize(config);
+builder.Services.AddSingleton(config);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddRadzenComponents();
 
 var app = builder.Build();
 

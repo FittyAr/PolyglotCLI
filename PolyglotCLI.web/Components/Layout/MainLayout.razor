@@ -1,23 +1,37 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<RadzenLayout style="min-height: 100vh">
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+            <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
+            <RadzenLabel Text="PolyglotCLI Web" Style="font-size: 1.5rem; font-weight: bold; margin-left: 10px;" />
+        </RadzenStack>
+    </RadzenHeader>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+    <RadzenSidebar @bind-Expanded="@sidebarExpanded">
+        <RadzenPanelMenu>
+            <RadzenPanelMenuItem Text="Traducción" Icon="translate" Path="/" />
+            <RadzenPanelMenuItem Text="Configuración" Icon="settings" Path="/config" />
+        </RadzenPanelMenu>
+    </RadzenSidebar>
 
-        <article class="content px-4">
+    <RadzenBody>
+        <div class="p-4">
             @Body
-        </article>
-    </main>
-</div>
+        </div>
+    </RadzenBody>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+    <RadzenFooter>
+        <RadzenLabel Text="PolyglotCLI © 2026" />
+    </RadzenFooter>
+</RadzenLayout>
+
+<RadzenComponents />
+<RadzenDialog />
+<RadzenNotification />
+<RadzenTooltip />
+<RadzenContextMenu />
+
+@code {
+    bool sidebarExpanded = true;
+}

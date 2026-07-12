@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modo de prueba CLI `--test-conversion` para validación rápida del conversor de formatos.
 - Visor de trabajos (`JobViewerDialog`) que muestra los metadatos JSON y estados de error mediante un árbol de directorios directamente en la TUI, e incluye la exportación manual a Markdown (`[V]`).
 - Prompt interactivo de Análisis de Errores al fallar un trabajo en consola, el cual recopila errores OCR y de traducción y sugiere modificaciones empleando el asistente LLM (Prompt Helper).
+- Agregado el proyecto `PolyglotCLI.web` implementando una interfaz moderna con Blazor Server y Radzen Blazor Components para la configuración y ejecución de trabajos.
+- Creada la solución multiproyecto para separar la lógica core compartida (`PolyglotCLI.core`) de las interfaces de CLI y Web.
 
 ### Changed
 - Reestructurada la interfaz principal de la TUI incorporando navegación lateral por pestañas ("Traductor" e "Historial de Trabajos").
@@ -24,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eliminada la generación y escritura de archivos intermedios `.md` (live-writing) en tiempo real, migrando la persistencia de los extractores a retornos asíncronos y almacenamiento exclusivo en los archivos de estado `manifest.json` mediante metadatos.
 - Implementada lógica de reintento dinámico no recursivo para fallos de traducción no relacionados a red, escalando gradualmente la temperatura del LLM desde su valor inicial hasta un límite seguro máximo de `0.6`.
 - Refactorizado el orquestador monolítico `TranslationOrchestrator.cs` aplicando el Principio de Responsabilidad Única (SRP), extrayendo la persistencia de manifiestos a `JobManifestService.cs`, la gestión de modelos y memoria a `ModelManagerService.cs` y la interactividad de consola a `ConsoleErrorAnalysisService.cs`.
+- Desacoplados los servicios principales (`TranslationOrchestrator`, `TranslatorService`, `OcrService`, `ReviewService`) de llamadas de consola bloqueantes y directas (como `Console.WriteLine` o `Console.ForegroundColor`), promoviendo el uso de eventos de `AppLogger` para asegurar la compatibilidad con entornos Web y de Interfaz Gráfica (Blazor).
+- Reestructurada la arquitectura de la aplicación en tres proyectos independientes (`PolyglotCLI.core`, `PolyglotCLI.cli`, `PolyglotCLI.web`) bajo una única solución `PolyglotCLI.slnx` para maximizar la reutilización del código.
 
 - Corregida la captura de teclas de configuración (barra espaciadora, T, M, P) y la tecla Enter en la TUI al usar la abstracción Key de Terminal.Gui v2 en lugar de comparaciones directas con KeyCode.
 - Habilitada la navegación de foco con la tecla Tab en la TUI estableciendo CanFocus = true en los contenedores genéricos principales (_tabContainer, _translatorView, _jobsHistoryView), permitiendo el acceso e interacción con el listado de archivos y demás controles.

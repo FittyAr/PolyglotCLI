@@ -27,8 +27,7 @@ namespace PolyglotCLI
 
             string userPrompt = $"--- ORIGINAL TEXT ---\n{originalText}\n\n--- TRANSLATED TEXT ---\n{translatedText}";
 
-            AppLogger.Info($"Review page {pageNumber}: Starting text request to model '{_modelName}' (Input length: {translatedText.Length} chars)...");
-            Console.Write($"Reviewing page {pageNumber}... ");
+            AppLogger.Info($"Review page {pageNumber}: Starting text request to model '{_modelName}'...");
 
             var stopwatch = Stopwatch.StartNew();
             try
@@ -45,11 +44,7 @@ namespace PolyglotCLI
                     throw new InvalidOperationException("Review model returned an empty or whitespace response.");
                 }
 
-                AppLogger.Info($"Review page {pageNumber}: Succeeded in {stopwatch.ElapsedMilliseconds}ms. Output length: {reviewedText.Length} chars.");
-
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Done.");
-                Console.ResetColor();
+                AppLogger.Info($"Review page {pageNumber}: Succeeded in {stopwatch.ElapsedMilliseconds}ms.");
 
                 return reviewedText;
             }
@@ -57,10 +52,6 @@ namespace PolyglotCLI
             {
                 stopwatch.Stop();
                 AppLogger.Error($"Review page {pageNumber}: Failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
-
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Failed.");
-                Console.ResetColor();
                 throw;
             }
         }

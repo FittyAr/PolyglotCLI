@@ -64,6 +64,17 @@ namespace PolyglotCLI
 
                 // 2. Delegate execution orchestration to TranslationOrchestrator
                 int exitCode = await TranslationOrchestrator.ExecuteAsync(options, config);
+                
+                if (exitCode != 0 && TranslationOrchestrator.CurrentJobDirectory != null)
+                {
+                    string manifestPath = System.IO.Path.Combine(TranslationOrchestrator.CurrentJobDirectory, "manifest.json");
+                    if (System.IO.File.Exists(manifestPath))
+                    {
+                        var manifest = JobManifestService.LoadOrInitializeManifest(TranslationOrchestrator.CurrentJobDirectory, options, config, manifestPath);
+                        await ConsoleErrorAnalysisService.PromptForErrorAnalysisAsync(manifest, config);
+                    }
+                }
+
                 AppLogger.Info($"Program Main exiting with code: {exitCode}");
                 return exitCode;
             }

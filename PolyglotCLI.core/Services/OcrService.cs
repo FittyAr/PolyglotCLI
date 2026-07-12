@@ -22,8 +22,7 @@ namespace PolyglotCLI
             string userPrompt = $"Please transcribe the text from page {pageNumber}. Extract everything exactly as written.";
             string mimeType = "image/png";
 
-            AppLogger.Info($"OCR Process page {pageNumber}: Starting vision request ({imageBytes.Length / 1024.0:F2} KB)...");
-            Console.Write($"Running OCR for page {pageNumber}... ");
+            AppLogger.Info($"OCR page {pageNumber}: Starting image request to model '{_modelName}'...");
             
             var stopwatch = Stopwatch.StartNew();
             try
@@ -36,22 +35,14 @@ namespace PolyglotCLI
                     _modelName
                 );
                 stopwatch.Stop();
-                AppLogger.Info($"OCR Process page {pageNumber}: Succeeded in {stopwatch.ElapsedMilliseconds}ms. Length: {transcribedText.Length} chars.");
-                
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Done.");
-                Console.ResetColor();
+                AppLogger.Info($"OCR page {pageNumber}: Succeeded in {stopwatch.ElapsedMilliseconds}ms.");
 
                 return transcribedText;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                AppLogger.Error($"OCR Process page {pageNumber}: Failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
-                
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Failed.");
-                Console.ResetColor();
+                AppLogger.Error($"OCR page {pageNumber}: Failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
                 throw;
             }
         }

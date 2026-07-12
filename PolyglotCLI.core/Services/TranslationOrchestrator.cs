@@ -430,8 +430,7 @@ namespace PolyglotCLI
                                     catch (Exception transEx)
                                     {
                                         lastEx = transEx;
-                                        // Fix layout: print a newline first to separate from the unfinished Console.Write inside TranslatorService
-                                        Console.WriteLine();
+                                        // Removed console line break
                                         AppLogger.ErrorConsole($"Translation Error on page/chunk {pageNum}", transEx);
                                         
                                         // If it's a connection issue (socket, timeout), don't increase temp, just fail or break
@@ -517,7 +516,7 @@ namespace PolyglotCLI
                                     }
                                     catch (Exception ocrEx)
                                     {
-                                        Console.WriteLine(); // fix line break
+                                        // Removed console line break
                                         AppLogger.ErrorConsole($"[RETRY] Page {pageNum} OCR extraction retry failed", ocrEx);
                                         state.OcrFailed = true;
                                         state.OcrErrorMessage = ocrEx.Message;
@@ -537,7 +536,7 @@ namespace PolyglotCLI
                                     }
                                     catch (Exception imgEx)
                                     {
-                                        Console.WriteLine(); // fix line break
+                                        // Removed console line break
                                         AppLogger.ErrorConsole($"[RETRY] Image OCR retry failed", imgEx);
                                         state.OcrFailed = true;
                                         state.OcrErrorMessage = imgEx.Message;
@@ -586,7 +585,7 @@ namespace PolyglotCLI
                                 }
                                 catch (Exception transEx)
                                 {
-                                    Console.WriteLine(); // fix line break
+                                    // Removed console line break
                                     AppLogger.ErrorConsole($"[RETRY] Page/Chunk {pageNum} translation retry failed", transEx);
                                     state.TranslationFailed = true;
                                     state.TranslationErrorMessage = transEx.Message;
@@ -761,10 +760,7 @@ namespace PolyglotCLI
 
             currentManifest.Status = overallSuccess ? "Completed" : "Failed";
             currentManifest.Save(manifestPath);
-            if (!overallSuccess)
-            {
-                await ConsoleErrorAnalysisService.PromptForErrorAnalysisAsync(currentManifest, config);
-            }
+            // Error analysis prompt decoupled to caller
  
             totalPipelineStopwatch.Stop();
             AppLogger.Info("==================================================");

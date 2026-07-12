@@ -35,7 +35,6 @@ namespace PolyglotCLI
             string userPrompt = $"Translate the following text into {_targetLanguage}. {formatInstruction} Make sure to only return the translation:\n\n{sourceText}";
 
             AppLogger.Info($"Translation page {pageNumber}: Starting text request to model '{_modelName}' (Input length: {sourceText.Length} chars)...");
-            Console.Write($"Translating page {pageNumber}... ");
 
             var stopwatch = Stopwatch.StartNew();
             try
@@ -54,20 +53,12 @@ namespace PolyglotCLI
 
                 AppLogger.Info($"Translation page {pageNumber}: Succeeded in {stopwatch.ElapsedMilliseconds}ms. Output length: {translatedText.Length} chars.");
 
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Done.");
-                Console.ResetColor();
-
                 return translatedText;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
                 AppLogger.Error($"Translation page {pageNumber}: Failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
-
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Failed.");
-                Console.ResetColor();
                 throw;
             }
         }
