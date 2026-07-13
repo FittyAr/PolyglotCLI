@@ -51,6 +51,9 @@ public partial class Home : ComponentBase, IDisposable
         options.Verify = Config.EnableReview;
         options.GenerateDoc = !string.IsNullOrEmpty(Config.DefaultOutputFormat);
         options.AdditionalPrompt = Config.AdditionalPrompt;
+        options.Transcribe = true;
+        options.Translate = true;
+        options.Debug = Config.Debug;
 
         // Initialize drives
         try
@@ -457,6 +460,9 @@ public partial class Home : ComponentBase, IDisposable
             args.VisionModelName = Config.DefaultVisionModel;
             args.GenerateDoc = !string.IsNullOrWhiteSpace(args.SelectedFormat);
             args.Verify = Config.EnableReview;
+            args.Transcribe = options.Transcribe;
+            args.Translate = options.Translate;
+            args.Debug = options.Debug;
         }
         else
         {

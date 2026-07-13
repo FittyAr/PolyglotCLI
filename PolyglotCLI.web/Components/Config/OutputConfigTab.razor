@@ -17,6 +17,12 @@
         <RadzenTextBox Value="@OutputFormatsInput" ValueChanged="@OnOutputFormatsInputChanged" class="rz-w-100" />
     </RadzenColumn>
 </RadzenRow>
+<RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="12">
+        <RadzenLabel Text="Extensiones de Entrada Soportadas (separadas por coma)" class="rz-mb-2" />
+        <RadzenTextBox Value="@InputExtensionsInput" ValueChanged="@OnInputExtensionsInputChanged" class="rz-w-100" />
+    </RadzenColumn>
+</RadzenRow>
 
 @code {
     [Parameter]
@@ -31,8 +37,19 @@
     [Parameter]
     public EventCallback<string> OutputFormatsInputChanged { get; set; }
 
+    [Parameter]
+    public string InputExtensionsInput { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> InputExtensionsInputChanged { get; set; }
+
     private async Task OnOutputFormatsInputChanged(string val)
     {
         await OutputFormatsInputChanged.InvokeAsync(val);
+    }
+
+    private async Task OnInputExtensionsInputChanged(string val)
+    {
+        await InputExtensionsInputChanged.InvokeAsync(val);
     }
 }

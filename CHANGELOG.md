@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Agregado el control "Idioma Destino por Defecto" (`TargetLanguage`) en la pestaña de traducción del panel de configuración de la Web, garantizando la paridad total con las propiedades persistidas de `AppConfig`.
+- Añadidos controles interactivos en el Dashboard Web (`Home.razor`) para habilitar/deshabilitar de forma selectiva las fases de extracción/OCR (`Transcribe`), traducción (`Translate`) y el modo prueba (`Debug`), igualando las capacidades del CLI.
+- Implementado el soporte para visualizar y editar la lista de extensiones de archivos compatibles (`SupportedInputExtensions`) en la sección de formatos del panel de configuración web.
 - Interfaz de configuración completa tabulada (`Config.razor`) con pestañas para General & API, Modelos LLM, OCR & Fragmentación, Formatos/Reglas y Prompts del Sistema, vinculando el 100% de las opciones en `AppConfig`.
 - Integrada la carga dinámica de modelos LLM desde la API local de LM Studio en todos los selectores de modelos del formulario de configuración.
 - Migración al tema nativo de Radzen `material-dark.css` en la UI Web para armonizar el contraste visual de textos, inputs y botones en modo oscuro.

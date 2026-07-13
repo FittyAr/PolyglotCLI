@@ -21,6 +21,7 @@ public partial class Config : ComponentBase
 
     protected string saveMessage = "";
     protected string outputFormatsInput = "";
+    protected string inputExtensionsInput = "";
     protected List<string> availableModels = new List<string>();
     protected List<string> outputFormatOptions = new List<string> { "html", "docx", "odf", "pdf" };
     protected bool isTestingConnection = false;
@@ -36,6 +37,7 @@ public partial class Config : ComponentBase
     {
         AppConfig.Reload();
         outputFormatsInput = string.Join(", ", AppConfig.SupportedOutputFormats);
+        inputExtensionsInput = string.Join(", ", AppConfig.SupportedInputExtensions);
         outputFormatOptions = AppConfig.SupportedOutputFormats ?? new List<string> { "html", "docx", "odf", "pdf" };
 
         // Load prompt files using PromptLoader
@@ -99,6 +101,10 @@ public partial class Config : ComponentBase
         try
         {
             args.SupportedOutputFormats = outputFormatsInput
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+
+            args.SupportedInputExtensions = inputExtensionsInput
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToList();
 

@@ -16,6 +16,12 @@
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="12">
+        <RadzenLabel Text="Idioma Destino por Defecto" class="rz-mb-2" />
+        <RadzenTextBox @bind-Value="AppConfig.TargetLanguage" class="rz-w-100" />
+    </RadzenColumn>
+</RadzenRow>
+<RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
         <RadzenLabel Text="Máx. Caracteres por Chunk" class="rz-mb-2" />
         <RadzenNumeric @bind-Value="AppConfig.MaxCharactersPerChunk" TValue="int" class="rz-w-100" />

@@ -3,6 +3,7 @@
 @using System.IO
 @inject PolyglotCLI.AppConfig Config
 @inject NavigationManager NavigationManager
+@inject DialogService DialogService
 
 <PageTitle>Historial de Trabajos - PolyglotCLI</PageTitle>
 
@@ -20,6 +21,9 @@
         <RadzenDataGridColumn TItem="JobManifest" Property="ModelName" Title="Modelo" Width="150px" />
         <RadzenDataGridColumn TItem="JobManifest" Title="Acciones" Width="220px" Filterable="false" Sortable="false">
             <Template Context="job">
+                <RadzenButton Icon="list" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" class="rz-mr-1" title="Ver Detalles del Trabajo" 
+                              Click="@(() => ViewJobDetails(job))" />
+                
                 <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" class="rz-mr-1" title="Reanudar Trabajo" 
                               Disabled="@(job.Status == "Completed")" Click="@(() => ResumeJob(job))" />
                 
@@ -102,5 +106,13 @@
             analysisResult = $"Error durante el análisis: {ex.Message}";
         }
         StateHasChanged();
+    }
+
+    async Task ViewJobDetails(JobManifest job)
+    {
+        await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.JobDetailsDialog>($"Detalles del Trabajo", new Dictionary<string, object?>
+        {
+            { "Job", job }
+        }, new DialogOptions { Width = "900px", Height = "650px", Resizable = true, Draggable = true });
     }
 }

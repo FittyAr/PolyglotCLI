@@ -134,6 +134,21 @@
                         <RadzenDropDown @bind-Value="options.SelectedFormat" Data="@Config.SupportedOutputFormats" class="rz-w-100" Placeholder="Ninguno (Solo MD)" AllowClear="true" />
                     </RadzenColumn>
                 </RadzenRow>
+
+                <RadzenRow Gap="1rem" class="rz-mb-4">
+                    <RadzenColumn Size="4" class="rz-align-self-center">
+                        <RadzenCheckBox @bind-Value="options.Transcribe" Name="optTranscribe" />
+                        <RadzenLabel Text="Extraer Texto / OCR" Component="optTranscribe" class="rz-ml-2" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="4" class="rz-align-self-center">
+                        <RadzenCheckBox @bind-Value="options.Translate" Name="optTranslate" />
+                        <RadzenLabel Text="Traducir Contenido" Component="optTranslate" class="rz-ml-2" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="4" class="rz-align-self-center">
+                        <RadzenCheckBox @bind-Value="options.Debug" Name="optDebug" />
+                        <RadzenLabel Text="Modo Prueba (primeras 2 pág.)" Component="optDebug" class="rz-ml-2" />
+                    </RadzenColumn>
+                </RadzenRow>
                 
                 <!-- Prompt personalizado e IA -->
                 <RadzenCard class="rz-mb-4 rz-p-4" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);">

@@ -1,0 +1,155 @@
+@using PolyglotCLI
+@inject DialogService DialogService
+
+<RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Detalles del Trabajo: @Job.JobId</RadzenText>
+
+<RadzenCard class="rz-mb-4" Style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);">
+    <RadzenRow Gap="1rem">
+        <RadzenColumn Size="3">
+            <RadzenText TextStyle="TextStyle.Caption" style="color: #b0bec5;">Creado el</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2" style="font-weight: bold;">@Job.CreatedAt.ToString("d/M/yyyy HH:mm")</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="3">
+            <RadzenText TextStyle="TextStyle.Caption" style="color: #b0bec5;">Idioma Destino</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2" style="font-weight: bold;">@Job.TargetLanguage</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="3">
+            <RadzenText TextStyle="TextStyle.Caption" style="color: #b0bec5;">Modelo LLM</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2" style="font-weight: bold;">@(!string.IsNullOrEmpty(Job.ModelName) ? Job.ModelName : "Defecto del Servidor")</RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="3">
+            <RadzenText TextStyle="TextStyle.Caption" style="color: #b0bec5;">Estado General</RadzenText>
+            <div>
+                <RadzenBadge BadgeStyle="@GetBadgeStyle(Job.Status)" Text="@Job.Status" />
+            </div>
+        </RadzenColumn>
+    </RadzenRow>
+</RadzenCard>
+
+<RadzenText TextStyle="TextStyle.Subtitle1" class="rz-mb-2" style="font-weight: bold;">Archivos del Trabajo</RadzenText>
+
+<RadzenDataGrid Data="@Job.Files" TItem="JobFileManifest" AllowPaging="true" PageSize="5" class="rz-mb-4">
+    <Template Context="file">
+        <RadzenCard Style="padding: 1rem; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05);">
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Progreso por Página / Fragmento</RadzenText>
+            @if(file.Pages != null && file.Pages.Count > 0)
+            {
+                <RadzenDataGrid Data="@file.Pages" TItem="JobPageManifest" AllowPaging="false" AllowSorting="false">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="JobPageManifest" Property="PageNumber" Title="Pág/Chunk" Width="90px" TextAlign="TextAlign.Center" />
+                        
+                        <RadzenDataGridColumn TItem="JobPageManifest" Title="Extracción / OCR" Width="180px">
+                            <Template Context="pageItem">
+                                @if(pageItem.OcrCompleted)
+                                {
+                                    <span style="color: #4caf50; display: inline-flex; align-items: center; gap: 4px;">
+                                        <RadzenIcon Icon="check_circle" Style="color: #4caf50; font-size: 1.1rem; vertical-align: middle;" /> Completado
+                                    </span>
+                                }
+                                else if(!string.IsNullOrEmpty(pageItem.OcrError))
+                                {
+                                    <span style="color: #f44336; display: inline-flex; align-items: center; gap: 4px;" title="@pageItem.OcrError">
+                                        <RadzenIcon Icon="error" Style="color: #f44336; font-size: 1.1rem; vertical-align: middle;" /> Falló
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="color: #ffb74d; display: inline-flex; align-items: center; gap: 4px;">
+                                        <RadzenIcon Icon="hourglass_empty" Style="color: #ffb74d; font-size: 1.1rem; vertical-align: middle;" /> Pendiente
+                                    </span>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="JobPageManifest" Title="Traducción" Width="180px">
+                            <Template Context="pageItem">
+                                @if(pageItem.TranslationCompleted)
+                                {
+                                    <span style="color: #4caf50; display: inline-flex; align-items: center; gap: 4px;">
+                                        <RadzenIcon Icon="check_circle" Style="color: #4caf50; font-size: 1.1rem; vertical-align: middle;" /> Completado
+                                    </span>
+                                }
+                                else if(!string.IsNullOrEmpty(pageItem.TranslationError))
+                                {
+                                    <span style="color: #f44336; display: inline-flex; align-items: center; gap: 4px;" title="@pageItem.TranslationError">
+                                        <RadzenIcon Icon="error" Style="color: #f44336; font-size: 1.1rem; vertical-align: middle;" /> Falló
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="color: #ffb74d; display: inline-flex; align-items: center; gap: 4px;">
+                                        <RadzenIcon Icon="hourglass_empty" Style="color: #ffb74d; font-size: 1.1rem; vertical-align: middle;" /> Pendiente
+                                    </span>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="JobPageManifest" Title="Revisión" Width="180px">
+                            <Template Context="pageItem">
+                                @if(pageItem.ReviewCompleted)
+                                {
+                                    <span style="color: #4caf50; display: inline-flex; align-items: center; gap: 4px;">
+                                        <RadzenIcon Icon="check_circle" Style="color: #4caf50; font-size: 1.1rem; vertical-align: middle;" /> Completado
+                                    </span>
+                                }
+                                else if(!string.IsNullOrEmpty(pageItem.ReviewError))
+                                {
+                                    <span style="color: #f44336; display: inline-flex; align-items: center; gap: 4px;" title="@pageItem.ReviewError">
+                                        <RadzenIcon Icon="error" Style="color: #f44336; font-size: 1.1rem; vertical-align: middle;" /> Falló
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="color: #ffb74d; display: inline-flex; align-items: center; gap: 4px;">
+                                        <RadzenIcon Icon="hourglass_empty" Style="color: #ffb74d; font-size: 1.1rem; vertical-align: middle;" /> Pendiente/No req.
+                                    </span>
+                                }
+                            </Template>
+                        </RadzenDataGridColumn>
+
+                        <RadzenDataGridColumn TItem="JobPageManifest" Title="Conversión Doc" Width="180px">
+                            <Template Context="pageItem">
+                                <span style="@(pageItem.ConversionCompleted ? "color: #4caf50;" : "color: #b0bec5;") display: inline-flex; align-items: center; gap: 4px;">
+                                    <RadzenIcon Icon="@(pageItem.ConversionCompleted ? "check_circle" : "help_outline")" Style="@((pageItem.ConversionCompleted ? "color: #4caf50;" : "color: #b0bec5;") + " font-size: 1.1rem; vertical-align: middle;")" />
+                                    @(pageItem.ConversionCompleted ? "Completado" : "Pendiente/No req.")
+                                </span>
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            }
+            else
+            {
+                <span style="color: #b0bec5;">No hay páginas o fragmentos registrados aún para este archivo.</span>
+            }
+        </RadzenCard>
+    </Template>
+    <Columns>
+        <RadzenDataGridColumn TItem="JobFileManifest" Property="OriginalFileName" Title="Nombre del Archivo Original" />
+        <RadzenDataGridColumn TItem="JobFileManifest" Property="Completed" Title="Estado del Archivo" Width="130px" TextAlign="TextAlign.Center">
+            <Template Context="file">
+                <RadzenBadge BadgeStyle="@(file.Completed ? BadgeStyle.Success : BadgeStyle.Danger)" Text="@(file.Completed ? "Completado" : "Incompleto")" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="JobFileManifest" Property="Pages.Count" Title="Pág/Chunks Totales" Width="160px" TextAlign="TextAlign.Center" />
+    </Columns>
+</RadzenDataGrid>
+
+<div class="rz-text-align-right rz-mt-4">
+    <RadzenButton Text="Cerrar" Click="@(() => DialogService.Close())" ButtonStyle="ButtonStyle.Secondary" />
+</div>
+
+@code {
+    [Parameter]
+    public JobManifest Job { get; set; } = default!;
+
+    private BadgeStyle GetBadgeStyle(string status)
+    {
+        return status switch {
+            "Completed" => BadgeStyle.Success,
+            "Failed" => BadgeStyle.Danger,
+            "InProgress" => BadgeStyle.Warning,
+            _ => BadgeStyle.Info
+        };
+    }
+}
