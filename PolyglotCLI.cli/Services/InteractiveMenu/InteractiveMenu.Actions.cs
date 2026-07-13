@@ -30,45 +30,12 @@ namespace PolyglotCLI
         private void PerformScan()
         {
             string dirPath = _textScanDir!.Text?.ToString()?.Trim() ?? "";
-            if (string.IsNullOrEmpty(dirPath))
-            {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Directory to Scan cannot be empty.", new[] { "OK" });
-                _textScanDir.SetFocus();
-                return;
-            }
-
-            if (!Directory.Exists(dirPath))
-            {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", $"The directory to scan '{dirPath}' does not exist on the system.", new[] { "OK" });
-                _textScanDir.SetFocus();
-                return;
-            }
-
             _filesSource.Clear();
 
             try
             {
-                var files = Directory.GetFiles(dirPath);
-                var supportedExtensions = new HashSet<string>(_config.SupportedInputExtensions ?? new List<string>
-                {
-                    ".pdf", ".docx", ".doc", ".odt", ".odf", ".txt", ".md", 
-                    ".json", ".csv", ".xml", ".html", ".jpg", ".jpeg", ".png", ".bmp", ".tiff"
-                }, StringComparer.OrdinalIgnoreCase);
-
-                foreach (var file in files)
-                {
-                    string ext = Path.GetExtension(file).ToLowerInvariant();
-                    if (supportedExtensions.Contains(ext))
-                    {
-                        _filesSource.Add(new SelectableFile
-                        {
-                            FullPath = Path.GetFullPath(file),
-                            IsSelected = false,
-                            Mode = "text",
-                            PageRange = "all"
-                        });
-                    }
-                }
+                var files = DocumentDiscoveryService.ScanDirectory(dirPath, _config);
+                _filesSource.AddRange(files);
 
                 UpdateFileList();
 
@@ -76,6 +43,16 @@ namespace PolyglotCLI
                 {
                     MessageBox.Query(AppRequired, "Scan Results", "No supported documents found in this directory.", new[] { "OK" });
                 }
+            }
+            catch (ArgumentException)
+            {
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Directory to Scan cannot be empty.", new[] { "OK" });
+                _textScanDir.SetFocus();
+            }
+            catch (DirectoryNotFoundException)
+            {
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", $"The directory to scan '{dirPath}' does not exist on the system.", new[] { "OK" });
+                _textScanDir.SetFocus();
             }
             catch (Exception ex)
             {
@@ -85,104 +62,34 @@ namespace PolyglotCLI
 
         private bool ValidateInputs(bool checkSelectedFiles)
         {
-            // 1. LM Studio API URL
-            string apiUrl = _config.ApiUrl;
-            if (string.IsNullOrEmpty(apiUrl))
+            string scanDir = _textScanDir!.Text?.ToString()?.Trim() ?? "";
+            
+            // If checkSelectedFiles is false, we pass an empty list of files because OCR requirements check is not applicable (or we can pass the entire list to be sure)
+            var filesToValidate = checkSelectedFiles ? _filesSource : new List<SelectableFile>();
+            
+            var (isValid, errMsg) = JobValidator.ValidateJobSettings(_config, scanDir);
+            if (!isValid && errMsg != null)
             {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", "LM Studio API URL cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
-                return false;
-            }
-            if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out var uriResult) || 
-                (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))
-            {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", "LM Studio API URL must be a valid HTTP or HTTPS URL (e.g., http://localhost:1234/v1).\nConfigure it in settings [F8].", new[] { "OK" });
-                return false;
-            }
-
-            // 2. Translation Model Name
-            string translationModel = _config.DefaultModel ?? "";
-            if (string.IsNullOrEmpty(translationModel))
-            {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Translation Model Name cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
-                return false;
-            }
-
-            // 3. Vision/OCR Model Name
-            string visionModel = _config.DefaultVisionModel ?? "";
-            if (string.IsNullOrEmpty(visionModel))
-            {
-                bool needsVision = false;
-                if (checkSelectedFiles)
+                if (errMsg.Contains("Directory to Scan") || errMsg.Contains("directory to scan"))
                 {
-                    foreach (var f in _filesSource)
-                    {
-                        if (f.IsSelected)
-                        {
-                            string ext = Path.GetExtension(f.FullPath).ToLowerInvariant();
-                            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff" ||
-                                (ext == ".pdf" && f.Mode.Equals("image", StringComparison.OrdinalIgnoreCase)))
-                            {
-                                needsVision = true;
-                                break;
-                            }
-                        }
-                    }
+                    MessageBox.ErrorQuery(AppRequired, "Validation Error", errMsg, new[] { "OK" });
+                    _textScanDir.SetFocus();
                 }
                 else
                 {
-                    needsVision = true;
+                    MessageBox.ErrorQuery(AppRequired, "Validation Error", errMsg + "\nConfigure it in settings [F8].", new[] { "OK" });
                 }
-
-                if (needsVision)
-                {
-                    MessageBox.ErrorQuery(AppRequired, "Validation Error", "Vision/OCR Model Name cannot be empty.\nIt is required to translate images or PDFs in OCR mode.\nConfigure it in settings [F8].", new[] { "OK" });
-                    return false;
-                }
-            }
-
-            // 4. Target Language
-            string targetLang = _config.TargetLanguage ?? "";
-            if (string.IsNullOrEmpty(targetLang))
-            {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Target Language cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
-                return false;
-            }
-            if (!System.Text.RegularExpressions.Regex.IsMatch(targetLang, @"^[a-zA-Z\s\-]+$"))
-            {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Target Language must contain only letters, spaces, or hyphens (e.g., 'English' or 'Brazilian-Portuguese').\nConfigure it in settings [F8].", new[] { "OK" });
                 return false;
             }
 
-            // 5. Output Directory
-            string outDir = _config.OutputDirectory ?? "";
-            if (string.IsNullOrEmpty(outDir))
+            var (ocrValid, ocrErrMsg) = JobValidator.ValidateOcrModelRequirement(_config, filesToValidate);
+            if (!ocrValid && ocrErrMsg != null)
             {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Output Directory cannot be empty.\nConfigure it in settings [F8].", new[] { "OK" });
-                return false;
-            }
-            char[] invalidChars = Path.GetInvalidPathChars();
-            if (outDir.IndexOfAny(invalidChars) >= 0)
-            {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Output Directory contains invalid path characters.\nConfigure it in settings [F8].", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Validation Error", ocrErrMsg + "\nConfigure it in settings [F8].", new[] { "OK" });
                 return false;
             }
 
-            // 6. Directory to Scan
-            string scanDir = _textScanDir!.Text?.ToString()?.Trim() ?? "";
-            if (string.IsNullOrEmpty(scanDir))
-            {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", "Directory to Scan cannot be empty.", new[] { "OK" });
-                _textScanDir.SetFocus();
-                return false;
-            }
-            if (!Directory.Exists(scanDir))
-            {
-                MessageBox.ErrorQuery(AppRequired, "Validation Error", $"The directory to scan '{scanDir}' does not exist on the system.", new[] { "OK" });
-                _textScanDir.SetFocus();
-                return false;
-            }
-
-            // 7. Check selected files on Start Translation
+            // Check selected files on Start Translation
             if (checkSelectedFiles)
             {
                 int selectedCount = 0;
@@ -212,22 +119,17 @@ namespace PolyglotCLI
                 return;
             }
 
-            _config.LastScanDirectory = scanDir;
-            _config.AdditionalPrompt = _textAddPrompt?.Text?.ToString()?.Trim();
-            _config.EnableReview = _checkVerify!.Value == CheckState.Checked;
-
-            // Save Gen Doc / format selection
             bool generateDoc = _checkGenerate!.Value == CheckState.Checked;
             string selectedFmt = _comboFormat!.Text?.ToString()?.Trim().ToLowerInvariant() ?? "";
-            _config.DefaultOutputFormat = generateDoc && !string.IsNullOrEmpty(selectedFmt) ? selectedFmt : null;
 
-            var outputFormats = new List<string>();
-            if (_config.SaveMarkdown) outputFormats.Add("md");
-            if (generateDoc && !string.IsNullOrEmpty(selectedFmt)) outputFormats.Add(selectedFmt);
-            if (outputFormats.Count == 0) outputFormats.Add("md");
-            _config.OutputFormats = string.Join(",", outputFormats);
+            _config.SavePresets(
+                scanDir,
+                _textAddPrompt?.Text?.ToString()?.Trim(),
+                _checkVerify!.Value == CheckState.Checked,
+                generateDoc,
+                selectedFmt
+            );
 
-            _config.Save();
             MessageBox.Query(AppRequired, "Success", "Presets saved successfully to config.json!", new[] { "OK" });
         }
 
@@ -282,35 +184,8 @@ namespace PolyglotCLI
         private void LoadPastJobs()
         {
             _pastJobs.Clear();
-            string jobsDir = TranslationOrchestrator.GetJobsDirectory();
-            if (!Directory.Exists(jobsDir))
-            {
-                return;
-            }
-
-            try
-            {
-                var dirs = Directory.GetDirectories(jobsDir);
-                foreach (var dir in dirs)
-                {
-                    string manifestPath = Path.Combine(dir, "manifest.json");
-                    if (File.Exists(manifestPath))
-                    {
-                        var manifest = JobManifest.Load(manifestPath);
-                        if (manifest != null && !string.IsNullOrEmpty(manifest.JobId))
-                        {
-                            _pastJobs.Add(manifest);
-                        }
-                    }
-                }
-                
-                // Sort jobs descending by JobId (newest first)
-                _pastJobs.Sort((a, b) => string.Compare(b.JobId, a.JobId, StringComparison.OrdinalIgnoreCase));
-            }
-            catch (Exception ex)
-            {
-                AppLogger.Warn($"Error scanning past jobs: {ex.Message}");
-            }
+            var loadedJobs = JobManifestService.LoadPastJobs();
+            _pastJobs.AddRange(loadedJobs);
         }
 
         private void UpdateJobsList()

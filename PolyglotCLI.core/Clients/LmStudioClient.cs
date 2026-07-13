@@ -60,6 +60,41 @@ namespace PolyglotCLI
             return string.Empty;
         }
 
+        public async Task<List<string>> GetAvailableModelsAsync()
+        {
+            AppLogger.Debug("GET /models: Fetching loaded models list...");
+            var models = new List<string>();
+            try
+            {
+                var response = await _httpClient.GetAsync($"{_apiUrl}/models");
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(content);
+                    var dataElement = doc.RootElement.GetProperty("data");
+                    foreach (var item in dataElement.EnumerateArray())
+                    {
+                        string id = item.GetProperty("id").GetString() ?? string.Empty;
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            models.Add(id);
+                        }
+                    }
+                }
+                else
+                {
+                    string errContent = await response.Content.ReadAsStringAsync();
+                    AppLogger.Warn($"GET /models: Failed (Code: {response.StatusCode}). Content: {errContent}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("GET /models: Connection request failed.", ex);
+                throw;
+            }
+            return models;
+        }
+
         public async Task<string> SendTextRequestAsync(string systemPrompt, string userPrompt, string? modelName)
         {
             if (string.IsNullOrWhiteSpace(modelName))

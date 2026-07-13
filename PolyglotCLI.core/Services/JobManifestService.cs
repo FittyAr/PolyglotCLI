@@ -311,5 +311,88 @@ namespace PolyglotCLI
                 AppLogger.Warn($"Failed to save JSON state to {dataJsonPath}: {ex.Message}");
             }
         }
+
+        public static List<JobManifest> LoadPastJobs()
+        {
+            var pastJobs = new List<JobManifest>();
+            string jobsDir = TranslationOrchestrator.GetJobsDirectory();
+            if (!Directory.Exists(jobsDir))
+            {
+                return pastJobs;
+            }
+
+            try
+            {
+                var dirs = Directory.GetDirectories(jobsDir);
+                foreach (var dir in dirs)
+                {
+                    string manifestPath = Path.Combine(dir, "manifest.json");
+                    if (File.Exists(manifestPath))
+                    {
+                        var manifest = JobManifest.Load(manifestPath);
+                        if (manifest != null && !string.IsNullOrEmpty(manifest.JobId))
+                        {
+                            pastJobs.Add(manifest);
+                        }
+                    }
+                }
+                
+                // Sort jobs descending by JobId (newest first)
+                pastJobs.Sort((a, b) => string.Compare(b.JobId, a.JobId, StringComparison.OrdinalIgnoreCase));
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn($"Error scanning past jobs: {ex.Message}");
+            }
+            return pastJobs;
+        }
+
+        public static List<string> GetJobDataFiles(string jobDir)
+        {
+            var files = new List<string>();
+            string dataDir = Path.Combine(jobDir, "data");
+            if (Directory.Exists(dataDir))
+            {
+                files.AddRange(Directory.GetFiles(dataDir, "*_data.json"));
+            }
+            foreach (var file in Directory.GetFiles(jobDir, "*_data.json"))
+            {
+                if (!files.Contains(file)) files.Add(file);
+            }
+            return files;
+        }
+
+        public static List<DocumentPageData> GetJobDataPages(string filePath)
+        {
+            if (File.Exists(filePath))
+            {
+                try
+                {
+                    string json = File.ReadAllText(filePath);
+                    return JsonSerializer.Deserialize<List<DocumentPageData>>(json) ?? new List<DocumentPageData>();
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn($"Failed to load job data pages from {filePath}: {ex.Message}");
+                }
+            }
+            return new List<DocumentPageData>();
+        }
+
+        public static string BuildErrorSummary(JobManifest manifest)
+        {
+            var sbErr = new System.Text.StringBuilder();
+            foreach (var f in manifest.Files)
+            {
+                foreach (var p in f.Pages)
+                {
+                    if (!p.OcrCompleted && !string.IsNullOrEmpty(p.OcrError))
+                        sbErr.AppendLine($"File: {f.OriginalFileName}, Page: {p.PageNumber}, Phase: OCR, Error: {p.OcrError}");
+                    if (!p.TranslationCompleted && !string.IsNullOrEmpty(p.TranslationError))
+                        sbErr.AppendLine($"File: {f.OriginalFileName}, Page: {p.PageNumber}, Phase: Translation, Error: {p.TranslationError}");
+                }
+            }
+            return sbErr.ToString();
+        }
     }
 }

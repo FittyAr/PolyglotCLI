@@ -27,9 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visor de trabajos (`JobViewerDialog`) que muestra los metadatos JSON y estados de error mediante un árbol de directorios directamente en la TUI, e incluye la exportación manual a Markdown (`[V]`).
 - Prompt interactivo de Análisis de Errores al fallar un trabajo en consola, el cual recopila errores OCR y de traducción y sugiere modificaciones empleando el asistente LLM (Prompt Helper).
 - Agregado el proyecto `PolyglotCLI.web` implementando una interfaz moderna con Blazor Server y Radzen Blazor Components para la configuración y ejecución de trabajos.
+- Métodos `SavePresets(...)` y `UpdateAndSaveSettings(...)` en `AppConfig` para centralizar la configuración rápida y avanzada.
+- Método `GetAvailableModelsAsync()` en `LmStudioClient` y `TestApiConnectionAsync(...)` en `ModelManagerService` para encapsular la interacción HTTP y comprobación de la API de LM Studio.
+- Métodos `LoadPastJobs()`, `GetJobDataFiles(...)` y `GetJobDataPages(...)` en `JobManifestService` para delegar la administración del historial de trabajos.
+- Nuevo servicio `DocumentDiscoveryService` para abstraer el escaneo de directorios.
+- Nuevo servicio `JobValidator` para centralizar las reglas de validación de trabajos y requisitos de modelo de visión.
+- Nuevo servicio `JobExportService` para encapsular la exportación a Markdown de los resultados de un trabajo.
+- Interfaz de configuración completa tabulada (`Config.razor`) con pestañas para General & API, Modelos LLM, OCR & Fragmentación, Formatos/Reglas y Prompts del Sistema, vinculando el 100% de las opciones en `AppConfig`.
 - Creada la solución multiproyecto para separar la lógica core compartida (`PolyglotCLI.core`) de las interfaces de CLI y Web.
 
 ### Changed
+- Desacoplado el acceso a la API, la validación de configuraciones, el escaneo de directorios y la persistencia/exportación de archivos del proyecto CLI (`PolyglotCLI.cli`) hacia el proyecto Core (`PolyglotCLI.core`), refactorizando `ConsoleErrorAnalysisService`, `ModelSelectionDialog`, `SettingsDialog`, `InteractiveMenu.Actions` y `JobViewerDialog`.
 - Refactorización de la pestaña principal del traductor (`Home.razor`) para adherirse al Principio de Responsabilidad Única (SRP), separando la interfaz de usuario de su lógica de control (`Home.razor.cs`), extrayendo los tipos `FileSystemItem` y `LogEntry` a sus propios archivos, y desacoplando los diálogos Radzen de previsualización y progreso a componentes independientes (`ImprovedPromptDialog`, `AnalyzeFilePromptDialog`, `ProgressDialog`) y un modelo observable `ProgressState` de actualización reactiva.
 - Añadido soporte de recarga en caliente (`AppConfig.Reload()`) para recargar dinámicamente `config.json` desde el disco al inicializar el Traductor y la Configuración Web, garantizando la consistencia y sincronía de los ajustes con cambios realizados externamente (por el CLI o TUI).
 - Habilitada la interactividad global de Blazor Server en `App.razor` agregando el atributo `@rendermode="InteractiveServer"` a `HeadOutlet` y `Routes`, solucionando los problemas de botones e inputs que no respondían.

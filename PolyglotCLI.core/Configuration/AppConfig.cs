@@ -167,5 +167,85 @@ namespace PolyglotCLI
             LogLevelConsole = fresh.LogLevelConsole;
             LogLevelFile = fresh.LogLevelFile;
         }
+
+        public void SavePresets(
+            string lastScanDirectory,
+            string? additionalPrompt,
+            bool enableReview,
+            bool generateDoc,
+            string? selectedFormat)
+        {
+            LastScanDirectory = lastScanDirectory;
+            AdditionalPrompt = additionalPrompt;
+            EnableReview = enableReview;
+
+            string? selectedFmt = selectedFormat?.Trim().ToLowerInvariant();
+            DefaultOutputFormat = generateDoc && !string.IsNullOrEmpty(selectedFmt) ? selectedFmt : null;
+
+            var outputFormats = new List<string>();
+            if (SaveMarkdown) outputFormats.Add("md");
+            if (generateDoc && !string.IsNullOrEmpty(selectedFmt)) outputFormats.Add(selectedFmt);
+            if (outputFormats.Count == 0) outputFormats.Add("md");
+            OutputFormats = string.Join(",", outputFormats);
+
+            Save();
+        }
+
+        public void UpdateAndSaveSettings(
+            string apiUrl,
+            int modelCheckTimeoutSeconds,
+            string outputDirectory,
+            bool debug,
+            string? defaultVisionModel,
+            double ocrTemperature,
+            int ocrTimeoutSeconds,
+            string? defaultModel,
+            string targetLanguage,
+            double temperature,
+            int maxCharactersPerChunk,
+            int chunkOverlapCharacters,
+            bool preserveFormat,
+            int translationTimeoutSeconds,
+            bool enableReview,
+            string? reviewModel,
+            double reviewTemperature,
+            int reviewTimeoutSeconds,
+            bool saveMarkdown,
+            string? defaultOutputFormat)
+        {
+            ApiUrl = apiUrl;
+            ModelCheckTimeoutSeconds = modelCheckTimeoutSeconds;
+            OutputDirectory = outputDirectory;
+            Debug = debug;
+
+            DefaultVisionModel = string.IsNullOrWhiteSpace(defaultVisionModel) ? null : defaultVisionModel.Trim();
+            OcrTemperature = ocrTemperature;
+            OcrTimeoutSeconds = ocrTimeoutSeconds;
+
+            DefaultModel = string.IsNullOrWhiteSpace(defaultModel) ? null : defaultModel.Trim();
+            TargetLanguage = targetLanguage;
+            Temperature = temperature;
+            MaxCharactersPerChunk = maxCharactersPerChunk;
+            ChunkOverlapCharacters = chunkOverlapCharacters;
+            PreserveFormat = preserveFormat;
+            TranslationTimeoutSeconds = translationTimeoutSeconds;
+
+            EnableReview = enableReview;
+            ReviewModel = string.IsNullOrWhiteSpace(reviewModel) ? null : reviewModel.Trim();
+            ReviewTemperature = reviewTemperature;
+            ReviewTimeoutSeconds = reviewTimeoutSeconds;
+
+            SaveMarkdown = saveMarkdown;
+            string? selectedFmt = defaultOutputFormat?.Trim().ToLowerInvariant() ?? "none";
+            DefaultOutputFormat = selectedFmt == "none" ? null : selectedFmt;
+
+            var selectedFormats = new List<string>();
+            if (SaveMarkdown) selectedFormats.Add("md");
+            if (!string.IsNullOrEmpty(DefaultOutputFormat)) selectedFormats.Add(DefaultOutputFormat);
+            if (selectedFormats.Count == 0) selectedFormats.Add("md");
+            OutputFormats = string.Join(",", selectedFormats);
+
+            Save();
+        }
     }
 }

@@ -51,16 +51,7 @@ namespace PolyglotCLI
                 return o.ToString() ?? "";
             };
 
-            var files = new List<string>();
-            string dataDir = Path.Combine(_jobDir, "data");
-            if (Directory.Exists(dataDir))
-            {
-                files.AddRange(Directory.GetFiles(dataDir, "*_data.json"));
-            }
-            foreach (var file in Directory.GetFiles(_jobDir, "*_data.json"))
-            {
-                if (!files.Contains(file)) files.Add(file);
-            }
+            var files = JobManifestService.GetJobDataFiles(_jobDir);
             foreach (var file in files)
             {
                 _treeView.AddObject(file);
@@ -77,38 +68,12 @@ namespace PolyglotCLI
 
         private void ExportJob()
         {
-            var files = new List<string>();
-            string dataDir = Path.Combine(_jobDir, "data");
-            if (Directory.Exists(dataDir))
+            var (count, errors) = JobExportService.ExportJobToMarkdown(_jobDir, _config);
+            if (errors.Count > 0)
             {
-                files.AddRange(Directory.GetFiles(dataDir, "*_data.json"));
-            }
-            foreach (var file in Directory.GetFiles(_jobDir, "*_data.json"))
-            {
-                if (!files.Contains(file)) files.Add(file);
-            }
-            int count = 0;
-            foreach (var file in files)
-            {
-                try
+                foreach (var err in errors)
                 {
-                    string json = File.ReadAllText(file);
-                    var pages = JsonSerializer.Deserialize<List<DocumentPageData>>(json);
-                    if (pages != null && pages.Count > 0)
-                    {
-                        string fileName = Path.GetFileNameWithoutExtension(file).Replace("_data", "");
-                        
-                        string originalOut = Path.Combine(_config.OutputDirectory, $"{fileName}_original.md");
-                        MarkdownWriter.ExportToMarkdown(originalOut, fileName, "Original", pages, true);
-
-                        string translatedOut = Path.Combine(_config.OutputDirectory, $"{fileName}_{_config.TargetLanguage}.md");
-                        MarkdownWriter.ExportToMarkdown(translatedOut, fileName, _config.TargetLanguage, pages, false);
-                        count++;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.ErrorQuery(_app, "Export Error", $"Failed to export {file}:\n{ex.Message}", new[] { "OK" });
+                    MessageBox.ErrorQuery(_app, "Export Error", err, new[] { "OK" });
                 }
             }
 
@@ -129,16 +94,7 @@ namespace PolyglotCLI
         {
             if (forObject is string filePath && File.Exists(filePath))
             {
-                try
-                {
-                    string json = File.ReadAllText(filePath);
-                    var pages = JsonSerializer.Deserialize<List<DocumentPageData>>(json);
-                    if (pages != null)
-                    {
-                        return pages;
-                    }
-                }
-                catch { }
+                return JobManifestService.GetJobDataPages(filePath);
             }
             else if (forObject is DocumentPageData page)
             {

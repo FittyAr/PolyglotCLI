@@ -62,5 +62,19 @@ namespace PolyglotCLI
                 AppLogger.WarnConsole($"Warning: Failed to unload model '{visionModel}': {unloadEx.Message}");
             }
         }
+
+        public static async Task<(bool Success, string Message)> TestApiConnectionAsync(string apiUrl, int timeoutSeconds = 3)
+        {
+            try
+            {
+                using var client = new LmStudioClient(apiUrl, timeoutSeconds);
+                var models = await client.GetAvailableModelsAsync();
+                return (true, $"Connection successful!\nDetected {models.Count} loaded models.");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Connection failed: {ex.Message}");
+            }
+        }
     }
 }

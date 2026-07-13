@@ -201,21 +201,9 @@ namespace PolyglotCLI
                     {
                         try
                         {
-                            using var httpClient = new System.Net.Http.HttpClient();
-                            httpClient.Timeout = TimeSpan.FromSeconds(3);
-                            var response = await httpClient.GetAsync($"{testUrl.TrimEnd('/')}/models");
-                            if (response.IsSuccessStatusCode)
-                            {
-                                string content = await response.Content.ReadAsStringAsync();
-                                using var doc = System.Text.Json.JsonDocument.Parse(content);
-                                int modelCount = doc.RootElement.GetProperty("data").GetArrayLength();
-                                success = true;
-                                message = $"Connection successful!\nDetected {modelCount} loaded models.";
-                            }
-                            else
-                            {
-                                message = $"API returned status code: {response.StatusCode}";
-                            }
+                            var result = await ModelManagerService.TestApiConnectionAsync(testUrl, 3);
+                            success = result.Success;
+                            message = result.Message;
                         }
                         catch (Exception ex)
                         {
@@ -261,44 +249,28 @@ namespace PolyglotCLI
                     int.TryParse(textReviewTimeoutSetting.Text?.ToString(), out int reviewTimeout) &&
                     double.TryParse(textReviewTempSetting.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double reviewTemp))
                 {
-                    // Save basic settings
-                    config.ApiUrl = textApiSetting.Text?.ToString()?.Trim() ?? "";
-                    config.ModelCheckTimeoutSeconds = checkTimeout;
-                    config.OutputDirectory = textOutputDirSetting.Text?.ToString()?.Trim() ?? "output";
-                    config.Debug = checkDebugSetting.Value == CheckState.Checked;
-
-                    // OCR process
-                    config.DefaultVisionModel = string.IsNullOrWhiteSpace(textOcrModel.Text?.ToString()) ? null : textOcrModel.Text?.ToString()?.Trim();
-                    config.OcrTemperature = ocrTemp;
-                    config.OcrTimeoutSeconds = ocrTimeout;
-
-                    // Translation process
-                    config.DefaultModel = string.IsNullOrWhiteSpace(textTransModel.Text?.ToString()) ? null : textTransModel.Text?.ToString()?.Trim();
-                    config.TargetLanguage = textTargetLang.Text?.ToString()?.Trim() ?? "Spanish";
-                    config.Temperature = transTemp;
-                    config.MaxCharactersPerChunk = chunkSize;
-                    config.ChunkOverlapCharacters = chunkOverlap;
-                    config.PreserveFormat = checkPreserveFormatSetting.Value == CheckState.Checked;
-                    config.TranslationTimeoutSeconds = transTimeout;
-
-                    // Revision process
-                    config.EnableReview = checkEnableReviewSetting.Value == CheckState.Checked;
-                    config.ReviewModel = string.IsNullOrWhiteSpace(textReviewModelSetting.Text?.ToString()) ? null : textReviewModelSetting.Text?.ToString()?.Trim();
-                    config.ReviewTemperature = reviewTemp;
-                    config.ReviewTimeoutSeconds = reviewTimeout;
-
-                    // Formats
-                    config.SaveMarkdown = checkMd.Value == CheckState.Checked;
-                    string selectedFmt = comboDefaultFormat.Text?.ToString()?.Trim().ToLowerInvariant() ?? "none";
-                    config.DefaultOutputFormat = selectedFmt == "none" ? null : selectedFmt;
-
-                    var selectedFormats = new List<string>();
-                    if (config.SaveMarkdown) selectedFormats.Add("md");
-                    if (!string.IsNullOrEmpty(config.DefaultOutputFormat)) selectedFormats.Add(config.DefaultOutputFormat);
-                    if (selectedFormats.Count == 0) selectedFormats.Add("md");
-                    config.OutputFormats = string.Join(",", selectedFormats);
-
-                    config.Save();
+                    config.UpdateAndSaveSettings(
+                        textApiSetting.Text?.ToString()?.Trim() ?? "",
+                        checkTimeout,
+                        textOutputDirSetting.Text?.ToString()?.Trim() ?? "output",
+                        checkDebugSetting.Value == CheckState.Checked,
+                        textOcrModel.Text?.ToString(),
+                        ocrTemp,
+                        ocrTimeout,
+                        textTransModel.Text?.ToString(),
+                        textTargetLang.Text?.ToString()?.Trim() ?? "Spanish",
+                        transTemp,
+                        chunkSize,
+                        chunkOverlap,
+                        checkPreserveFormatSetting.Value == CheckState.Checked,
+                        transTimeout,
+                        checkEnableReviewSetting.Value == CheckState.Checked,
+                        textReviewModelSetting.Text?.ToString(),
+                        reviewTemp,
+                        reviewTimeout,
+                        checkMd.Value == CheckState.Checked,
+                        comboDefaultFormat.Text?.ToString()
+                    );
                     MessageBox.Query(app, "Success",  "Settings saved successfully!", new[] { "OK" });
                     app.RequestStop(dialog);
                 }

@@ -24,28 +24,10 @@ namespace PolyglotCLI
             var detectedList = new List<string>();
             try
             {
-                using var httpClient = new System.Net.Http.HttpClient();
-                httpClient.Timeout = TimeSpan.FromSeconds(checkTimeoutSeconds);
-                var task = httpClient.GetAsync($"{apiUrl.TrimEnd('/')}/models");
+                using var client = new LmStudioClient(apiUrl, checkTimeoutSeconds);
+                var task = client.GetAvailableModelsAsync();
                 task.Wait();
-                var modelsResponse = task.Result;
-                
-                if (modelsResponse.IsSuccessStatusCode)
-                {
-                    var contentTask = modelsResponse.Content.ReadAsStringAsync();
-                    contentTask.Wait();
-                    string content = contentTask.Result;
-                    
-                    using var doc = System.Text.Json.JsonDocument.Parse(content);
-                    foreach (var item in doc.RootElement.GetProperty("data").EnumerateArray())
-                    {
-                        string id = item.GetProperty("id").GetString() ?? string.Empty;
-                        if (!string.IsNullOrEmpty(id))
-                        {
-                            detectedList.Add(id);
-                        }
-                    }
-                }
+                detectedList = task.Result;
             }
             catch (Exception ex)
             {

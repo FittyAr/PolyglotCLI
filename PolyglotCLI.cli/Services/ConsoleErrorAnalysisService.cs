@@ -16,22 +16,12 @@ namespace PolyglotCLI
             {
                 try
                 {
-                    var sbErr = new StringBuilder();
-                    foreach (var f in currentManifest.Files)
-                    {
-                        foreach (var p in f.Pages)
-                        {
-                            if (!p.OcrCompleted && !string.IsNullOrEmpty(p.OcrError))
-                                sbErr.AppendLine($"File: {f.OriginalFileName}, Page: {p.PageNumber}, Phase: OCR, Error: {p.OcrError}");
-                            if (!p.TranslationCompleted && !string.IsNullOrEmpty(p.TranslationError))
-                                sbErr.AppendLine($"File: {f.OriginalFileName}, Page: {p.PageNumber}, Phase: Translation, Error: {p.TranslationError}");
-                        }
-                    }
+                    string errSummary = JobManifestService.BuildErrorSummary(currentManifest);
                     
                     Console.WriteLine("Analyzing errors... please wait.");
                     string model = !string.IsNullOrEmpty(config.DefaultModel) ? config.DefaultModel : "unknown";
                     string recommendation = await PromptHelperService.AnalyzeErrorsAsync(
-                        sbErr.ToString(), 
+                        errSummary, 
                         config.ApiUrl, 
                         model, 
                         config.TranslationTimeoutSeconds, 
