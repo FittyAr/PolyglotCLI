@@ -91,5 +91,31 @@ namespace PolyglotCLI
             }
             return (true, null);
         }
+
+        public static (bool IsValid, string? ErrorMessage) ValidatePromptImprovementSettings(AppConfig config, string rawInput)
+        {
+            if (string.IsNullOrEmpty(rawInput))
+            {
+                return (false, "Please write some text in the Additional Prompt box first.");
+            }
+            if (string.IsNullOrEmpty(config.ApiUrl) || string.IsNullOrEmpty(config.DefaultModel))
+            {
+                return (false, "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.");
+            }
+            return (true, null);
+        }
+
+        public static (bool IsValid, string? ErrorMessage) ValidateFileAnalysisSettings(AppConfig config, int selectedIndex, int filesCount)
+        {
+            if (selectedIndex < 0 || selectedIndex >= filesCount)
+            {
+                return (false, "Please select/highlight a file in the documents list to analyze.");
+            }
+            if (string.IsNullOrEmpty(config.ApiUrl) || string.IsNullOrEmpty(config.DefaultModel))
+            {
+                return (false, "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.");
+            }
+            return (true, null);
+        }
     }
 }

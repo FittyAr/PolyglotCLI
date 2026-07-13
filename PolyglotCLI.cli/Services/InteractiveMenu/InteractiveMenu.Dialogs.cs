@@ -69,19 +69,15 @@ namespace PolyglotCLI
         private void ImprovePromptWithAi()
         {
             string rawInput = _textAddPrompt?.Text?.ToString()?.Trim() ?? "";
-            if (string.IsNullOrEmpty(rawInput))
+            var (isValid, errMsg) = JobValidator.ValidatePromptImprovementSettings(_config, rawInput);
+            if (!isValid && errMsg != null)
             {
-                MessageBox.ErrorQuery(AppRequired, "Error", "Please write some text in the Additional Prompt box first.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Error", errMsg, new[] { "OK" });
                 return;
             }
 
             string url = _config.ApiUrl;
             string model = _config.DefaultModel ?? "";
-            if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
-            {
-                MessageBox.ErrorQuery(AppRequired, "Error", "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.", new[] { "OK" });
-                return;
-            }
 
             var dProgress = new Dialog { Title = "AI Prompt Improver", Width = 40, Height = 5, BorderStyle = LineStyle.Rounded };
             var lblStatus = new Label { Text = "Connecting to LM Studio...", X = Pos.Center(), Y = 1 };
@@ -191,9 +187,10 @@ namespace PolyglotCLI
         private void AnalyzeFileForPromptWithAi()
         {
             int idx = _listFiles?.SelectedItem ?? -1;
-            if (idx < 0 || idx >= _filesSource.Count)
+            var (isValid, errMsg) = JobValidator.ValidateFileAnalysisSettings(_config, idx, _filesSource.Count);
+            if (!isValid && errMsg != null)
             {
-                MessageBox.ErrorQuery(AppRequired, "Error", "Please select/highlight a file in the documents list to analyze.", new[] { "OK" });
+                MessageBox.ErrorQuery(AppRequired, "Error", errMsg, new[] { "OK" });
                 return;
             }
             var file = _filesSource[idx];
@@ -201,11 +198,6 @@ namespace PolyglotCLI
             string url = _config.ApiUrl;
             string model = _config.DefaultModel ?? "";
             string visionModel = _config.DefaultVisionModel ?? "";
-            if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
-            {
-                MessageBox.ErrorQuery(AppRequired, "Error", "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.", new[] { "OK" });
-                return;
-            }
 
             var dProgress = new Dialog { Title = "AI File Context Prompt Generator", Width = 50, Height = 5, BorderStyle = LineStyle.Rounded };
             var lblStatus = new Label { Text = "Preparing to analyze file...", X = Pos.Center(), Y = 1 };

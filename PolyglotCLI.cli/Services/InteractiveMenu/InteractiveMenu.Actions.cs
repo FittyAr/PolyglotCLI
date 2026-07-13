@@ -309,7 +309,7 @@ namespace PolyglotCLI
             }
 
             var job = _pastJobs[idx];
-            string jobDir = Path.Combine(Directory.GetCurrentDirectory(), "jobs", job.JobId);
+            string jobDir = Path.Combine(TranslationOrchestrator.GetJobsDirectory(), job.JobId);
             if (!Directory.Exists(jobDir))
             {
                 MessageBox.ErrorQuery(AppRequired, "Error", $"Job directory not found:\n{jobDir}", new[] { "OK" });
