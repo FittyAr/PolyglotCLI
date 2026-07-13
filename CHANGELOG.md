@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Creada la solución multiproyecto para separar la lógica core compartida (`PolyglotCLI.core`) de las interfaces de CLI y Web.
  
 ### Changed
+- Unificada la resolución de rutas y el acceso al sistema de archivos de prompts en el Core y la Web migrando toda la lógica directa hacia `PromptLoader.cs`.
+- Refactorizada la clase `Config.razor.cs` en la UI Web para cargar y guardar los prompts utilizando exclusivamente los métodos centralizados de `PromptLoader`.
+- Refactorizada la clase `PromptHelperService.cs` en el Core para utilizar el servicio `PromptLoader` al optimizar prompts en lugar de usar rutas de archivos hardcodeadas.
 - Reemplazada la consulta manual HTTP a la API de LM Studio en la interfaz Web (`Config.razor.cs`) por llamadas unificadas a `LmStudioClient.GetAvailableModelsAsync()` del Core, reduciendo redundancia.
 - Rediseñado el flujo de reanudación de trabajos en la interfaz Web (`History.razor` -> `Home.razor`) usando redirecciones con el query parameter `resumeJobId` para visualizar de forma interactiva y en tiempo real el progreso en la consola principal del Home.
 - Integrada la validación de rango de páginas de archivos PDF en la vista principal del Traductor Web mediante la función del Core `CommandLineOptions.IsValidPageRange(...)`.

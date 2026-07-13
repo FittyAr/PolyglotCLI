@@ -32,28 +32,22 @@ public partial class Config : ComponentBase
     protected string reviewPromptText = "";
     protected string promptImproverPromptText = "";
 
-    protected string GetPromptsDirectory()
-    {
-        string path = Path.Combine(AppContext.BaseDirectory, "prompts");
-        if (!Directory.Exists(path))
-        {
-            path = Path.Combine(Directory.GetCurrentDirectory(), "prompts");
-        }
-        return path;
-    }
-
     protected override async Task OnInitializedAsync()
     {
         AppConfig.Reload();
         outputFormatsInput = string.Join(", ", AppConfig.SupportedOutputFormats);
         outputFormatOptions = AppConfig.SupportedOutputFormats ?? new List<string> { "html", "docx", "odf", "pdf" };
 
-        // Load prompt files
-        string promptsDir = GetPromptsDirectory();
-        try { ocrPromptText = await File.ReadAllTextAsync(Path.Combine(promptsDir, "ocr_prompt.md")); } catch {}
-        try { translationPromptText = await File.ReadAllTextAsync(Path.Combine(promptsDir, "translation_prompt.md")); } catch {}
-        try { reviewPromptText = await File.ReadAllTextAsync(Path.Combine(promptsDir, "review_prompt.md")); } catch {}
-        try { promptImproverPromptText = await File.ReadAllTextAsync(Path.Combine(promptsDir, "prompt_improver_prompt.md")); } catch {}
+        // Load prompt files using PromptLoader
+        try
+        {
+            var promptLoader = new PromptLoader();
+            try { ocrPromptText = promptLoader.LoadOcrPrompt(); } catch {}
+            try { translationPromptText = promptLoader.LoadTranslationPrompt(); } catch {}
+            try { reviewPromptText = promptLoader.LoadReviewPrompt(); } catch {}
+            try { promptImproverPromptText = promptLoader.LoadPromptImproverPrompt(); } catch {}
+        }
+        catch {}
 
         // Fetch models dynamically from LM Studio
         try {
@@ -110,16 +104,19 @@ public partial class Config : ComponentBase
 
             args.Save();
 
-            // Save system prompt files
-            string promptsDir = GetPromptsDirectory();
-            if (!Directory.Exists(promptsDir))
+            // Save system prompt files using PromptLoader
+            try
             {
-                Directory.CreateDirectory(promptsDir);
+                var promptLoader = new PromptLoader();
+                promptLoader.SaveOcrPrompt(ocrPromptText ?? "");
+                promptLoader.SaveTranslationPrompt(translationPromptText ?? "");
+                promptLoader.SaveReviewPrompt(reviewPromptText ?? "");
+                promptLoader.SavePromptImproverPrompt(promptImproverPromptText ?? "");
             }
-            try { await File.WriteAllTextAsync(Path.Combine(promptsDir, "ocr_prompt.md"), ocrPromptText ?? ""); } catch {}
-            try { await File.WriteAllTextAsync(Path.Combine(promptsDir, "translation_prompt.md"), translationPromptText ?? ""); } catch {}
-            try { await File.WriteAllTextAsync(Path.Combine(promptsDir, "review_prompt.md"), reviewPromptText ?? ""); } catch {}
-            try { await File.WriteAllTextAsync(Path.Combine(promptsDir, "prompt_improver_prompt.md"), promptImproverPromptText ?? ""); } catch {}
+            catch (Exception ex)
+            {
+                AppLogger.Warn($"Failed to save some prompt files: {ex.Message}");
+            }
 
             saveMessage = "Configuración guardada correctamente!";
             NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Configuración guardada correctamente." });

@@ -12,12 +12,12 @@ namespace PolyglotCLI
         public static async Task<string> ImprovePromptAsync(string rawInput, string apiUrl, string model, int timeoutSeconds, double temperature)
         {
             string promptTemplate = "";
-            string promptPath = Path.Combine("prompts", "prompt_improver_prompt.md");
-            if (File.Exists(promptPath))
+            try
             {
-                promptTemplate = await File.ReadAllTextAsync(promptPath);
+                var loader = new PromptLoader();
+                promptTemplate = loader.LoadPromptImproverPrompt();
             }
-            else
+            catch (Exception)
             {
                 promptTemplate = "You are an expert translation prompt engineer. Rewrite the following translation instructions to be highly effective for an LLM. Output only the improved text, no intro, no markdown codeblocks:\n\n{user_input}";
             }

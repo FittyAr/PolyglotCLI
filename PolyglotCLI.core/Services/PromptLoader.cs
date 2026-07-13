@@ -19,6 +19,8 @@ namespace PolyglotCLI
             }
         }
 
+        public string PromptsDirectory => _promptsDirectory;
+
         public string LoadOcrPrompt()
         {
             return LoadPromptFile("ocr_prompt.md");
@@ -39,6 +41,36 @@ namespace PolyglotCLI
             return LoadPromptFile("error_analysis_prompt.md");
         }
 
+        public string LoadPromptImproverPrompt()
+        {
+            return LoadPromptFile("prompt_improver_prompt.md");
+        }
+
+        public void SaveOcrPrompt(string content)
+        {
+            SavePromptFile("ocr_prompt.md", content);
+        }
+
+        public void SaveTranslationPrompt(string content)
+        {
+            SavePromptFile("translation_prompt.md", content);
+        }
+
+        public void SaveReviewPrompt(string content)
+        {
+            SavePromptFile("review_prompt.md", content);
+        }
+
+        public void SavePromptImproverPrompt(string content)
+        {
+            SavePromptFile("prompt_improver_prompt.md", content);
+        }
+
+        public void SaveErrorAnalysisPrompt(string content)
+        {
+            SavePromptFile("error_analysis_prompt.md", content);
+        }
+
         private string LoadPromptFile(string filename)
         {
             string fullPath = Path.Combine(_promptsDirectory, filename);
@@ -48,6 +80,16 @@ namespace PolyglotCLI
             }
 
             return File.ReadAllText(fullPath).Trim();
+        }
+
+        private void SavePromptFile(string filename, string content)
+        {
+            if (!Directory.Exists(_promptsDirectory))
+            {
+                Directory.CreateDirectory(_promptsDirectory);
+            }
+            string fullPath = Path.Combine(_promptsDirectory, filename);
+            File.WriteAllText(fullPath, content ?? string.Empty, System.Text.Encoding.UTF8);
         }
     }
 }
