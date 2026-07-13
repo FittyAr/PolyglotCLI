@@ -2,6 +2,7 @@
 @using PolyglotCLI
 @using System.IO
 @inject PolyglotCLI.AppConfig Config
+@inject NavigationManager NavigationManager
 
 <PageTitle>Historial de Trabajos - PolyglotCLI</PageTitle>
 
@@ -88,24 +89,9 @@
         };
     }
 
-    async Task ResumeJob(JobManifest job)
+    void ResumeJob(JobManifest job)
     {
-        analysisResult = "Reanudando trabajo... por favor dirígete a la pestaña de Traducción, la integración de reanudación automática está en desarrollo.";
-        
-        // Fully executing a resume here requires modifying TranslationOrchestrator to take the JobID parameter directly in Web.
-        var args = new CommandLineOptions { ResumeJobId = job.JobId };
-        analysisResult += "\nLanzando proceso...";
-        StateHasChanged();
-        
-        try {
-            int exitCode = await Task.Run(() => TranslationOrchestrator.ExecuteAsync(args, Config));
-            analysisResult += $"\nProceso finalizado con código: {exitCode}";
-        } catch(Exception ex) {
-            analysisResult += $"\nError: {ex.Message}";
-        }
-        
-        LoadManifests();
-        StateHasChanged();
+        NavigationManager.NavigateTo($"/?resumeJobId={job.JobId}");
     }
 
     async Task AnalyzeErrors(JobManifest job)

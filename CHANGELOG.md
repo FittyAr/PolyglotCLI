@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Creada la solución multiproyecto para separar la lógica core compartida (`PolyglotCLI.core`) de las interfaces de CLI y Web.
  
 ### Changed
+- Reemplazada la consulta manual HTTP a la API de LM Studio en la interfaz Web (`Config.razor.cs`) por llamadas unificadas a `LmStudioClient.GetAvailableModelsAsync()` del Core, reduciendo redundancia.
+- Rediseñado el flujo de reanudación de trabajos en la interfaz Web (`History.razor` -> `Home.razor`) usando redirecciones con el query parameter `resumeJobId` para visualizar de forma interactiva y en tiempo real el progreso en la consola principal del Home.
+- Integrada la validación de rango de páginas de archivos PDF en la vista principal del Traductor Web mediante la función del Core `CommandLineOptions.IsValidPageRange(...)`.
+- Simplificada la persistencia de preajustes en `Home.razor.cs` delegando toda la lógica de guardado y cálculo de formatos al método `Config.SavePresets(...)` de Core.
 - Desacoplado el acceso a la API, la validación de configuraciones, el escaneo de directorios y la persistencia/exportación de archivos del proyecto CLI (`PolyglotCLI.cli`) hacia el proyecto Core (`PolyglotCLI.core`), refactorizando `ConsoleErrorAnalysisService`, `ModelSelectionDialog`, `SettingsDialog`, `InteractiveMenu.Actions`, `InteractiveMenu.Dialogs` y `JobViewerDialog`.
 - Corregida la resolución de rutas en la previsualización de trabajos de la TUI (`ViewSelectedJob`) para utilizar consistentemente `TranslationOrchestrator.GetJobsDirectory()`, eliminando directorios de jobs relativos y locales.
 - Refactorización de la pestaña principal del traductor (`Home.razor`) para adhieres al Principio de Responsabilidad Única (SRP), separando la interfaz de usuario de su lógica de control (`Home.razor.cs`), extrayendo los tipos `FileSystemItem` y `LogEntry` a sus propios archivos, y desacoplando los diálogos Radzen de previsualización y progreso a componentes independientes (`ImprovedPromptDialog`, `AnalyzeFilePromptDialog`, `ProgressDialog`) y un modelo observable `ProgressState` de actualización reactiva.

@@ -21,10 +21,18 @@ public partial class Home : ComponentBase, IDisposable
     [Inject]
     protected NotificationService NotificationService { get; set; } = default!;
 
+    [Inject]
+    protected NavigationManager NavigationManager { get; set; } = default!;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "resumeJobId")]
+    public string? ResumeJobId { get; set; }
+
     protected CommandLineOptions options = new CommandLineOptions();
     protected bool isProcessing = false;
     protected List<LogEntry> logs = new List<LogEntry>();
     protected List<string> availableModels = new List<string>();
+    private bool hasResumed = false;
     
     // File Browser State
     protected List<string> drives = new List<string>();
@@ -79,6 +87,28 @@ public partial class Home : ComponentBase, IDisposable
     public void Dispose()
     {
         AppLogger.OnLogMessage -= HandleLog;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(ResumeJobId) && !hasResumed && !isProcessing)
+        {
+            hasResumed = true;
+            // Esperar un momento breve para asegurar que el callback de logs esté registrado y el componente renderizado
+            await Task.Delay(500);
+
+            var args = new CommandLineOptions
+            {
+                ResumeJobId = ResumeJobId,
+                ApiUrl = Config.ApiUrl,
+                ModelName = Config.DefaultModel,
+                VisionModelName = Config.DefaultVisionModel,
+                Verify = Config.EnableReview
+            };
+
+            // Ejecutar la reanudación
+            await RunTranslation(args);
+        }
     }
 
     private void HandleLog(string message, LogLevel level)
@@ -219,19 +249,15 @@ public partial class Home : ComponentBase, IDisposable
             return;
         }
 
-        Config.LastScanDirectory = currentDirectory;
-        Config.AdditionalPrompt = options.AdditionalPrompt?.Trim();
-        Config.DefaultOutputFormat = options.SelectedFormat;
-
-        var outputFormats = new List<string>();
-        if (Config.SaveMarkdown) outputFormats.Add("md");
-        if (!string.IsNullOrEmpty(options.SelectedFormat)) outputFormats.Add(options.SelectedFormat);
-        if (outputFormats.Count == 0) outputFormats.Add("md");
-        Config.OutputFormats = string.Join(",", outputFormats);
-
         try
         {
-            Config.Save();
+            Config.SavePresets(
+                currentDirectory,
+                options.AdditionalPrompt?.Trim(),
+                options.Verify,
+                !string.IsNullOrEmpty(options.SelectedFormat),
+                options.SelectedFormat
+            );
             NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Preajustes Guardados", Detail = "Los ajustes por defecto han sido guardados en config.json" });
         }
         catch (Exception ex)
@@ -362,27 +388,51 @@ public partial class Home : ComponentBase, IDisposable
     protected async Task RunTranslation(CommandLineOptions args)
     {
         var selectedFiles = fileSystemItems.Where(i => !i.IsDirectory && i.IsSelected).ToList();
-        if (selectedFiles.Count == 0)
-        {
-            AppLogger.Warn("No hay archivos seleccionados para traducir.");
-            return;
-        }
 
-        args.Files = selectedFiles.Select(i => i.FullPath).ToList();
-        args.DocumentTargets = selectedFiles.Select(i => new DocumentTarget
+        if (string.IsNullOrEmpty(args.ResumeJobId))
         {
-            FilePath = i.FullPath,
-            Mode = i.Mode,
-            PageRange = i.PageRange,
-            MaxCharactersPerChunk = Config.MaxCharactersPerChunk,
-            ChunkOverlapCharacters = Config.ChunkOverlapCharacters
-        }).ToList();
-        
-        args.ApiUrl = Config.ApiUrl;
-        args.ModelName = Config.DefaultModel;
-        args.VisionModelName = Config.DefaultVisionModel;
-        args.GenerateDoc = !string.IsNullOrWhiteSpace(args.SelectedFormat);
-        args.Verify = Config.EnableReview;
+            if (selectedFiles.Count == 0)
+            {
+                AppLogger.Warn("No hay archivos seleccionados para traducir.");
+                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Warning, Summary = "Validación", Detail = "Debe seleccionar al menos un archivo para traducir." });
+                return;
+            }
+
+            // Validar rangos de páginas para PDFs
+            foreach (var file in selectedFiles)
+            {
+                if (file.Extension != null && file.Extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!CommandLineOptions.IsValidPageRange(file.PageRange))
+                    {
+                        string errorMsg = $"El rango de páginas '{file.PageRange}' para el archivo '{file.Name}' no es válido.";
+                        AppLogger.Error(errorMsg);
+                        NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Rango de páginas inválido", Detail = errorMsg });
+                        return;
+                    }
+                }
+            }
+
+            args.Files = selectedFiles.Select(i => i.FullPath).ToList();
+            args.DocumentTargets = selectedFiles.Select(i => new DocumentTarget
+            {
+                FilePath = i.FullPath,
+                Mode = i.Mode,
+                PageRange = i.PageRange,
+                MaxCharactersPerChunk = Config.MaxCharactersPerChunk,
+                ChunkOverlapCharacters = Config.ChunkOverlapCharacters
+            }).ToList();
+            
+            args.ApiUrl = Config.ApiUrl;
+            args.ModelName = Config.DefaultModel;
+            args.VisionModelName = Config.DefaultVisionModel;
+            args.GenerateDoc = !string.IsNullOrWhiteSpace(args.SelectedFormat);
+            args.Verify = Config.EnableReview;
+        }
+        else
+        {
+            AppLogger.Info($"Iniciando reanudación interactiva del trabajo '{args.ResumeJobId}'...");
+        }
 
         isProcessing = true;
         logs.Clear();

@@ -57,21 +57,8 @@ public partial class Config : ComponentBase
 
         // Fetch models dynamically from LM Studio
         try {
-            using var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(3);
-            var response = await client.GetAsync($"{AppConfig.ApiUrl.TrimEnd('/')}/models");
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(content);
-                if (doc.RootElement.TryGetProperty("data", out var dataArr))
-                {
-                    foreach(var m in dataArr.EnumerateArray()) {
-                        if(m.TryGetProperty("id", out var idProp))
-                            availableModels.Add(idProp.GetString() ?? "");
-                    }
-                }
-            }
+            using var client = new LmStudioClient(AppConfig.ApiUrl, 3);
+            availableModels = await client.GetAvailableModelsAsync();
         }
         catch {
             if (!string.IsNullOrEmpty(AppConfig.DefaultModel))
@@ -96,31 +83,10 @@ public partial class Config : ComponentBase
         
         try
         {
-            using var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(AppConfig.ModelCheckTimeoutSeconds);
-            var response = await client.GetAsync($"{AppConfig.ApiUrl.TrimEnd('/')}/models");
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(content);
-                var models = new List<string>();
-                if (doc.RootElement.TryGetProperty("data", out var dataArr))
-                {
-                    foreach(var m in dataArr.EnumerateArray()) {
-                        if(m.TryGetProperty("id", out var idProp))
-                            models.Add(idProp.GetString() ?? "");
-                    }
-                }
-                
-                availableModels = models;
-                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Carga Exitosa", Detail = $"Se cargaron {availableModels.Count} modelos del servidor." });
-                testConnectionResult = "Conexión exitosa";
-            }
-            else
-            {
-                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error de Conexión", Detail = $"El servidor respondió con código: {response.StatusCode}" });
-                testConnectionResult = $"Error: {response.StatusCode}";
-            }
+            using var client = new LmStudioClient(AppConfig.ApiUrl, AppConfig.ModelCheckTimeoutSeconds);
+            availableModels = await client.GetAvailableModelsAsync();
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Carga Exitosa", Detail = $"Se cargaron {availableModels.Count} modelos del servidor." });
+            testConnectionResult = "Conexión exitosa";
         }
         catch (Exception ex)
         {
