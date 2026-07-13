@@ -1,0 +1,60 @@
+<RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="12">
+        <RadzenLabel Text="URL de la API LM Studio" class="rz-mb-2" />
+        <div style="display: flex; gap: 0.5rem;">
+            <RadzenTextBox @bind-Value="AppConfig.ApiUrl" style="flex-grow: 1;" />
+            <RadzenButton Text="Probar Conexión" Icon="sync" ButtonStyle="ButtonStyle.Secondary" 
+                          Click="@(async () => await OnTestConnection.InvokeAsync())" IsBusy="@IsTestingConnection" BusyText="Conectando..." />
+        </div>
+    </RadzenColumn>
+</RadzenRow>
+
+<RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="4">
+        <RadzenLabel Text="Model Check Timeout (segundos)" class="rz-mb-2" />
+        <RadzenNumeric @bind-Value="AppConfig.ModelCheckTimeoutSeconds" TValue="int" class="rz-w-100" />
+    </RadzenColumn>
+    <RadzenColumn Size="4">
+        <RadzenLabel Text="Timeout Mejora Prompt (segundos)" class="rz-mb-2" />
+        <RadzenNumeric @bind-Value="AppConfig.PromptImproveTimeoutSeconds" TValue="int" class="rz-w-100" />
+    </RadzenColumn>
+    <RadzenColumn Size="4">
+        <RadzenLabel Text="Directorio de Salida" class="rz-mb-2" />
+        <RadzenTextBox @bind-Value="AppConfig.OutputDirectory" class="rz-w-100" />
+    </RadzenColumn>
+</RadzenRow>
+
+<RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="12">
+        <RadzenCheckBox @bind-Value="AppConfig.Debug" Name="cfgDebug" />
+        <RadzenLabel Text="Modo Debug (solo procesa las primeras 2 páginas)" Component="cfgDebug" class="rz-ml-2" />
+    </RadzenColumn>
+</RadzenRow>
+
+<RadzenFieldset Text="Configuración de Logs" class="rz-mt-4">
+    <RadzenRow Gap="1rem">
+        <RadzenColumn Size="4">
+            <RadzenLabel Text="Directorio de Logs" class="rz-mb-2" />
+            <RadzenTextBox @bind-Value="AppConfig.LogDirectory" class="rz-w-100" />
+        </RadzenColumn>
+        <RadzenColumn Size="4">
+            <RadzenLabel Text="Nivel Log Consola" class="rz-mb-2" />
+            <RadzenTextBox @bind-Value="AppConfig.LogLevelConsole" class="rz-w-100" />
+        </RadzenColumn>
+        <RadzenColumn Size="4">
+            <RadzenLabel Text="Nivel Log Archivo" class="rz-mb-2" />
+            <RadzenTextBox @bind-Value="AppConfig.LogLevelFile" class="rz-w-100" />
+        </RadzenColumn>
+    </RadzenRow>
+</RadzenFieldset>
+
+@code {
+    [Parameter]
+    public PolyglotCLI.AppConfig AppConfig { get; set; } = default!;
+
+    [Parameter]
+    public bool IsTestingConnection { get; set; }
+
+    [Parameter]
+    public EventCallback OnTestConnection { get; set; }
+}

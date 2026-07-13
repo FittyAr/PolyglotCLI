@@ -1,0 +1,38 @@
+<RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="12">
+        <RadzenCheckBox @bind-Value="AppConfig.SaveMarkdown" Name="cfgSaveMd" />
+        <RadzenLabel Text="Siempre generar documentos Markdown (.md)" Component="cfgSaveMd" class="rz-ml-2" />
+    </RadzenColumn>
+</RadzenRow>
+<RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="12">
+        <RadzenLabel Text="Formato de Salida Adicional por Defecto" class="rz-mb-2" />
+        <RadzenDropDown @bind-Value="AppConfig.DefaultOutputFormat" Data="@OutputFormatOptions" class="rz-w-100" Placeholder="Ninguno" AllowClear="true" />
+        <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2" style="color: #b0bec5; display: block;">Nota: Los formatos de salida que no son MD se generan como post-procesamiento.</RadzenText>
+    </RadzenColumn>
+</RadzenRow>
+<RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="12">
+        <RadzenLabel Text="Formatos de Salida Soportados (separados por coma)" class="rz-mb-2" />
+        <RadzenTextBox Value="@OutputFormatsInput" ValueChanged="@OnOutputFormatsInputChanged" class="rz-w-100" />
+    </RadzenColumn>
+</RadzenRow>
+
+@code {
+    [Parameter]
+    public PolyglotCLI.AppConfig AppConfig { get; set; } = default!;
+
+    [Parameter]
+    public List<string> OutputFormatOptions { get; set; } = new();
+
+    [Parameter]
+    public string OutputFormatsInput { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> OutputFormatsInputChanged { get; set; }
+
+    private async Task OnOutputFormatsInputChanged(string val)
+    {
+        await OutputFormatsInputChanged.InvokeAsync(val);
+    }
+}

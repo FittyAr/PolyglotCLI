@@ -1,9 +1,4 @@
 @page "/config"
-@using PolyglotCLI
-@using System.Net.Http
-@using System.Text.Json
-@inject PolyglotCLI.AppConfig AppConfig
-@inject NotificationService NotificationService
 
 <PageTitle>Configuración - PolyglotCLI</PageTitle>
 
@@ -15,197 +10,32 @@
             <Tabs>
                 <!-- Pestaña 1: General -->
                 <RadzenTabsItem Text="General" Icon="settings">
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="12">
-                            <RadzenLabel Text="URL de la API LM Studio" class="rz-mb-2" />
-                            <div style="display: flex; gap: 0.5rem;">
-                                <RadzenTextBox @bind-Value="AppConfig.ApiUrl" style="flex-grow: 1;" />
-                                <RadzenButton Text="Probar Conexión" Icon="sync" ButtonStyle="ButtonStyle.Secondary" 
-                                              Click="@(async () => await TestConnection())" IsBusy="@isTestingConnection" BusyText="Conectando..." />
-                            </div>
-                        </RadzenColumn>
-                    </RadzenRow>
-                    
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="4">
-                            <RadzenLabel Text="Model Check Timeout (segundos)" class="rz-mb-2" />
-                            <RadzenNumeric @bind-Value="AppConfig.ModelCheckTimeoutSeconds" TValue="int" class="rz-w-100" />
-                        </RadzenColumn>
-                        <RadzenColumn Size="4">
-                            <RadzenLabel Text="Timeout Mejora Prompt (segundos)" class="rz-mb-2" />
-                            <RadzenNumeric @bind-Value="AppConfig.PromptImproveTimeoutSeconds" TValue="int" class="rz-w-100" />
-                        </RadzenColumn>
-                        <RadzenColumn Size="4">
-                            <RadzenLabel Text="Directorio de Salida" class="rz-mb-2" />
-                            <RadzenTextBox @bind-Value="AppConfig.OutputDirectory" class="rz-w-100" />
-                        </RadzenColumn>
-                    </RadzenRow>
-
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="12">
-                            <RadzenCheckBox @bind-Value="AppConfig.Debug" Name="cfgDebug" />
-                            <RadzenLabel Text="Modo Debug (solo procesa las primeras 2 páginas)" Component="cfgDebug" class="rz-ml-2" />
-                        </RadzenColumn>
-                    </RadzenRow>
-                    
-                    <RadzenFieldset Text="Configuración de Logs" class="rz-mt-4">
-                        <RadzenRow Gap="1rem">
-                            <RadzenColumn Size="4">
-                                <RadzenLabel Text="Directorio de Logs" class="rz-mb-2" />
-                                <RadzenTextBox @bind-Value="AppConfig.LogDirectory" class="rz-w-100" />
-                            </RadzenColumn>
-                            <RadzenColumn Size="4">
-                                <RadzenLabel Text="Nivel Log Consola" class="rz-mb-2" />
-                                <RadzenTextBox @bind-Value="AppConfig.LogLevelConsole" class="rz-w-100" />
-                            </RadzenColumn>
-                            <RadzenColumn Size="4">
-                                <RadzenLabel Text="Nivel Log Archivo" class="rz-mb-2" />
-                                <RadzenTextBox @bind-Value="AppConfig.LogLevelFile" class="rz-w-100" />
-                            </RadzenColumn>
-                        </RadzenRow>
-                    </RadzenFieldset>
+                    <GeneralConfigTab AppConfig="@AppConfig" IsTestingConnection="@isTestingConnection" OnTestConnection="@TestConnection" />
                 </RadzenTabsItem>
 
                 <!-- Pestaña 2: OCR Process -->
                 <RadzenTabsItem Text="OCR Process" Icon="visibility">
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="12">
-                            <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
-                                <div style="flex-grow: 1;">
-                                    <RadzenLabel Text="Modelo de Visión (OCR)" class="rz-mb-2" />
-                                    <RadzenDropDown @bind-Value="AppConfig.DefaultVisionModel" Data="@availableModels" class="rz-w-100" Placeholder="Seleccionar modelo de visión..." AllowClear="true" />
-                                </div>
-                                <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@(async () => await LoadModelsFromServer())" Tooltip="Cargar modelos desde el servidor" IsBusy="@isTestingConnection" />
-                            </div>
-                        </RadzenColumn>
-                    </RadzenRow>
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="6">
-                            <RadzenLabel Text="Temperatura OCR (0.0 - 1.0)" class="rz-mb-2" />
-                            <RadzenNumeric @bind-Value="AppConfig.OcrTemperature" TValue="double" Step="0.1" Min="@((decimal)0)" Max="@((decimal)1)" class="rz-w-100" />
-                        </RadzenColumn>
-                        <RadzenColumn Size="6">
-                            <RadzenLabel Text="Timeout OCR (segundos)" class="rz-mb-2" />
-                            <RadzenNumeric @bind-Value="AppConfig.OcrTimeoutSeconds" TValue="int" class="rz-w-100" />
-                        </RadzenColumn>
-                    </RadzenRow>
+                    <OcrConfigTab AppConfig="@AppConfig" AvailableModels="@availableModels" IsTestingConnection="@isTestingConnection" OnLoadModels="@LoadModelsFromServer" />
                 </RadzenTabsItem>
 
                 <!-- Pestaña 3: Translation -->
                 <RadzenTabsItem Text="Translation" Icon="translate">
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="12">
-                            <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
-                                <div style="flex-grow: 1;">
-                                    <RadzenLabel Text="Modelo de Traducción" class="rz-mb-2" />
-                                    <RadzenDropDown @bind-Value="AppConfig.DefaultModel" Data="@availableModels" class="rz-w-100" Placeholder="Seleccionar modelo de traducción..." AllowClear="true" />
-                                </div>
-                                <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@(async () => await LoadModelsFromServer())" Tooltip="Cargar modelos desde el servidor" IsBusy="@isTestingConnection" />
-                            </div>
-                        </RadzenColumn>
-                    </RadzenRow>
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="12">
-                            <RadzenLabel Text="Temperatura Traducción (0.0 - 1.0)" class="rz-mb-2" />
-                            <RadzenNumeric @bind-Value="AppConfig.Temperature" TValue="double" Step="0.1" Min="@((decimal)0)" Max="@((decimal)1)" class="rz-w-100" />
-                        </RadzenColumn>
-                    </RadzenRow>
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="6">
-                            <RadzenLabel Text="Máx. Caracteres por Chunk" class="rz-mb-2" />
-                            <RadzenNumeric @bind-Value="AppConfig.MaxCharactersPerChunk" TValue="int" class="rz-w-100" />
-                        </RadzenColumn>
-                        <RadzenColumn Size="6">
-                            <RadzenLabel Text="Solapamiento de Chunks (caracteres)" class="rz-mb-2" />
-                            <RadzenNumeric @bind-Value="AppConfig.ChunkOverlapCharacters" TValue="int" class="rz-w-100" />
-                        </RadzenColumn>
-                    </RadzenRow>
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="6">
-                            <RadzenLabel Text="Timeout Traducción (segundos)" class="rz-mb-2" />
-                            <RadzenNumeric @bind-Value="AppConfig.TranslationTimeoutSeconds" TValue="int" class="rz-w-100" />
-                        </RadzenColumn>
-                        <RadzenColumn Size="6" class="rz-align-self-center">
-                            <RadzenCheckBox @bind-Value="AppConfig.PreserveFormat" Name="cfgPreserve" />
-                            <RadzenLabel Text="Preservar formato original" Component="cfgPreserve" class="rz-ml-2" />
-                        </RadzenColumn>
-                    </RadzenRow>
+                    <TranslationConfigTab AppConfig="@AppConfig" AvailableModels="@availableModels" IsTestingConnection="@isTestingConnection" OnLoadModels="@LoadModelsFromServer" />
                 </RadzenTabsItem>
 
                 <!-- Pestaña 4: Revision -->
                 <RadzenTabsItem Text="Revision" Icon="rate_review">
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="12">
-                            <RadzenCheckBox @bind-Value="AppConfig.EnableReview" Name="cfgReview" />
-                            <RadzenLabel Text="Habilitar Revisión Post-Traducción con IA" Component="cfgReview" class="rz-ml-2" />
-                        </RadzenColumn>
-                    </RadzenRow>
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="12">
-                            <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
-                                <div style="flex-grow: 1;">
-                                    <RadzenLabel Text="Modelo de Revisión" class="rz-mb-2" />
-                                    <RadzenDropDown @bind-Value="AppConfig.ReviewModel" Data="@availableModels" class="rz-w-100" Placeholder="Seleccionar modelo de revisión..." AllowClear="true" Disabled="@(!AppConfig.EnableReview)" />
-                                </div>
-                                <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@(async () => await LoadModelsFromServer())" Tooltip="Cargar modelos desde el servidor" IsBusy="@isTestingConnection" Disabled="@(!AppConfig.EnableReview)" />
-                            </div>
-                        </RadzenColumn>
-                    </RadzenRow>
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="6">
-                            <RadzenLabel Text="Temperatura Revisión (0.0 - 1.0)" class="rz-mb-2" />
-                            <RadzenNumeric @bind-Value="AppConfig.ReviewTemperature" TValue="double" Step="0.1" Min="@((decimal)0)" Max="@((decimal)1)" class="rz-w-100" Disabled="@(!AppConfig.EnableReview)" />
-                        </RadzenColumn>
-                        <RadzenColumn Size="6">
-                            <RadzenLabel Text="Timeout Revisión (segundos)" class="rz-mb-2" />
-                            <RadzenNumeric @bind-Value="AppConfig.ReviewTimeoutSeconds" TValue="int" class="rz-w-100" Disabled="@(!AppConfig.EnableReview)" />
-                        </RadzenColumn>
-                    </RadzenRow>
+                    <RevisionConfigTab AppConfig="@AppConfig" AvailableModels="@availableModels" IsTestingConnection="@isTestingConnection" OnLoadModels="@LoadModelsFromServer" />
                 </RadzenTabsItem>
 
                 <!-- Pestaña 5: Output Formats -->
                 <RadzenTabsItem Text="Output Formats" Icon="rule">
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="12">
-                            <RadzenCheckBox @bind-Value="AppConfig.SaveMarkdown" Name="cfgSaveMd" />
-                            <RadzenLabel Text="Siempre generar documentos Markdown (.md)" Component="cfgSaveMd" class="rz-ml-2" />
-                        </RadzenColumn>
-                    </RadzenRow>
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="12">
-                            <RadzenLabel Text="Formato de Salida Adicional por Defecto" class="rz-mb-2" />
-                            <RadzenDropDown @bind-Value="AppConfig.DefaultOutputFormat" Data="@outputFormatOptions" class="rz-w-100" Placeholder="Ninguno" AllowClear="true" />
-                            <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2" style="color: #b0bec5; display: block;">Nota: Los formatos de salida que no son MD se generan como post-procesamiento.</RadzenText>
-                        </RadzenColumn>
-                    </RadzenRow>
-                    <RadzenRow Gap="1rem" class="rz-mb-4">
-                        <RadzenColumn Size="12">
-                            <RadzenLabel Text="Formatos de Salida Soportados (separados por coma)" class="rz-mb-2" />
-                            <RadzenTextBox @bind-Value="outputFormatsInput" class="rz-w-100" />
-                        </RadzenColumn>
-                    </RadzenRow>
+                    <OutputConfigTab AppConfig="@AppConfig" OutputFormatOptions="@outputFormatOptions" @bind-OutputFormatsInput="outputFormatsInput" />
                 </RadzenTabsItem>
 
                 <!-- Pestaña 6: Prompts del Sistema -->
                 <RadzenTabsItem Text="Prompts del Sistema" Icon="description">
-                    <RadzenText TextStyle="TextStyle.Body1" class="rz-mb-4">Edite las directrices del sistema utilizadas por el motor de traducción e inteligencia artificial. Estos archivos se guardarán directamente en la carpeta <code>prompts/</code>.</RadzenText>
-                    
-                    <RadzenAccordion>
-                        <Items>
-                            <RadzenAccordionItem Text="Prompt de OCR (ocr_prompt.md)" Icon="visibility">
-                                <RadzenTextArea @bind-Value="ocrPromptText" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
-                            </RadzenAccordionItem>
-                            <RadzenAccordionItem Text="Prompt de Traducción (translation_prompt.md)" Icon="translate">
-                                <RadzenTextArea @bind-Value="translationPromptText" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
-                            </RadzenAccordionItem>
-                            <RadzenAccordionItem Text="Prompt de Revisión (review_prompt.md)" Icon="rate_review">
-                                <RadzenTextArea @bind-Value="reviewPromptText" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
-                            </RadzenAccordionItem>
-                            <RadzenAccordionItem Text="Prompt de Mejora de Prompt (prompt_improver_prompt.md)" Icon="upgrade">
-                                <RadzenTextArea @bind-Value="promptImproverPromptText" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
-                            </RadzenAccordionItem>
-                        </Items>
-                    </RadzenAccordion>
+                    <PromptsConfigTab @bind-OcrPromptText="ocrPromptText" @bind-TranslationPromptText="translationPromptText" @bind-ReviewPromptText="reviewPromptText" @bind-PromptImproverPromptText="promptImproverPromptText" />
                 </RadzenTabsItem>
             </Tabs>
         </RadzenTabs>
@@ -223,155 +53,4 @@
     <RadzenAlert AlertStyle="AlertStyle.Success" AllowClose="false" class="rz-mt-4">
         @saveMessage
     </RadzenAlert>
-}
-
-@code {
-    string saveMessage = "";
-    string outputFormatsInput = "";
-    List<string> availableModels = new List<string>();
-    List<string> outputFormatOptions = new List<string> { "html", "docx", "odf", "pdf" };
-    bool isTestingConnection = false;
-    string? testConnectionResult = null;
-
-    // Prompts files content
-    string ocrPromptText = "";
-    string translationPromptText = "";
-    string reviewPromptText = "";
-    string promptImproverPromptText = "";
-
-    string GetPromptsDirectory()
-    {
-        string path = Path.Combine(AppContext.BaseDirectory, "prompts");
-        if (!Directory.Exists(path))
-        {
-            path = Path.Combine(Directory.GetCurrentDirectory(), "prompts");
-        }
-        return path;
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        outputFormatsInput = string.Join(", ", AppConfig.SupportedOutputFormats);
-        outputFormatOptions = AppConfig.SupportedOutputFormats ?? new List<string> { "html", "docx", "odf", "pdf" };
-
-        // Load prompt files
-        string promptsDir = GetPromptsDirectory();
-        try { ocrPromptText = await File.ReadAllTextAsync(Path.Combine(promptsDir, "ocr_prompt.md")); } catch {}
-        try { translationPromptText = await File.ReadAllTextAsync(Path.Combine(promptsDir, "translation_prompt.md")); } catch {}
-        try { reviewPromptText = await File.ReadAllTextAsync(Path.Combine(promptsDir, "review_prompt.md")); } catch {}
-        try { promptImproverPromptText = await File.ReadAllTextAsync(Path.Combine(promptsDir, "prompt_improver_prompt.md")); } catch {}
-
-        // Fetch models dynamically from LM Studio
-        try {
-            using var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(3);
-            var response = await client.GetAsync($"{AppConfig.ApiUrl.TrimEnd('/')}/models");
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(content);
-                if (doc.RootElement.TryGetProperty("data", out var dataArr))
-                {
-                    foreach(var m in dataArr.EnumerateArray()) {
-                        if(m.TryGetProperty("id", out var idProp))
-                            availableModels.Add(idProp.GetString() ?? "");
-                    }
-                }
-            }
-        }
-        catch {
-            if (!string.IsNullOrEmpty(AppConfig.DefaultModel))
-                availableModels.Add(AppConfig.DefaultModel);
-            if (!string.IsNullOrEmpty(AppConfig.DefaultVisionModel) && !availableModels.Contains(AppConfig.DefaultVisionModel))
-                availableModels.Add(AppConfig.DefaultVisionModel);
-            if (!string.IsNullOrEmpty(AppConfig.ReviewModel) && !availableModels.Contains(AppConfig.ReviewModel))
-                availableModels.Add(AppConfig.ReviewModel);
-        }
-    }
-
-    async Task TestConnection()
-    {
-        await LoadModelsFromServer();
-    }
-
-    async Task LoadModelsFromServer()
-    {
-        isTestingConnection = true;
-        testConnectionResult = null;
-        StateHasChanged();
-        
-        try
-        {
-            using var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(AppConfig.ModelCheckTimeoutSeconds);
-            var response = await client.GetAsync($"{AppConfig.ApiUrl.TrimEnd('/')}/models");
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(content);
-                var models = new List<string>();
-                if (doc.RootElement.TryGetProperty("data", out var dataArr))
-                {
-                    foreach(var m in dataArr.EnumerateArray()) {
-                        if(m.TryGetProperty("id", out var idProp))
-                            models.Add(idProp.GetString() ?? "");
-                    }
-                }
-                
-                availableModels = models;
-                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Carga Exitosa", Detail = $"Se cargaron {availableModels.Count} modelos del servidor." });
-                testConnectionResult = "Conexión exitosa";
-            }
-            else
-            {
-                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error de Conexión", Detail = $"El servidor respondió con código: {response.StatusCode}" });
-                testConnectionResult = $"Error: {response.StatusCode}";
-            }
-        }
-        catch (Exception ex)
-        {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Fallo de Conexión", Detail = ex.Message });
-            testConnectionResult = $"Fallo: {ex.Message}";
-        }
-        finally
-        {
-            isTestingConnection = false;
-            StateHasChanged();
-        }
-    }
-
-    async Task SaveConfig(PolyglotCLI.AppConfig args)
-    {
-        try
-        {
-            args.SupportedOutputFormats = outputFormatsInput
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .ToList();
-
-            args.Save();
-
-            // Save system prompt files
-            string promptsDir = GetPromptsDirectory();
-            if (!Directory.Exists(promptsDir))
-            {
-                Directory.CreateDirectory(promptsDir);
-            }
-            try { await File.WriteAllTextAsync(Path.Combine(promptsDir, "ocr_prompt.md"), ocrPromptText ?? ""); } catch {}
-            try { await File.WriteAllTextAsync(Path.Combine(promptsDir, "translation_prompt.md"), translationPromptText ?? ""); } catch {}
-            try { await File.WriteAllTextAsync(Path.Combine(promptsDir, "review_prompt.md"), reviewPromptText ?? ""); } catch {}
-            try { await File.WriteAllTextAsync(Path.Combine(promptsDir, "prompt_improver_prompt.md"), promptImproverPromptText ?? ""); } catch {}
-
-            saveMessage = "Configuración guardada correctamente!";
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Configuración guardada correctamente." });
-            
-            await Task.Delay(3000);
-            saveMessage = "";
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            saveMessage = $"Error al guardar: {ex.Message}";
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error al Guardar", Detail = ex.Message });
-        }
-    }
 }

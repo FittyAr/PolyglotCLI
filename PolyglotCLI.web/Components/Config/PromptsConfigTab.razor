@@ -1,0 +1,49 @@
+<RadzenText TextStyle="TextStyle.Body1" class="rz-mb-4">Edite las directrices del sistema utilizadas por el motor de traducción e inteligencia artificial. Estos archivos se guardarán directamente en la carpeta <code>prompts/</code>.</RadzenText>
+
+<RadzenAccordion>
+    <Items>
+        <RadzenAccordionItem Text="Prompt de OCR (ocr_prompt.md)" Icon="visibility">
+            <RadzenTextArea Value="@OcrPromptText" ValueChanged="@OnOcrPromptTextChanged" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
+        </RadzenAccordionItem>
+        <RadzenAccordionItem Text="Prompt de Traducción (translation_prompt.md)" Icon="translate">
+            <RadzenTextArea Value="@TranslationPromptText" ValueChanged="@OnTranslationPromptTextChanged" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
+        </RadzenAccordionItem>
+        <RadzenAccordionItem Text="Prompt de Revisión (review_prompt.md)" Icon="rate_review">
+            <RadzenTextArea Value="@ReviewPromptText" ValueChanged="@OnReviewPromptTextChanged" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
+        </RadzenAccordionItem>
+        <RadzenAccordionItem Text="Prompt de Mejora de Prompt (prompt_improver_prompt.md)" Icon="upgrade">
+            <RadzenTextArea Value="@PromptImproverPromptText" ValueChanged="@OnPromptImproverPromptTextChanged" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
+        </RadzenAccordionItem>
+    </Items>
+</RadzenAccordion>
+
+@code {
+    [Parameter]
+    public string OcrPromptText { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> OcrPromptTextChanged { get; set; }
+
+    [Parameter]
+    public string TranslationPromptText { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> TranslationPromptTextChanged { get; set; }
+
+    [Parameter]
+    public string ReviewPromptText { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> ReviewPromptTextChanged { get; set; }
+
+    [Parameter]
+    public string PromptImproverPromptText { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> PromptImproverPromptTextChanged { get; set; }
+
+    private async Task OnOcrPromptTextChanged(string val) => await OcrPromptTextChanged.InvokeAsync(val);
+    private async Task OnTranslationPromptTextChanged(string val) => await TranslationPromptTextChanged.InvokeAsync(val);
+    private async Task OnReviewPromptTextChanged(string val) => await ReviewPromptTextChanged.InvokeAsync(val);
+    private async Task OnPromptImproverPromptTextChanged(string val) => await PromptImproverPromptTextChanged.InvokeAsync(val);
+}
