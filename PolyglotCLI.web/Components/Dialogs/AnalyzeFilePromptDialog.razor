@@ -1,0 +1,20 @@
+@inject DialogService DialogService
+
+<RadzenStack Gap="1.5rem">
+    <RadzenText TextStyle="TextStyle.Body1">El asistente de IA ha generado las siguientes instrucciones personalizadas basadas en el análisis de <b>@FileName</b>:</RadzenText>
+    <div style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 4px; white-space: pre-wrap; font-size: 0.85rem; max-height: 300px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1);">
+        @ImprovedPromptResult
+    </div>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+        <RadzenButton Text="Aplicar a Instrucciones" Click="@(() => DialogService.Close(true))" ButtonStyle="ButtonStyle.Primary" />
+        <RadzenButton Text="Descartar" Click="@(() => DialogService.Close(false))" ButtonStyle="ButtonStyle.Light" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter]
+    public string FileName { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ImprovedPromptResult { get; set; } = string.Empty;
+}

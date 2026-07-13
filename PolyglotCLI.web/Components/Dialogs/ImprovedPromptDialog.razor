@@ -1,0 +1,30 @@
+@inject DialogService DialogService
+
+<RadzenStack Gap="1.5rem">
+    <RadzenRow>
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold;">Prompt Original</RadzenText>
+            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 4px; white-space: pre-wrap; font-size: 0.85rem; max-height: 250px; overflow-y: auto;">
+                @RawInput
+            </div>
+        </RadzenColumn>
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold;">Prompt Mejorado (IA)</RadzenText>
+            <div style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 4px; white-space: pre-wrap; font-size: 0.85rem; max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1);">
+                @ImprovedResult
+            </div>
+        </RadzenColumn>
+    </RadzenRow>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+        <RadzenButton Text="Aplicar Cambios" Click="@(() => DialogService.Close(true))" ButtonStyle="ButtonStyle.Primary" />
+        <RadzenButton Text="Descartar" Click="@(() => DialogService.Close(false))" ButtonStyle="ButtonStyle.Light" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter]
+    public string RawInput { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ImprovedResult { get; set; } = string.Empty;
+}

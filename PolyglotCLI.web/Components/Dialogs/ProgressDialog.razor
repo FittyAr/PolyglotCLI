@@ -1,0 +1,33 @@
+@inject DialogService DialogService
+@implements IDisposable
+
+<RadzenStack AlignItems="AlignItems.Center" Gap="1.5rem" class="rz-p-4">
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Style="width: 100%;" />
+    <RadzenText TextStyle="TextStyle.Body1">@State?.Status</RadzenText>
+</RadzenStack>
+
+@code {
+    [Parameter]
+    public ProgressState State { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        if (State != null)
+        {
+            State.OnChange += OnStateChange;
+        }
+    }
+
+    private void OnStateChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        if (State != null)
+        {
+            State.OnChange -= OnStateChange;
+        }
+    }
+}
