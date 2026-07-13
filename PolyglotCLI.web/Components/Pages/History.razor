@@ -54,29 +54,7 @@
 
     private void LoadManifests()
     {
-        manifests.Clear();
-        string outputDir = Path.IsPathRooted(Config.OutputDirectory) 
-            ? Config.OutputDirectory 
-            : Path.Combine(Directory.GetCurrentDirectory(), Config.OutputDirectory);
-        
-        string jobsDir = Path.Combine(outputDir, "jobs");
-        if (Directory.Exists(jobsDir))
-        {
-            foreach (var dir in Directory.GetDirectories(jobsDir))
-            {
-                string manifestPath = Path.Combine(dir, "manifest.json");
-                if (File.Exists(manifestPath))
-                {
-                    try
-                    {
-                        var m = JobManifest.Load(manifestPath);
-                        manifests.Add(m);
-                    }
-                    catch { /* Ignore invalid manifests */ }
-                }
-            }
-        }
-        manifests = manifests.OrderByDescending(m => m.CreatedAt).ToList();
+        manifests = JobManifestService.LoadPastJobs();
     }
 
     BadgeStyle GetBadgeStyle(string status)
@@ -102,25 +80,13 @@
 
         try 
         {
-            var errorList = new List<string>();
-            foreach (var f in job.Files)
-            {
-                foreach (var p in f.Pages)
-                {
-                    if (!p.OcrCompleted && !string.IsNullOrEmpty(p.OcrError))
-                        errorList.Add($"Page {p.PageNumber} (OCR): {p.OcrError}");
-                    if (!p.TranslationCompleted && !string.IsNullOrEmpty(p.TranslationError))
-                        errorList.Add($"Page {p.PageNumber} (Translation): {p.TranslationError}");
-                }
-            }
+            string combinedErrors = JobManifestService.BuildErrorSummary(job);
 
-            if (errorList.Count == 0)
+            if (string.IsNullOrWhiteSpace(combinedErrors))
             {
                 analysisResult = "No se encontraron mensajes de error registrados en el manifiesto.";
                 return;
             }
-
-            string combinedErrors = string.Join("\n", errorList);
             
             var recommendation = await PromptHelperService.AnalyzeErrorsAsync(
                 combinedErrors, 

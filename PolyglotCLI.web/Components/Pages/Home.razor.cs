@@ -269,15 +269,16 @@ public partial class Home : ComponentBase, IDisposable
     protected async Task ImprovePrompt()
     {
         string rawInput = options.AdditionalPrompt?.Trim() ?? "";
-        if (string.IsNullOrEmpty(rawInput)) return;
+        
+        var promptValidation = JobValidator.ValidatePromptImprovementSettings(Config, rawInput);
+        if (!promptValidation.IsValid)
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error de Configuración", Detail = promptValidation.ErrorMessage ?? "Error al validar la configuración para mejorar prompt." });
+            return;
+        }
 
         string url = Config.ApiUrl;
         string model = Config.DefaultModel ?? "";
-        if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
-        {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error de Configuración", Detail = "Debe configurar la URL de API y el Modelo de Traducción en Configuración primero." });
-            return;
-        }
 
         isProcessing = true;
         StateHasChanged();
@@ -324,14 +325,16 @@ public partial class Home : ComponentBase, IDisposable
         if (selectedRows.Count != 1 || selectedRows[0].IsDirectory) return;
         var file = selectedRows[0];
 
+        var fileAnalysisValidation = JobValidator.ValidateFileAnalysisSettings(Config, 0, 1);
+        if (!fileAnalysisValidation.IsValid)
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error de Configuración", Detail = fileAnalysisValidation.ErrorMessage ?? "Error al validar la configuración para analizar archivo." });
+            return;
+        }
+
         string url = Config.ApiUrl;
         string model = Config.DefaultModel ?? "";
         string visionModel = Config.DefaultVisionModel ?? "";
-        if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(model))
-        {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error de Configuración", Detail = "Debe configurar la URL de API y el Modelo en Configuración primero." });
-            return;
-        }
 
         isProcessing = true;
         var progressState = new ProgressState { Status = "Preparando análisis..." };
@@ -398,7 +401,33 @@ public partial class Home : ComponentBase, IDisposable
                 return;
             }
 
-            // Validar rangos de páginas para PDFs
+            // 1. Validar configuraciones generales del trabajo con el validador del Core
+            var jobSettingsValidation = JobValidator.ValidateJobSettings(Config, currentDirectory);
+            if (!jobSettingsValidation.IsValid)
+            {
+                AppLogger.Error(jobSettingsValidation.ErrorMessage ?? "Configuración de trabajo inválida.");
+                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Configuración Inválida", Detail = jobSettingsValidation.ErrorMessage ?? "Error de configuración de trabajo." });
+                return;
+            }
+
+            // 2. Validar requerimiento de modelo de visión para OCR con el validador del Core
+            var selectableFiles = selectedFiles.Select(i => new SelectableFile
+            {
+                FullPath = i.FullPath,
+                IsSelected = true,
+                Mode = i.Mode,
+                PageRange = i.PageRange
+            }).ToList();
+
+            var ocrValidation = JobValidator.ValidateOcrModelRequirement(Config, selectableFiles);
+            if (!ocrValidation.IsValid)
+            {
+                AppLogger.Error(ocrValidation.ErrorMessage ?? "Error de validación del modelo de visión.");
+                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Modelo de Visión Requerido", Detail = ocrValidation.ErrorMessage ?? "Se requiere un modelo de visión para OCR." });
+                return;
+            }
+
+            // 3. Validar rangos de páginas para PDFs
             foreach (var file in selectedFiles)
             {
                 if (file.Extension != null && file.Extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
