@@ -133,5 +133,39 @@ namespace PolyglotCLI
                 Console.ResetColor();
             }
         }
+
+        public void Reload()
+        {
+            var fresh = Load(LoadedFromPath);
+            ApiUrl = fresh.ApiUrl;
+            DefaultModel = fresh.DefaultModel;
+            DefaultVisionModel = fresh.DefaultVisionModel;
+            TargetLanguage = fresh.TargetLanguage;
+            OutputDirectory = fresh.OutputDirectory;
+            LastScanDirectory = fresh.LastScanDirectory;
+            Debug = fresh.Debug;
+            AdditionalPrompt = fresh.AdditionalPrompt;
+            TranslationTimeoutSeconds = fresh.TranslationTimeoutSeconds;
+            PromptImproveTimeoutSeconds = fresh.PromptImproveTimeoutSeconds;
+            ModelCheckTimeoutSeconds = fresh.ModelCheckTimeoutSeconds;
+            Temperature = fresh.Temperature;
+            MaxCharactersPerChunk = fresh.MaxCharactersPerChunk;
+            ChunkOverlapCharacters = fresh.ChunkOverlapCharacters;
+            PreserveFormat = fresh.PreserveFormat;
+            EnableReview = fresh.EnableReview;
+            ReviewModel = fresh.ReviewModel;
+            ReviewTimeoutSeconds = fresh.ReviewTimeoutSeconds;
+            ReviewTemperature = fresh.ReviewTemperature;
+            OcrTemperature = fresh.OcrTemperature;
+            OcrTimeoutSeconds = fresh.OcrTimeoutSeconds;
+            OutputFormats = fresh.OutputFormats;
+            SaveMarkdown = fresh.SaveMarkdown;
+            DefaultOutputFormat = fresh.DefaultOutputFormat;
+            SupportedOutputFormats = fresh.SupportedOutputFormats;
+            SupportedInputExtensions = fresh.SupportedInputExtensions;
+            LogDirectory = fresh.LogDirectory;
+            LogLevelConsole = fresh.LogLevelConsole;
+            LogLevelFile = fresh.LogLevelFile;
+        }
     }
 }

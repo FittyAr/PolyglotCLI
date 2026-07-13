@@ -44,6 +44,7 @@ public partial class Config : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
+        AppConfig.Reload();
         outputFormatsInput = string.Join(", ", AppConfig.SupportedOutputFormats);
         outputFormatOptions = AppConfig.SupportedOutputFormats ?? new List<string> { "html", "docx", "odf", "pdf" };
 

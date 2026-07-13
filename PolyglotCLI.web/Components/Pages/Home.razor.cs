@@ -36,6 +36,7 @@ public partial class Home : ComponentBase, IDisposable
 
     protected override async Task OnInitializedAsync()
     {
+        Config.Reload();
         options.TargetLanguage = Config.TargetLanguage;
         options.OutputDirectory = Config.OutputDirectory;
         options.SelectedFormat = Config.DefaultOutputFormat;
