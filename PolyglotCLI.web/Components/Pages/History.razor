@@ -19,10 +19,13 @@
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="JobManifest" Property="CreatedAt" Title="Fecha" FormatString="{0:d/M/yyyy HH:mm}" Width="150px" />
         <RadzenDataGridColumn TItem="JobManifest" Property="ModelName" Title="Modelo" Width="150px" />
-        <RadzenDataGridColumn TItem="JobManifest" Title="Acciones" Width="260px" Filterable="false" Sortable="false">
+        <RadzenDataGridColumn TItem="JobManifest" Title="Acciones" Width="290px" Filterable="false" Sortable="false">
             <Template Context="job">
                 <RadzenButton Icon="list" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" class="rz-mr-1" title="Ver Detalles del Trabajo" 
-                              Click="@(() => ViewJobDetails(job))" />
+                               Click="@(() => ViewJobDetails(job))" />
+                
+                <RadzenButton Icon="save_alt" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" class="rz-mr-1" title="Exportar y Convertir Documentos" 
+                               Click="@(() => ExportJob(job))" />
                 
                 <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" class="rz-mr-1" title="Reanudar Trabajo" 
                               Disabled="@(job.Status == "Completed")" Click="@(() => ResumeJob(job))" />
@@ -116,7 +119,7 @@
         await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.JobDetailsDialog>($"Detalles del Trabajo", new Dictionary<string, object?>
         {
             { "Job", job }
-        }, new DialogOptions { Width = "900px", Height = "650px", Resizable = true, Draggable = true });
+        }, new DialogOptions { Width = "1200px", Height = "850px", Resizable = true, Draggable = true });
     }
 
     async Task DeleteJob(JobManifest job)
@@ -142,6 +145,57 @@
             {
                 await DialogService.Alert($"Error al eliminar la carpeta del trabajo: {ex.Message}", "Error");
             }
+        }
+    }
+
+    async Task ExportJob(JobManifest job)
+    {
+        try
+        {
+            string jobDir = Path.Combine(TranslationOrchestrator.GetJobsDirectory(), job.JobId);
+            var (count, errors) = JobExportService.ExportJobToMarkdown(jobDir, Config);
+            
+            if (errors.Count > 0)
+            {
+                await DialogService.Alert($"Se exportaron {count} archivos pero hubo errores:\n" + string.Join("\n", errors), "Exportación con Errores");
+                return;
+            }
+
+            if (count == 0)
+            {
+                await DialogService.Alert("No se encontraron datos para exportar en este trabajo.", "Exportación");
+                return;
+            }
+
+            // Realizar la conversión a los formatos configurados (por ejemplo DOCX) para cada archivo Markdown exportado
+            string dataDir = Path.Combine(jobDir, "data");
+            var files = Directory.GetFiles(dataDir, "*_data.json");
+            
+            int convertedCount = 0;
+            foreach (var file in files)
+            {
+                string fileName = Path.GetFileNameWithoutExtension(file).Replace("_data", "");
+                string translatedOut = Path.Combine(Config.OutputDirectory, $"{fileName}_{Config.TargetLanguage}.md");
+                string originalOut = Path.Combine(Config.OutputDirectory, $"{fileName}_original.md");
+
+                string formatsToConvert = Config.OutputFormats ?? "docx";
+
+                if (File.Exists(translatedOut))
+                {
+                    await OutputFormatConverter.ConvertToFormatsAsync(translatedOut, formatsToConvert);
+                    convertedCount++;
+                }
+                if (File.Exists(originalOut))
+                {
+                    await OutputFormatConverter.ConvertToFormatsAsync(originalOut, formatsToConvert);
+                }
+            }
+
+            await DialogService.Alert($"¡Exportación exitosa! Se exportaron e ingresaron {count} archivos Markdown y se convirtieron sus formatos en: {Config.OutputDirectory}", "Exportación Completada");
+        }
+        catch (Exception ex)
+        {
+            await DialogService.Alert($"Error durante la exportación/conversión: {ex.Message}", "Error");
         }
     }
 }

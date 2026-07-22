@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Rediseñado y expandido el modal de "Detalles del Trabajo" (`JobDetailsDialog.razor`) a un tamaño mayor (1200px x 850px) incorporando pestañas interactivas para visualizar los archivos Markdown generados, renderizar las imágenes temporales extraídas del PDF y consultar todas las bitácoras de logs del backend.
+- Añadido un botón "Exportar y Convertir Documentos" (`save_alt`) en el grid del Historial de Trabajos para posibilitar la regeneración/exportación manual de cualquier traducción a Markdown y a los formatos convertidos definidos (DOCX, PDF, etc.).
 - Añadidos botones interactivos para maximizar/restaurar la consola de progreso y para activar/desactivar el desplazamiento automático (autoscroll) dinámico.
 - Añadido un botón "Detener Proceso" en la interfaz de usuario web que permite cancelar de forma inmediata y segura una ejecución de OCR/traducción activa.
 - Añadido un botón de eliminación en el historial de trabajos que permite borrar físicamente del disco la carpeta de datos de cualquier trabajo seleccionado (`jobs/<jobId>`) tras confirmación interactiva.
@@ -18,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eliminación completa del proveedor Anthropic Claude y su cliente dedicado `AnthropicClient` para simplificar la arquitectura, dejando únicamente los conectores oficiales integrados de Semantic Kernel.
 
 ### Fixed
+- Corregidos errores de compilación causados por llaves de cierre faltantes en `History.razor` y falta de directivas using para `LogEntry` y la extensión `InvokeVoidAsync` de `IJSRuntime`.
+- Corregida la omisión de la escritura de archivos Markdown (`.md`) al finalizar exitosamente la ejecución del pipeline en `TranslationOrchestrator.cs`, lo que impedía que la fase subsecuente de conversión a formatos (como `.docx`) encontrara los archivos intermedios para convertirlos.
 - Corregida la pérdida del botón "Detener Proceso" y del estado de ejecución (incluyendo logs) en la UI web al cambiar de pestaña (enrutado de Blazor), moviendo el estado activo del proceso a una clase de sesión persistente (`TranslationSession`).
 - Corregido el dominio del endpoint por defecto de MiniMax a `api.minimax.io` en lugar del dominio obsoleto `.chat`.
 - Implementada la interrupción inmediata de todo el trabajo ante errores críticos de autenticación o API Key inválida (HTTP 401 Unauthorized), impidiendo ejecuciones fallidas repetidas en cascada por cada página del documento.

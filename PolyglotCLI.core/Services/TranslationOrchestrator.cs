@@ -711,6 +711,26 @@ namespace PolyglotCLI
                         }
                     }
 
+                    // Export page states to markdown files before conversion/saving copies
+                    var exportPages = pageStates.Select(s => new DocumentPageData
+                    {
+                        PageNumber = s.PageNumber,
+                        OriginalText = s.OcrText,
+                        TranslatedText = s.TranslatedText,
+                        ReviewedText = s.ReviewedText,
+                        IsOcrSuccessful = !s.OcrFailed,
+                        IsTranslationSuccessful = !s.TranslationFailed
+                    }).ToList();
+
+                    if (options.Transcribe)
+                    {
+                        MarkdownWriter.ExportToMarkdown(originalOutputPath, fileNameWithoutExt, "Original", exportPages, true);
+                    }
+                    if (options.Translate)
+                    {
+                        MarkdownWriter.ExportToMarkdown(outputPath, fileNameWithoutExt, options.TargetLanguage, exportPages, false);
+                    }
+
                     if (File.Exists(originalOutputPath))
                     {
                         AppLogger.Info($"Original text saved to: {originalOutputPath}");

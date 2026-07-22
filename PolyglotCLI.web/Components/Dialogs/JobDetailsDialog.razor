@@ -1,4 +1,6 @@
 @using PolyglotCLI
+@using System.IO
+@using System.Linq
 @inject DialogService DialogService
 
 <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Detalles del Trabajo: @Job.JobId</RadzenText>
@@ -26,114 +28,248 @@
     </RadzenRow>
 </RadzenCard>
 
-<RadzenText TextStyle="TextStyle.Subtitle1" class="rz-mb-2" style="font-weight: bold;">Archivos del Trabajo</RadzenText>
+<RadzenTabs RenderMode="TabRenderMode.Client" class="rz-m-0">
+    <Tabs>
+        <RadzenTabsItem Text="Resumen y Progreso" Icon="assignment">
+            <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-my-3" style="font-weight: bold;">Archivos del Trabajo</RadzenText>
+            
+            <RadzenDataGrid Data="@Job.Files" TItem="JobFileManifest" AllowPaging="true" PageSize="5" class="rz-mb-4">
+                <Template Context="file">
+                    <RadzenCard Style="padding: 1rem; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Progreso por Página / Fragmento</RadzenText>
+                        @if(file.Pages != null && file.Pages.Count > 0)
+                        {
+                            <RadzenDataGrid Data="@file.Pages" TItem="JobPageManifest" AllowPaging="false" AllowSorting="false">
+                                <Columns>
+                                    <RadzenDataGridColumn TItem="JobPageManifest" Property="PageNumber" Title="Pág/Chunk" Width="90px" TextAlign="TextAlign.Center" />
+                                    
+                                    <RadzenDataGridColumn TItem="JobPageManifest" Title="Extracción / OCR" Width="180px">
+                                        <Template Context="pageItem">
+                                            @if(pageItem.OcrCompleted)
+                                            {
+                                                <span style="color: #4caf50; display: inline-flex; align-items: center; gap: 4px;">
+                                                    <RadzenIcon Icon="check_circle" Style="color: #4caf50; font-size: 1.1rem; vertical-align: middle;" /> Completado
+                                                </span>
+                                            }
+                                            else if(!string.IsNullOrEmpty(pageItem.OcrError))
+                                            {
+                                                <span style="color: #f44336; display: inline-flex; align-items: center; gap: 4px;" title="@pageItem.OcrError">
+                                                    <RadzenIcon Icon="error" Style="color: #f44336; font-size: 1.1rem; vertical-align: middle;" /> Falló
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span style="color: #ffb74d; display: inline-flex; align-items: center; gap: 4px;">
+                                                    <RadzenIcon Icon="hourglass_empty" Style="color: #ffb74d; font-size: 1.1rem; vertical-align: middle;" /> Pendiente
+                                                </span>
+                                            }
+                                        </Template>
+                                    </RadzenDataGridColumn>
 
-<RadzenDataGrid Data="@Job.Files" TItem="JobFileManifest" AllowPaging="true" PageSize="5" class="rz-mb-4">
-    <Template Context="file">
-        <RadzenCard Style="padding: 1rem; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05);">
-            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Progreso por Página / Fragmento</RadzenText>
-            @if(file.Pages != null && file.Pages.Count > 0)
-            {
-                <RadzenDataGrid Data="@file.Pages" TItem="JobPageManifest" AllowPaging="false" AllowSorting="false">
-                    <Columns>
-                        <RadzenDataGridColumn TItem="JobPageManifest" Property="PageNumber" Title="Pág/Chunk" Width="90px" TextAlign="TextAlign.Center" />
-                        
-                        <RadzenDataGridColumn TItem="JobPageManifest" Title="Extracción / OCR" Width="180px">
-                            <Template Context="pageItem">
-                                @if(pageItem.OcrCompleted)
-                                {
-                                    <span style="color: #4caf50; display: inline-flex; align-items: center; gap: 4px;">
-                                        <RadzenIcon Icon="check_circle" Style="color: #4caf50; font-size: 1.1rem; vertical-align: middle;" /> Completado
-                                    </span>
-                                }
-                                else if(!string.IsNullOrEmpty(pageItem.OcrError))
-                                {
-                                    <span style="color: #f44336; display: inline-flex; align-items: center; gap: 4px;" title="@pageItem.OcrError">
-                                        <RadzenIcon Icon="error" Style="color: #f44336; font-size: 1.1rem; vertical-align: middle;" /> Falló
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span style="color: #ffb74d; display: inline-flex; align-items: center; gap: 4px;">
-                                        <RadzenIcon Icon="hourglass_empty" Style="color: #ffb74d; font-size: 1.1rem; vertical-align: middle;" /> Pendiente
-                                    </span>
-                                }
-                            </Template>
-                        </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="JobPageManifest" Title="Traducción" Width="180px">
+                                        <Template Context="pageItem">
+                                            @if(pageItem.TranslationCompleted)
+                                            {
+                                                <span style="color: #4caf50; display: inline-flex; align-items: center; gap: 4px;">
+                                                    <RadzenIcon Icon="check_circle" Style="color: #4caf50; font-size: 1.1rem; vertical-align: middle;" /> Completado
+                                                </span>
+                                            }
+                                            else if(!string.IsNullOrEmpty(pageItem.TranslationError))
+                                            {
+                                                <span style="color: #f44336; display: inline-flex; align-items: center; gap: 4px;" title="@pageItem.TranslationError">
+                                                    <RadzenIcon Icon="error" Style="color: #f44336; font-size: 1.1rem; vertical-align: middle;" /> Falló
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span style="color: #ffb74d; display: inline-flex; align-items: center; gap: 4px;">
+                                                    <RadzenIcon Icon="hourglass_empty" Style="color: #ffb74d; font-size: 1.1rem; vertical-align: middle;" /> Pendiente
+                                                </span>
+                                            }
+                                        </Template>
+                                    </RadzenDataGridColumn>
 
-                        <RadzenDataGridColumn TItem="JobPageManifest" Title="Traducción" Width="180px">
-                            <Template Context="pageItem">
-                                @if(pageItem.TranslationCompleted)
-                                {
-                                    <span style="color: #4caf50; display: inline-flex; align-items: center; gap: 4px;">
-                                        <RadzenIcon Icon="check_circle" Style="color: #4caf50; font-size: 1.1rem; vertical-align: middle;" /> Completado
-                                    </span>
-                                }
-                                else if(!string.IsNullOrEmpty(pageItem.TranslationError))
-                                {
-                                    <span style="color: #f44336; display: inline-flex; align-items: center; gap: 4px;" title="@pageItem.TranslationError">
-                                        <RadzenIcon Icon="error" Style="color: #f44336; font-size: 1.1rem; vertical-align: middle;" /> Falló
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span style="color: #ffb74d; display: inline-flex; align-items: center; gap: 4px;">
-                                        <RadzenIcon Icon="hourglass_empty" Style="color: #ffb74d; font-size: 1.1rem; vertical-align: middle;" /> Pendiente
-                                    </span>
-                                }
-                            </Template>
-                        </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="JobPageManifest" Title="Revisión" Width="180px">
+                                        <Template Context="pageItem">
+                                            @if(pageItem.ReviewCompleted)
+                                            {
+                                                <span style="color: #4caf50; display: inline-flex; align-items: center; gap: 4px;">
+                                                    <RadzenIcon Icon="check_circle" Style="color: #4caf50; font-size: 1.1rem; vertical-align: middle;" /> Completado
+                                                </span>
+                                            }
+                                            else if(!string.IsNullOrEmpty(pageItem.ReviewError))
+                                            {
+                                                <span style="color: #f44336; display: inline-flex; align-items: center; gap: 4px;" title="@pageItem.ReviewError">
+                                                    <RadzenIcon Icon="error" Style="color: #f44336; font-size: 1.1rem; vertical-align: middle;" /> Falló
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span style="color: #ffb74d; display: inline-flex; align-items: center; gap: 4px;">
+                                                    <RadzenIcon Icon="hourglass_empty" Style="color: #ffb74d; font-size: 1.1rem; vertical-align: middle;" /> Pendiente/No req.
+                                                </span>
+                                            }
+                                        </Template>
+                                    </RadzenDataGridColumn>
 
-                        <RadzenDataGridColumn TItem="JobPageManifest" Title="Revisión" Width="180px">
-                            <Template Context="pageItem">
-                                @if(pageItem.ReviewCompleted)
-                                {
-                                    <span style="color: #4caf50; display: inline-flex; align-items: center; gap: 4px;">
-                                        <RadzenIcon Icon="check_circle" Style="color: #4caf50; font-size: 1.1rem; vertical-align: middle;" /> Completado
-                                    </span>
-                                }
-                                else if(!string.IsNullOrEmpty(pageItem.ReviewError))
-                                {
-                                    <span style="color: #f44336; display: inline-flex; align-items: center; gap: 4px;" title="@pageItem.ReviewError">
-                                        <RadzenIcon Icon="error" Style="color: #f44336; font-size: 1.1rem; vertical-align: middle;" /> Falló
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span style="color: #ffb74d; display: inline-flex; align-items: center; gap: 4px;">
-                                        <RadzenIcon Icon="hourglass_empty" Style="color: #ffb74d; font-size: 1.1rem; vertical-align: middle;" /> Pendiente/No req.
-                                    </span>
-                                }
-                            </Template>
-                        </RadzenDataGridColumn>
+                                    <RadzenDataGridColumn TItem="JobPageManifest" Title="Conversión Doc" Width="180px">
+                                        <Template Context="pageItem">
+                                            <span style="@(pageItem.ConversionCompleted ? "color: #4caf50;" : "color: #b0bec5;") display: inline-flex; align-items: center; gap: 4px;">
+                                                <RadzenIcon Icon="@(pageItem.ConversionCompleted ? "check_circle" : "help_outline")" Style="@((pageItem.ConversionCompleted ? "color: #4caf50;" : "color: #b0bec5;") + " font-size: 1.1rem; vertical-align: middle;")" />
+                                                @(pageItem.ConversionCompleted ? "Completado" : "Pendiente/No req.")
+                                            </span>
+                                        </Template>
+                                    </RadzenDataGridColumn>
+                                </Columns>
+                            </RadzenDataGrid>
+                        }
+                        else
+                        {
+                            <span style="color: #b0bec5;">No hay páginas o fragmentos registrados aún para este archivo.</span>
+                        }
+                    </RadzenCard>
+                </Template>
+                <Columns>
+                    <RadzenDataGridColumn TItem="JobFileManifest" Property="OriginalFileName" Title="Nombre del Archivo Original" />
+                    <RadzenDataGridColumn TItem="JobFileManifest" Property="Completed" Title="Estado del Archivo" Width="130px" TextAlign="TextAlign.Center">
+                        <Template Context="file">
+                            <RadzenBadge BadgeStyle="@(file.Completed ? BadgeStyle.Success : BadgeStyle.Danger)" Text="@(file.Completed ? "Completado" : "Incompleto")" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="JobFileManifest" Property="Pages.Count" Title="Pág/Chunks Totales" Width="160px" TextAlign="TextAlign.Center" />
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenTabsItem>
 
-                        <RadzenDataGridColumn TItem="JobPageManifest" Title="Conversión Doc" Width="180px">
-                            <Template Context="pageItem">
-                                <span style="@(pageItem.ConversionCompleted ? "color: #4caf50;" : "color: #b0bec5;") display: inline-flex; align-items: center; gap: 4px;">
-                                    <RadzenIcon Icon="@(pageItem.ConversionCompleted ? "check_circle" : "help_outline")" Style="@((pageItem.ConversionCompleted ? "color: #4caf50;" : "color: #b0bec5;") + " font-size: 1.1rem; vertical-align: middle;")" />
-                                    @(pageItem.ConversionCompleted ? "Completado" : "Pendiente/No req.")
-                                </span>
-                            </Template>
-                        </RadzenDataGridColumn>
-                    </Columns>
-                </RadzenDataGrid>
-            }
-            else
-            {
-                <span style="color: #b0bec5;">No hay páginas o fragmentos registrados aún para este archivo.</span>
-            }
-        </RadzenCard>
-    </Template>
-    <Columns>
-        <RadzenDataGridColumn TItem="JobFileManifest" Property="OriginalFileName" Title="Nombre del Archivo Original" />
-        <RadzenDataGridColumn TItem="JobFileManifest" Property="Completed" Title="Estado del Archivo" Width="130px" TextAlign="TextAlign.Center">
-            <Template Context="file">
-                <RadzenBadge BadgeStyle="@(file.Completed ? BadgeStyle.Success : BadgeStyle.Danger)" Text="@(file.Completed ? "Completado" : "Incompleto")" />
-            </Template>
-        </RadzenDataGridColumn>
-        <RadzenDataGridColumn TItem="JobFileManifest" Property="Pages.Count" Title="Pág/Chunks Totales" Width="160px" TextAlign="TextAlign.Center" />
-    </Columns>
-</RadzenDataGrid>
+        <RadzenTabsItem Text="Archivos Generados (.md / .docx)" Icon="folder_open">
+            <RadzenRow class="rz-mt-3">
+                <RadzenColumn Size="4">
+                    <RadzenCard style="min-height: 400px; max-height: 550px; overflow-y: auto; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Archivos en el Directorio de Salida</RadzenText>
+                        @if (outputFiles.Count == 0)
+                        {
+                            <div style="padding: 10px; color: #b0bec5; font-size: 0.9rem;">No se encontraron archivos en la carpeta de salida del trabajo.</div>
+                        }
+                        else
+                        {
+                            <RadzenListBox Data="@outputFiles" TValue="string" style="width: 100%; height: 350px; background: transparent; border: none;" Change="@((args) => SelectOutputFile((string)args))">
+                                <Template Context="path">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <RadzenIcon Icon="@(path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ? "article" : "description")" Style="font-size: 1.2rem; color: #6366f1;" />
+                                        <span>@Path.GetFileName(path)</span>
+                                    </div>
+                                </Template>
+                            </RadzenListBox>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="8">
+                    <RadzenCard style="min-height: 400px; max-height: 550px; display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">
+                            Previsualización: @(selectedOutputFileName ?? "Selecciona un archivo")
+                        </RadzenText>
+                        @if (selectedOutputFileContent != null)
+                        {
+                            <div class="virtual-console flex-grow-1" style="max-height: 380px; overflow-y: auto; white-space: pre-wrap; background-color: #030712; color: #cbd5e1; font-family: monospace; padding: 12px; border-radius: 6px;">@selectedOutputFileContent</div>
+                        }
+                        else
+                        {
+                            <div style="display: flex; align-items: center; justify-content: center; height: 320px; color: #b0bec5;">
+                                Selecciona un archivo de texto/markdown de la lista para ver su contenido.
+                            </div>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Imágenes Extraídas (PDF)" Icon="image">
+            <RadzenRow class="rz-mt-3">
+                <RadzenColumn Size="4">
+                    <RadzenCard style="min-height: 400px; max-height: 550px; overflow-y: auto; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Páginas Renderizadas (PNG)</RadzenText>
+                        @if (tempImages.Count == 0)
+                        {
+                            <div style="padding: 10px; color: #b0bec5; font-size: 0.9rem;">No se encontraron imágenes extraídas en este trabajo (solo documentos con OCR tienen imágenes temporales).</div>
+                        }
+                        else
+                        {
+                            <RadzenListBox Data="@tempImages" TValue="string" style="width: 100%; height: 350px; background: transparent; border: none;" Change="@((args) => SelectImage((string)args))">
+                                <Template Context="path">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <RadzenIcon Icon="image" Style="font-size: 1.2rem; color: #10b981;" />
+                                        <span>@Path.GetFileName(path)</span>
+                                    </div>
+                                </Template>
+                            </RadzenListBox>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="8">
+                    <RadzenCard style="min-height: 400px; max-height: 550px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; width: 100%;">
+                            Visor: @(selectedImageName ?? "Selecciona una página")
+                        </RadzenText>
+                        @if (selectedImageBase64 != null)
+                        {
+                            <div style="max-height: 380px; width: 100%; overflow: auto; text-align: center; border: 1px solid rgba(255,255,255,0.05); padding: 8px; border-radius: 4px; background: #000; display: flex; justify-content: center; align-items: center;">
+                                <img src="data:image/png;base64,@selectedImageBase64" style="max-width: 100%; max-height: 350px; object-fit: contain;" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div style="display: flex; align-items: center; justify-content: center; height: 320px; color: #b0bec5;">
+                                Selecciona una página de la lista para visualizar la imagen renderizada del PDF.
+                            </div>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Bitácora de Logs" Icon="article">
+            <RadzenRow class="rz-mt-3">
+                <RadzenColumn Size="4">
+                    <RadzenCard style="min-height: 400px; max-height: 550px; overflow-y: auto; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Archivos de Bitácora</RadzenText>
+                        @if (logFiles.Count == 0)
+                        {
+                            <div style="padding: 10px; color: #b0bec5; font-size: 0.9rem;">No se encontraron archivos de log en este trabajo.</div>
+                        }
+                        else
+                        {
+                            <RadzenListBox Data="@logFiles" TValue="string" style="width: 100%; height: 350px; background: transparent; border: none;" Change="@((args) => SelectLogFile((string)args))">
+                                <Template Context="path">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <RadzenIcon Icon="receipt_long" Style="font-size: 1.2rem; color: #f59e0b;" />
+                                        <span>@Path.GetFileName(path)</span>
+                                    </div>
+                                </Template>
+                            </RadzenListBox>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="8">
+                    <RadzenCard style="min-height: 400px; max-height: 550px; display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">
+                            Contenido: @(selectedLogFileName ?? "Selecciona un log")
+                        </RadzenText>
+                        @if (selectedLogFileContent != null)
+                        {
+                            <div class="virtual-console flex-grow-1" style="max-height: 380px; overflow-y: auto; white-space: pre-wrap; background-color: #030712; color: #f59e0b; font-family: monospace; padding: 12px; border-radius: 6px;">@selectedLogFileContent</div>
+                        }
+                        else
+                        {
+                            <div style="display: flex; align-items: center; justify-content: center; height: 320px; color: #b0bec5;">
+                                Selecciona una bitácora para previsualizar los eventos registrados en el backend.
+                            </div>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
 
 <div class="rz-text-align-right rz-mt-4">
     <RadzenButton Text="Cerrar" Click="@(() => DialogService.Close())" ButtonStyle="ButtonStyle.Secondary" />
@@ -142,6 +278,114 @@
 @code {
     [Parameter]
     public JobManifest Job { get; set; } = default!;
+
+    private string jobDir => Path.Combine(TranslationOrchestrator.GetJobsDirectory(), Job.JobId);
+
+    private List<string> outputFiles = new List<string>();
+    private string? selectedOutputFileContent = null;
+    private string? selectedOutputFileName = null;
+
+    private List<string> tempImages = new List<string>();
+    private string? selectedImageBase64 = null;
+    private string? selectedImageName = null;
+
+    private List<string> logFiles = new List<string>();
+    private string? selectedLogFileContent = null;
+    private string? selectedLogFileName = null;
+
+    protected override void OnInitialized()
+    {
+        LoadOutputFiles();
+        LoadTempImages();
+        LoadLogFiles();
+    }
+
+    private void LoadOutputFiles()
+    {
+        try
+        {
+            string outputsPath = Path.Combine(jobDir, "outputs");
+            if (Directory.Exists(outputsPath))
+            {
+                outputFiles = Directory.GetFiles(outputsPath).ToList();
+            }
+        }
+        catch {}
+    }
+
+    private void SelectOutputFile(string path)
+    {
+        try
+        {
+            selectedOutputFileName = Path.GetFileName(path);
+            if (path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".log", StringComparison.OrdinalIgnoreCase))
+            {
+                selectedOutputFileContent = File.ReadAllText(path);
+            }
+            else
+            {
+                selectedOutputFileContent = $"[Archivo binario o no legible en texto: {selectedOutputFileName}]";
+            }
+        }
+        catch (Exception ex)
+        {
+            selectedOutputFileContent = $"Error al leer el archivo: {ex.Message}";
+        }
+    }
+
+    private void LoadTempImages()
+    {
+        try
+        {
+            string tempPath = Path.Combine(jobDir, "temp");
+            if (Directory.Exists(tempPath))
+            {
+                tempImages = Directory.GetFiles(tempPath, "*.png").ToList();
+            }
+        }
+        catch {}
+    }
+
+    private void SelectImage(string path)
+    {
+        try
+        {
+            selectedImageName = Path.GetFileName(path);
+            byte[] bytes = File.ReadAllBytes(path);
+            selectedImageBase64 = Convert.ToBase64String(bytes);
+        }
+        catch (Exception ex)
+        {
+            selectedImageBase64 = null;
+            selectedImageName = $"Error al cargar la imagen: {ex.Message}";
+        }
+    }
+
+    private void LoadLogFiles()
+    {
+        try
+        {
+            string logsPath = Path.Combine(jobDir, "logs");
+            if (Directory.Exists(logsPath))
+            {
+                logFiles = Directory.GetFiles(logsPath).ToList();
+            }
+        }
+        catch {}
+    }
+
+    private void SelectLogFile(string path)
+    {
+        try
+        {
+            selectedLogFileName = Path.GetFileName(path);
+            selectedLogFileContent = File.ReadAllText(path);
+        }
+        catch (Exception ex)
+        {
+            selectedLogFileContent = $"Error al leer los logs: {ex.Message}";
+        }
+    }
 
     private BadgeStyle GetBadgeStyle(string status)
     {
