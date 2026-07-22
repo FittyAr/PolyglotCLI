@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eliminación completa del proveedor Anthropic Claude y su cliente dedicado `AnthropicClient` para simplificar la arquitectura, dejando únicamente los conectores oficiales integrados de Semantic Kernel.
 
 ### Fixed
+- Implementada la interrupción inmediata de todo el trabajo ante errores críticos de autenticación o API Key inválida (HTTP 401 Unauthorized), impidiendo ejecuciones fallidas repetidas en cascada por cada página del documento.
+- Implementada la consulta automática a internet (asíncrona y en segundo plano) de los modelos disponibles al cambiar el proveedor en el combobox de la UI web.
+- Restringida la limpieza y validación de VRAM únicamente a los proveedores locales y compatibles (Ollama, LM Studio), eliminando advertencias confusas e incorrectas sobre servidores en la nube como MiniMax, Gemini o OpenAI.
 - Corregida la actualización inmediata del selector de modelos en la interfaz web de configuración al cambiar de proveedor en las pestañas de OCR, traducción y revisión, limpiando o preseleccionando modelos válidos del nuevo proveedor.
 - Añadida precarga de modelos sugeridos por defecto para proveedores no conectados en la configuración de la Web, y actualizados los modelos de MiniMax con la serie oficial actual (MiniMax-M3, M2.7, M2.5, etc.) en lugar de la serie obsoleta abab6.5.
 - Corregida la sincronización de credenciales y URL en las pruebas de conexión del panel de configuración de la Web, asegurando que los valores editados en tiempo real en los textboxes tengan prioridad inmediata al realizar pruebas y listar modelos del proveedor seleccionado.

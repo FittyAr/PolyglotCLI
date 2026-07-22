@@ -312,6 +312,11 @@ namespace PolyglotCLI
                     }
                     catch (Exception ex)
                     {
+                        if (LlmClientFactory.IsFatalAuthenticationError(ex))
+                        {
+                            AppLogger.ErrorConsole($"[FATAL] Error crítico de autenticación/API Key durante la extracción: {ex.Message}. Abortando.", ex);
+                            throw;
+                        }
                         AppLogger.ErrorConsole($"Fatal error extracting text from {fileName}", ex);
                         
                         var failedStates = new List<PageProcessState>
@@ -429,6 +434,11 @@ namespace PolyglotCLI
                                     }
                                     catch (Exception transEx)
                                     {
+                                        if (LlmClientFactory.IsFatalAuthenticationError(transEx))
+                                        {
+                                            AppLogger.ErrorConsole($"[FATAL] Error crítico de autenticación/API Key durante la traducción: {transEx.Message}. Abortando.", transEx);
+                                            throw;
+                                        }
                                         lastEx = transEx;
                                         // Removed console line break
                                         AppLogger.ErrorConsole($"Translation Error on page/chunk {pageNum}", transEx);
@@ -516,6 +526,11 @@ namespace PolyglotCLI
                                     }
                                     catch (Exception ocrEx)
                                     {
+                                        if (LlmClientFactory.IsFatalAuthenticationError(ocrEx))
+                                        {
+                                            AppLogger.ErrorConsole($"[FATAL] Error crítico de autenticación/API Key durante el reintento de OCR: {ocrEx.Message}. Abortando.", ocrEx);
+                                            throw;
+                                        }
                                         // Removed console line break
                                         AppLogger.ErrorConsole($"[RETRY] Page {pageNum} OCR extraction retry failed", ocrEx);
                                         state.OcrFailed = true;
@@ -536,6 +551,11 @@ namespace PolyglotCLI
                                     }
                                     catch (Exception imgEx)
                                     {
+                                        if (LlmClientFactory.IsFatalAuthenticationError(imgEx))
+                                        {
+                                            AppLogger.ErrorConsole($"[FATAL] Error crítico de autenticación/API Key durante el reintento de OCR sobre imagen: {imgEx.Message}. Abortando.", imgEx);
+                                            throw;
+                                        }
                                         // Removed console line break
                                         AppLogger.ErrorConsole($"[RETRY] Image OCR retry failed", imgEx);
                                         state.OcrFailed = true;
@@ -565,6 +585,11 @@ namespace PolyglotCLI
                                     }
                                     catch (Exception ex)
                                     {
+                                        if (LlmClientFactory.IsFatalAuthenticationError(ex))
+                                        {
+                                            AppLogger.ErrorConsole($"[FATAL] Error crítico de autenticación/API Key durante la re-extracción en reintento: {ex.Message}. Abortando.", ex);
+                                            throw;
+                                        }
                                         AppLogger.ErrorConsole($"[RETRY] Re-extraction of {fileName} failed", ex);
                                         JobManifestService.UpdatePageOcr(currentManifest, manifestPath, filePath, pageNum, false, ex.Message);
                                     }
@@ -585,6 +610,11 @@ namespace PolyglotCLI
                                 }
                                 catch (Exception transEx)
                                 {
+                                    if (LlmClientFactory.IsFatalAuthenticationError(transEx))
+                                    {
+                                        AppLogger.ErrorConsole($"[FATAL] Error crítico de autenticación/API Key durante el reintento de traducción: {transEx.Message}. Abortando.", transEx);
+                                        throw;
+                                    }
                                     // Removed console line break
                                     AppLogger.ErrorConsole($"[RETRY] Page/Chunk {pageNum} translation retry failed", transEx);
                                     state.TranslationFailed = true;
@@ -631,6 +661,11 @@ namespace PolyglotCLI
                             }
                             catch (Exception revEx)
                             {
+                                if (LlmClientFactory.IsFatalAuthenticationError(revEx))
+                                {
+                                    AppLogger.ErrorConsole($"[FATAL] Error crítico de autenticación/API Key durante la revisión: {revEx.Message}. Abortando.", revEx);
+                                    throw;
+                                }
                                 Console.WriteLine(); // fix line break
                                 AppLogger.WarnConsole($"[REVIEW] Page {state.PageNumber} review failed (keeping current translation): {revEx.Message}");
                                 JobManifestService.UpdatePageReview(currentManifest, manifestPath, filePath, state.PageNumber, false, revEx.Message);

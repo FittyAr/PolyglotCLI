@@ -89,6 +89,10 @@ namespace PolyglotCLI
                     }
                     catch (Exception ocrEx)
                     {
+                        if (LlmClientFactory.IsFatalAuthenticationError(ocrEx))
+                        {
+                            throw;
+                        }
                         state.OcrFailed = true;
                         state.OcrErrorMessage = ocrEx.Message;
                         state.OcrText = $"*Failed to perform OCR on page {pageNum} due to error: {ocrEx.Message}*";

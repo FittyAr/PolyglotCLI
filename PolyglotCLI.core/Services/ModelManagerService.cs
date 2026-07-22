@@ -11,28 +11,74 @@ namespace PolyglotCLI
             AppConfig config, 
             bool requiresVisionModel)
         {
-            AppLogger.Info($"Connecting and validating API server ({options.Provider}) at: {options.ApiUrl}");
-            using var checkClient = LlmClientFactory.CreateClient(options, config, config.ModelCheckTimeoutSeconds);
-            
-            string loadedModel = await checkClient.GetFirstLoadedModelAsync();
-            if (string.IsNullOrWhiteSpace(loadedModel))
+            // Determinar el proveedor principal de traducción
+            string transProviderStr = !string.IsNullOrWhiteSpace(options.TranslationProvider) 
+                ? options.TranslationProvider 
+                : (!string.IsNullOrWhiteSpace(config.TranslationProvider) ? config.TranslationProvider : config.Provider);
+            var transProvider = LlmProviderHelper.ParseProvider(transProviderStr);
+
+            string loadedModel = string.Empty;
+
+            // Solo validar/limpiar VRAM si el proveedor soporta descarga de VRAM (es local: Ollama, LmStudio)
+            if (LlmProviderHelper.SupportsVramUnload(transProvider))
             {
-                AppLogger.WarnConsole($"Warning: Could not detect any loaded models in {options.Provider}.");
-                AppLogger.Info("Please ensure the LLM service is running or configured correctly.");
-            }
-            else
-            {
-                AppLogger.InfoConsole($"Detected model in backend ({options.Provider}): {loadedModel}", ConsoleColor.Cyan);
+                AppLogger.Info($"Connecting and validating API server ({transProviderStr}) at: {config.GetProviderConfig(transProviderStr).ApiUrl}");
+                try
+                {
+                    using var checkClient = LlmClientFactory.CreateClientForTranslation(options, config, config.ModelCheckTimeoutSeconds);
+                    loadedModel = await checkClient.GetFirstLoadedModelAsync();
+                    if (string.IsNullOrWhiteSpace(loadedModel))
+                    {
+                        AppLogger.WarnConsole($"Warning: Could not detect any loaded models in {transProviderStr}.");
+                        AppLogger.Info("Please ensure the LLM service is running or configured correctly.");
+                    }
+                    else
+                    {
+                        AppLogger.InfoConsole($"Detected model in backend ({transProviderStr}): {loadedModel}", ConsoleColor.Cyan);
+                    }
+
+                    string textModel = options.ModelName ?? loadedModel;
+                    if (!string.IsNullOrEmpty(textModel))
+                    {
+                        AppLogger.Info($"VRAM Management: Cleaning up loaded models except '{textModel}'...");
+                        await checkClient.UnloadAllExceptAsync(textModel);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn($"Failed to validate/clean VRAM for translation provider {transProviderStr}: {ex.Message}");
+                }
             }
 
-            string textModel = options.ModelName ?? loadedModel;
-            string visionModel = options.VisionModelName ?? loadedModel;
-
-            string firstRequiredModel = requiresVisionModel ? visionModel : textModel;
-            if (!string.IsNullOrEmpty(firstRequiredModel))
+            // Si se requiere OCR y el proveedor de OCR es local y diferente al de traducción, también limpiamos su VRAM
+            if (requiresVisionModel)
             {
-                AppLogger.Info($"VRAM Management: Cleaning up loaded models except '{firstRequiredModel}'...");
-                await checkClient.UnloadAllExceptAsync(firstRequiredModel);
+                string ocrProviderStr = !string.IsNullOrWhiteSpace(options.OcrProvider)
+                    ? options.OcrProvider
+                    : (!string.IsNullOrWhiteSpace(config.OcrProvider) ? config.OcrProvider : config.Provider);
+                var ocrProvider = LlmProviderHelper.ParseProvider(ocrProviderStr);
+
+                if (LlmProviderHelper.SupportsVramUnload(ocrProvider) && 
+                    (!ocrProviderStr.Equals(transProviderStr, StringComparison.OrdinalIgnoreCase)))
+                {
+                    AppLogger.Info($"Connecting and validating OCR API server ({ocrProviderStr}) at: {config.GetProviderConfig(ocrProviderStr).ApiUrl}");
+                    try
+                    {
+                        using var ocrCheckClient = LlmClientFactory.CreateClientForOcr(options, config, config.ModelCheckTimeoutSeconds);
+                        string ocrLoaded = await ocrCheckClient.GetFirstLoadedModelAsync();
+                        
+                        string visionModel = options.VisionModelName ?? ocrLoaded;
+                        if (!string.IsNullOrEmpty(visionModel))
+                        {
+                            AppLogger.Info($"VRAM Management (OCR): Cleaning up loaded models except '{visionModel}'...");
+                            await ocrCheckClient.UnloadAllExceptAsync(visionModel);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.Warn($"Failed to validate/clean VRAM for OCR provider {ocrProviderStr}: {ex.Message}");
+                    }
+                }
             }
 
             return loadedModel;

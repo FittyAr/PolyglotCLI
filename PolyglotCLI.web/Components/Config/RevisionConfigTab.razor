@@ -60,13 +60,14 @@
         UpdateModelsList();
     }
 
-    private void OnProviderChanged(object value)
+    private async Task OnProviderChanged(object value)
     {
         if (value is string providerStr)
         {
             AppConfig.ReviewProvider = providerStr;
         }
         UpdateModelsList(true);
+        await FetchModelsForProvider();
     }
 
     private void UpdateModelsList(bool providerChanged = false)

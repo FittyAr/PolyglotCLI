@@ -58,6 +58,10 @@ namespace PolyglotCLI
             }
             catch (Exception ex)
             {
+                if (LlmClientFactory.IsFatalAuthenticationError(ex))
+                {
+                    throw;
+                }
                 var state = new PageProcessState
                 {
                     PageNumber = 1,

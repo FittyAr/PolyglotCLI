@@ -78,5 +78,20 @@ namespace PolyglotCLI
                 _ => new OpenAiCompatibleClient(apiUrl, apiKey, timeoutSeconds)
             };
         }
+
+        public static bool IsFatalAuthenticationError(Exception ex)
+        {
+            if (ex == null) return false;
+            string msg = ex.Message.ToLowerInvariant();
+            return msg.Contains("401") ||
+                   msg.Contains("unauthorized") ||
+                   msg.Contains("invalid api key") ||
+                   msg.Contains("invalid_api_key") ||
+                   msg.Contains("authorized_error") ||
+                   msg.Contains("auth_error") ||
+                   msg.Contains("api key is invalid") ||
+                   msg.Contains("api-key is invalid") ||
+                   msg.Contains("unauthorised");
+        }
     }
 }
