@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- Eliminado por completo el proyecto de interfaz de consola interactiva (`PolyglotCLI.cli`) para centralizar el desarrollo y las funcionalidades exclusivamente en la versión Web (`PolyglotCLI.web`).
+
 ### Added
 - **Verificador de Páginas en Pestañas**: Se ha rediseñado la interfaz del verificador de páginas dividiendo ambos paneles en pestañas. El panel izquierdo ahora permite comparar la imagen original de la página con el texto plano extraído (OCR) completamente limpio (sin trazas de razonamiento), mientras que el panel derecho separa la edición de la traducción de las trazas de pensamiento.
 - **Visor de Trazas de Pensamiento (Reasoning)**: Soporte para procesar, extraer y persistir los bloques `<think>...</think>` que envían los modelos de razonamiento (tanto en la fase de extracción OCR como en la de traducción) en el JSON del trabajo. Los usuarios pueden visualizar cómodamente qué pensó el modelo en cada página de forma opcional a través de una pestaña dedicada en el verificador de páginas.

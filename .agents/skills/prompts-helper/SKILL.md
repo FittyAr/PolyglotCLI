@@ -16,11 +16,11 @@ All LLM system and user prompt templates are stored as Markdown/Text files in th
 - **`review_prompt.md`**: Instructions for the reviewer model to verify and improve translated text.
 - **`prompt_helper.md` / `prompt_improver_prompt.md`**: Prompts used to optimize/improve custom prompts.
 
-These are loaded at runtime by [PromptLoader.cs](../../../Services/PromptLoader.cs).
+These are loaded at runtime by [PromptLoader.cs](../../../PolyglotCLI.core/Services/PromptLoader.cs).
 
 ## Guidelines
 
-1. **Never Hardcode System Prompts in Code**: Do not write system instructions directly inside [TranslationOrchestrator.cs](../../../Services/TranslationOrchestrator.cs) or other C# files.
+1. **Never Hardcode System Prompts in Code**: Do not write system instructions directly inside [TranslationOrchestrator.cs](../../../PolyglotCLI.core/Services/TranslationOrchestrator.cs) or other C# files.
 2. **Modify Markdown files**: Edit the corresponding `.md` file inside the `prompts/` folder.
 3. **Format Preservation**: Ensure prompt templates clearly specify that formatting (e.g. Markdown structure, tables, titles) must be preserved in the output.
 4. **Validation**: Check that any changes to prompts do not break formatting assumptions made by the parser.

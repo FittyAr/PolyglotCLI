@@ -17,10 +17,6 @@ This document establishes the architecture, design principles, and guidelines fo
   * App configurations must be loaded and saved via the `AppConfig` class from `config.json`.
   * System/user prompts for the LLM processing (OCR, translation, review, prompt optimization) must be loaded dynamically from the `prompts` directory via the `PromptLoader` service.
 
-### Separation of Core and TUI/CLI (decoupled state)
-* **Rule:** The business logic (extractors, OCR, translation services, HTTP clients) must remain entirely decoupled from the presentation views (`InteractiveMenu`, `SettingsDialog`, `ModelSelectionDialog`).
-* **Reasoning:** Allows running the application in headless command-line mode or integration testing without initializing a terminal GUI.
-
 ### Extensibility (Open/Closed Principle)
 * **Rule:** Support for new file formats or translation clients must be added by implementing interfaces (e.g., `IDocumentExtractor`) and registering them in the factory (`DocumentExtractorFactory`), without modifying the existing execution loops.
 
@@ -32,39 +28,43 @@ The project follows a modular C# structure. Ensure that new classes are placed i
 
 ```text
 PolyglotCLI/
-├── PolyglotCLI.csproj          # Project configuration file
 ├── config.json                 # JSON configuration settings
 ├── CHANGELOG.md                # Project changelog
+├── PolyglotCLI.slnx            # .NET Solution file
 ├── .agents/
 │   └── AGENTS.md               # This file
-├── Configuration/              # App configuration, CLI parser and state models
-│   ├── AppConfig.cs            # Configuration model & persistence handler
-│   ├── CommandLineOptions.cs   # Command-line argument parser and validator
-│   └── PageProcessState.cs     # Processing states for document pages
-├── Clients/                    # External API client wrappers
-│   └── LmStudioClient.cs       # LM Studio/OpenAI compatible vision & text API client
-├── Services/                   # Core business logic services
-│   ├── AppLogger.cs            # Custom Serilog-based logging system
-│   ├── IDocumentExtractor.cs   # Base interface for document extractors
-│   ├── DocumentExtractorFactory.cs # Factory to resolve extractors based on extension
-│   ├── PdfDocumentExtractor.cs # PDF extraction orchestration (direct text or image OCR)
-│   ├── PdfTextExtractor.cs     # PDF text extractor using PdfPig
-│   ├── PdfPageRenderer.cs      # PDF page image rendering using PDFtoImage/SkiaSharp
-│   ├── DocxDocumentExtractor.cs # DOCX text extractor
-│   ├── DocDocumentExtractor.cs # DOC text extractor
-│   ├── OdtDocumentExtractor.cs # ODT text extractor
-│   ├── PlainTextDocumentExtractor.cs # Plain text (txt/md/etc.) extractor
-│   ├── ImageDocumentExtractor.cs # Image extractor (direct OCR)
-│   ├── OcrService.cs           # Manages vision API requests for OCR
-│   ├── TranslatorService.cs    # Manages text translation requests
-│   ├── TextChunker.cs          # Logic to chunk text by character length
-│   ├── MarkdownWriter.cs       # File writer appending translations incrementally
-│   ├── TranslationOrchestrator.cs # Main pipeline orchestrating OCR & translation
-│   ├── PromptLoader.cs         # Service to load prompt templates from files
-│   ├── PromptHelperService.cs  # Services to optimize, improve and validate prompts
-│   ├── InteractiveMenu.cs      # Main console TUI menu using Terminal.Gui
-│   ├── SettingsDialog.cs       # Dialog for editing configuration settings (Terminal.Gui)
-│   └── ModelSelectionDialog.cs # Dialog to select loaded LM Studio models (Terminal.Gui)
+├── PolyglotCLI.core/           # Shared core business logic
+│   ├── Clients/                # External API client wrappers (Ollama, Gemini, etc.)
+│   ├── Configuration/          # App configuration and processing states
+│   │   ├── AppConfig.cs        # Configuration model & persistence handler
+│   │   └── PageProcessState.cs # Processing states for document pages
+│   └── Services/               # Core business logic services
+│       ├── AppLogger.cs        # Custom Serilog-based logging system
+│       ├── IDocumentExtractor.cs # Base interface for document extractors
+│       ├── DocumentExtractorFactory.cs # Factory to resolve extractors based on extension
+│       ├── PdfDocumentExtractor.cs # PDF extraction orchestration (direct text or image OCR)
+│       ├── PdfTextExtractor.cs # PDF text extractor using PdfPig
+│       ├── PdfPageRenderer.cs  # PDF page image rendering using PDFtoImage/SkiaSharp
+│       ├── DocxDocumentExtractor.cs # DOCX text extractor
+│       ├── DocDocumentExtractor.cs # DOC text extractor
+│       ├── OdtDocumentExtractor.cs # ODT text extractor
+│       ├── PlainTextDocumentExtractor.cs # Plain text (txt/md/etc.) extractor
+│       ├── ImageDocumentExtractor.cs # Image extractor (direct OCR)
+│       ├── OcrService.cs       # Manages vision API requests for OCR
+│       ├── TranslatorService.cs # Manages text translation requests
+│       ├── TextChunker.cs      # Logic to chunk text by character length
+│       ├── MarkdownWriter.cs   # File writer appending translations incrementally
+│       ├── TranslationOrchestrator.cs # Main pipeline orchestrating OCR & translation
+│       ├── PromptLoader.cs     # Service to load prompt templates from files
+│       └── PromptHelperService.cs # Services to optimize, improve and validate prompts
+├── PolyglotCLI.web/            # Blazor Web App (presentation and dashboard)
+│   ├── Program.cs              # Web app startup and configuration
+│   ├── TranslationSession.cs   # In-memory user translation sessions
+│   ├── Components/             # UI Components (Pages, Config, Layout)
+│   │   ├── Config/             # Settings Tabs (General, OCR, Prompts, etc.)
+│   │   ├── Pages/              # Pages: Home, History, Config
+│   │   └── Layout/             # Main layout & side navigation
+│   └── wwwroot/                # Static assets (CSS, JS)
 ├── prompts/                    # External prompt files
 │   ├── ocr_prompt.md           # Prompt for OCR parsing
 │   ├── translation_prompt.md   # Prompt for Translation
@@ -80,7 +80,7 @@ PolyglotCLI/
 
 Do not implement standard functionality from scratch. Use these pre-selected libraries:
 
-1. **Terminal UI & Drawing:** `Terminal.Gui` (Console GUI library).
+1. **Web UI Components:** `Radzen.Blazor` (component library for Blazor Web Apps).
 2. **Logging:** `Serilog`, `Serilog.Sinks.File`, and `Serilog.Sinks.Map` (for dynamic, per-process logging).
 3. **PDF Utilities:** `UglyToad.PdfPig` (PDF text extraction) and `PDFtoImage` with `SkiaSharp` (PDF page to image rendering).
 4. **Markdown Utilities:** `Markdig` (Markdown parser).
@@ -118,7 +118,7 @@ Do not implement standard functionality from scratch. Use these pre-selected lib
 Before submitting code, verify:
 1. **Compilation:** Run `dotnet build` to ensure the project compiles cleanly with no errors and minimal warnings.
 2. **Formatting:** Maintain standard C# guidelines (PascalCase for classes, interfaces prefixed with `I`, camelCase for local parameters/variables).
-3. **Execution:** Ensure the application runs correctly under interactive mode (`dotnet run`) and CLI mode overrides.
+3. **Execution:** Ensure the web application runs correctly with `dotnet run --project PolyglotCLI.web`.
 
 ---
 

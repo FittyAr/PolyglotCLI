@@ -1,35 +1,41 @@
 # PolyglotCLI
 
-A lightweight, modern C# console application built with .NET 10 to translate PDF documents page-by-page. It supports extracting text directly from selectable PDF files or rendering pages into images to perform OCR using vision-enabled local LLMs (like Qwen2.5-VL or Llama 3.2 Vision) inside **LM Studio**.
+A modern, web-based translation application built with ASP.NET Core Blazor (interactive server-side) and .NET 10. It translates PDF and other documents page-by-page, supporting direct text extraction or image-rendering with OCR using vision-enabled local or cloud-based LLMs (such as Qwen2.5-VL, Llama 3.2 Vision, Gemini, or Ollama).
 
-Translations are processed incrementally (page-by-page) and appended immediately to a Markdown output file, minimizing memory usage.
+Translations are processed incrementally (page-by-page) and appended immediately to the output files, keeping memory usage minimal.
 
 ---
 
 ## Features
 
-- **Single Responsibility Principle (SRP)**: Clean codebase where each file governs a single component.
-- **Two Processing Modes**:
-  - `text`: Extracts text directly from selectable PDF pages.
-  - `image`: Renders PDF pages to PNG and performs OCR via LM Studio's Vision API.
-- **Incremental Markdown Generation**: Translates page-by-page and appends to the markdown file in real-time, preventing large memory footprints.
-- **JSON Configuration**: Configured entirely via `config.json` with CLI overrides.
-- **External Markdown Prompts**: System prompts for OCR and Translation are located in the `prompts` folder for easy adjustments.
+- **Single Responsibility Principle (SRP)**: Highly modular design separating core translation engine, clients, and presentation layer.
+- **Modern Web Interface**: Built with Blazor and Radzen components, providing a dark-themed responsive dashboard, real-time logs, live preview/editing of translations, and a prompt manager.
+- **Multiple Processing Modes**:
+  - `text`: Extracts text directly from selectable PDF and text-based documents.
+  - `image`: Renders document pages as images and performs OCR using vision models.
+- **Incremental File Generation**: Appends translated content in real-time, preventing large memory footprints.
+- **Centralized Configuration**: Settings managed via `config.json` with multi-provider credentials support.
+- **External Markdown Prompts**: System prompts for OCR, translation, and reviews are loaded dynamically from the `prompts` folder.
 
 ---
 
 ## Architecture & Code Structure
 
-- [Program.cs](Program.cs): Main orchestration flow.
-- [Configuration/CommandLineOptions.cs](Configuration/CommandLineOptions.cs): Command-line argument parsing and validation.
-- [Configuration/AppConfig.cs](Configuration/AppConfig.cs): Configuration parser for `config.json`.
-- [Services/PromptLoader.cs](Services/PromptLoader.cs): Service to load markdown prompt templates.
-- [Services/PdfTextExtractor.cs](Services/PdfTextExtractor.cs): Handles direct text extraction via `PdfPig`.
-- [Services/PdfPageRenderer.cs](Services/PdfPageRenderer.cs): Renders PDF pages into PNG bytes via `PDFtoImage` / `SkiaSharp`.
-- [Clients/LmStudioClient.cs](Clients/LmStudioClient.cs): HTTP client for OpenAI-compatible REST completions and vision API.
-- [Services/OcrService.cs](Services/OcrService.cs): Manages OCR workflow with local Vision LLMs.
-- [Services/TranslatorService.cs](Services/TranslatorService.cs): Manages text translation to target languages.
-- [Services/MarkdownWriter.cs](Services/MarkdownWriter.cs): Handles incremental appending of pages to the markdown file.
+The solution is divided into two main projects:
+
+### 1. [PolyglotCLI.core](PolyglotCLI.core/) (Core Business Logic)
+- [Clients/](PolyglotCLI.core/Clients/): Multi-provider HTTP client wrappers (Ollama, LM Studio, Gemini, Anthropic, etc.).
+- [Configuration/AppConfig.cs](PolyglotCLI.core/Configuration/AppConfig.cs): Configuration parser and state persistence.
+- [Services/TranslationOrchestrator.cs](PolyglotCLI.core/Services/TranslationOrchestrator.cs): Main pipeline coordinating extraction, OCR, translation, and validation.
+- [Services/IDocumentExtractor.cs](PolyglotCLI.core/Services/IDocumentExtractor.cs): Unified interface for extracting document content (PDF, DOCX, DOC, ODT, images, plain text).
+- [Services/OcrService.cs](PolyglotCLI.core/Services/OcrService.cs): Manages the OCR request pipeline.
+- [Services/TranslatorService.cs](PolyglotCLI.core/Services/TranslatorService.cs): Orchestrates LLM prompt assembly and calls translation providers.
+
+### 2. [PolyglotCLI.web](PolyglotCLI.web/) (Web Presentation & Dashboard)
+- [Program.cs](PolyglotCLI.web/Program.cs): Startup configurations and background services.
+- [Components/Pages/Home.razor](PolyglotCLI.web/Components/Pages/Home.razor): Main translation dashboard.
+- [Components/Pages/History.razor](PolyglotCLI.web/Components/Pages/History.razor): Translation work viewer, editor, and page verifier.
+- [Components/Pages/Config.razor](PolyglotCLI.web/Components/Pages/Config.razor): Central settings panel for APIs, LLM models, prompts, and chunking configurations.
 
 ---
 
@@ -98,54 +104,31 @@ Settings are loaded from `config.json` in the root folder. You can edit this fil
 
 ## How to Use
 
-To run the application, execute `dotnet run` from the project directory.
-
-### Interactive Mode (Recommended)
-
-Simply run the application without any arguments to launch the interactive configuration menu:
-```powershell
-dotnet run
-```
-This will automatically connect to LM Studio, fetch loaded models, let you select them, input your PDF files (including via drag & drop), and verify settings before starting the translation.
-
-### CLI Mode (Basic Syntax)
+To run the application, launch the Web project:
 
 ```powershell
-dotnet run -- --files <path-to-pdf> [options]
+dotnet run --project PolyglotCLI.web
 ```
 
-### Examples
+Once started, navigate to the local server URL indicated in your console output (typically `http://localhost:5000` or `https://localhost:5001`).
 
-**1. Translate a selectable text PDF using default config:**
-```powershell
-dotnet run -- --files "C:\documents\book.pdf" --mode text
-```
+### Web Interface Sections
 
-**2. Translate a scanned PDF using OCR (Image Mode):**
-```powershell
-dotnet run -- --files "C:\scans\receipt.pdf" --mode image
-```
+1. **Dashboard (Home)**:
+   - **File Upload / Directory Scanning**: Scan a folder or specify documents to translate.
+   - **Execution Settings**: Toggle document extraction, AI translation, and post-translation reviews. Toggle debug mode (processes only the first 2 pages) to quickly test the pipeline.
+   - **Real-Time Log Console**: Monitor extraction steps, LLM prompts/responses, and token usage, with toggleable auto-scrolling.
 
-**3. Override the default model and target language:**
-```powershell
-dotnet run -- --files "manual.pdf" --mode text --model mistralai/ministral-3-3b --target-lang French
-```
+2. **Job History**:
+   - **Workspace Viewer**: Review all active and completed translation jobs.
+   - **Page Verifier**: Compare original document page images with the cleaned OCR output on a tabbed split-pane view, and edit/fix the translated text or view the model's reasoning/thought processes (`<think>` blocks).
+   - **Exporting**: Force re-export of translated documents to Markdown, Word (DOCX), or PDF formats.
+   - **Maintenance**: Safely delete processed job workspaces.
 
----
-
-## Options
-
-| Flag | Long Flag | Description | Default |
-| :--- | :--- | :--- | :--- |
-| `-f` | `--files` | Path(s) to the PDF file(s) to translate (supports multiple). | *Required* |
-| `-m` | `--mode` | Content type: `text` or `image`. | `text` |
-| `-a` | `--api` | Base URL of LM Studio API. | Loaded from `config.json` |
-| `--model` | `--model` | Name of the translation LLM. | Loaded from `config.json` |
-| `-vmodel`| `--vision-model` | Name of the vision model for OCR. | Loaded from `config.json` |
-| `-t` | `--target-lang` | Target translation language (e.g. Spanish, French, English). | `Spanish` |
-| `-o` | `--output-dir` | Folder where output markdown files will be saved. | `output` |
-| `-p` | `--pages` | Page range to process (e.g. `1-5`, `12`, `1,3,5` or `all`). | `all` |
-| `-d` | `--debug` | Debug mode. Restricts processing to first 2 pages for testing speed. | `false` |
+3. **Settings Panel**:
+   - **Providers & Models**: Configure API endpoints, models, temperatures, and keys for Ollama, LM Studio, OpenAI, Gemini, Anthropic, etc.
+   - **Prompt Manager**: Fine-tune system prompts directly from the browser for OCR extraction, translation, and reviews.
+   - **Formatting & Ranges**: Manage input file extensions and output directories.
 
 ---
 

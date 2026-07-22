@@ -1,5 +1,9 @@
 # Plan de Refactorización de PolyglotCLI a Solución Multiproceso
 
+> [!NOTE]
+> **Historial de Consolidación de Arquitectura (Julio 2026)**:
+> Aunque este plan original contemplaba una arquitectura de tres proyectos (`core`, `cli` y `web`), el proyecto `PolyglotCLI.cli` ha sido eliminado debido a que sus funciones interactivas de terminal quedaron obsoletas en comparación con la interfaz web avanzada de `PolyglotCLI.web`. La solución actual consta de dos proyectos principales: `PolyglotCLI.core` (lógica de negocio compartida) y `PolyglotCLI.web` (servidor web Blazor de administración y visualización).
+
 Este documento detalla el plan arquitectónico para dividir el proyecto monolítico actual de PolyglotCLI en una solución estructurada de múltiples proyectos: `PolyglotCLI.core`, `PolyglotCLI.cli` y una nueva aplicación web `PolyglotCLI.web`.
 
 ## 1. Estructura de la Solución (Arquitectura)
