@@ -33,7 +33,7 @@ namespace PolyglotCLI
         public async Task<string> GetFirstLoadedModelAsync()
         {
             var models = await GetAvailableModelsAsync();
-            return models.Count > 0 ? models[0] : "gemini-1.5-flash";
+            return models.Count > 0 ? models[0] : string.Empty;
         }
 
         public async Task<List<string>> GetAvailableModelsAsync()

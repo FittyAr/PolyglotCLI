@@ -15,7 +15,7 @@
         <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
             <div style="flex-grow: 1;">
                 <RadzenLabel Text="Modelo de Revisión" class="rz-mb-2" />
-                <RadzenDropDown @bind-Value="AppConfig.ReviewModel" Data="@currentModels" class="rz-w-100" Placeholder="Seleccionar modelo de revisión..." AllowClear="true" AllowFiltering="true" Disabled="@(!AppConfig.EnableReview)" />
+                <RadzenDropDown @bind-Value="AppConfig.ReviewModel" Data="@currentModels" class="rz-w-100" Placeholder="Seleccionar o escribir modelo de revisión..." AllowClear="true" AllowFiltering="true" AllowCustom="true" Disabled="@(!AppConfig.EnableReview)" />
             </div>
             <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@FetchModelsForProvider" Tooltip="Cargar modelos desde el servidor seleccionado" IsBusy="@isLoadingModels" Disabled="@(!AppConfig.EnableReview)" />
         </div>
@@ -57,10 +57,7 @@
 
     protected override void OnParametersSet()
     {
-        if (currentModels.Count == 0)
-        {
-            UpdateModelsList();
-        }
+        UpdateModelsList();
     }
 
     private void OnProviderChanged(object value)
@@ -71,14 +68,7 @@
     private void UpdateModelsList()
     {
         var savedModels = AppConfig.GetModelsForProvider(AppConfig.ReviewProvider);
-        if (savedModels.Count > 0)
-        {
-            currentModels = new List<string>(savedModels);
-        }
-        else
-        {
-            currentModels = new List<string>(AvailableModels);
-        }
+        currentModels = new List<string>(savedModels);
 
         if (!string.IsNullOrEmpty(AppConfig.ReviewModel) && !currentModels.Contains(AppConfig.ReviewModel))
         {

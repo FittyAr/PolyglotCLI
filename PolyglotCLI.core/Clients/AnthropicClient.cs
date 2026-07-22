@@ -34,7 +34,7 @@ namespace PolyglotCLI
         public async Task<string> GetFirstLoadedModelAsync()
         {
             var models = await GetAvailableModelsAsync();
-            return models.Count > 0 ? models[0] : "claude-3-5-sonnet-20241022";
+            return models.Count > 0 ? models[0] : string.Empty;
         }
 
         public async Task<List<string>> GetAvailableModelsAsync()
