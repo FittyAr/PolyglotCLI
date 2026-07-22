@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Integrada la biblioteca `Microsoft.SemanticKernel` (versión `1.78.0`) en el proyecto central, reemplazando la serialización JSON manual y las llamadas directas HTTP de `OpenAiCompatibleClient` y `GeminiClient` por conectores nativos oficiales (`OpenAI` y `Google` experimental `1.78.0-alpha`).
 - Simplificado `PromptHelperService` (métodos `ImprovePromptAsync`, `GenerateContextPromptAsync` y `AnalyzeErrorsAsync`) para reutilizar `LlmClientFactory` y la interfaz `ILlmClient` eliminando el código HTTP e inyecciones HttpClient repetitivas.
+- Eliminación completa del proveedor Anthropic Claude y su cliente dedicado `AnthropicClient` para simplificar la arquitectura, dejando únicamente los conectores oficiales integrados de Semantic Kernel.
 
 ### Fixed
 - Corregida la resolución de la carpeta de prompts en `PromptLoader` para ascender por los directorios padres buscando la carpeta `prompts` real del proyecto raíz, eliminando la creación de archivos vacíos accidentales en `PolyglotCLI.web/prompts`.

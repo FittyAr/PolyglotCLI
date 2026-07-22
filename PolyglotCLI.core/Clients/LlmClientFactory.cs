@@ -68,7 +68,6 @@ namespace PolyglotCLI
 
             return provider switch
             {
-                LlmProvider.Anthropic => new AnthropicClient(apiUrl, apiKey, timeoutSeconds),
                 LlmProvider.Gemini => new GeminiClient(apiUrl, apiKey, timeoutSeconds),
                 _ => new OpenAiCompatibleClient(apiUrl, apiKey, timeoutSeconds)
             };

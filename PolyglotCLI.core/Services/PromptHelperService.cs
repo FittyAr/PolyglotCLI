@@ -14,7 +14,6 @@ namespace PolyglotCLI
             if (url.Contains("moonshot") || url.Contains("kimi")) return LlmProvider.Kimi;
             if (url.Contains("dashscope") || url.Contains("qwen")) return LlmProvider.Qwen;
             if (url.Contains("openai")) return LlmProvider.OpenAi;
-            if (url.Contains("anthropic")) return LlmProvider.Anthropic;
             if (url.Contains("generativelanguage") || url.Contains("gemini")) return LlmProvider.Gemini;
             if (url.Contains("ollama")) return LlmProvider.Ollama;
             if (url.Contains("1234")) return LlmProvider.LmStudio;

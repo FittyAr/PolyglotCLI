@@ -43,7 +43,7 @@ namespace PolyglotCLI
 
             // --- 1. General Panel ---
             var viewGeneral = new FrameView { Title = "General Settings", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
-            var lblProvider = new Label { Text = "LLM Provider (Ollama/LmStudio/LlamaCpp/OpenAi/Anthropic/Gemini/Qwen/Kimi/MiniMax/Custom):", X = 1, Y = 0 };
+            var lblProvider = new Label { Text = "LLM Provider (Ollama/LmStudio/LlamaCpp/OpenAi/Gemini/Qwen/Kimi/MiniMax/Custom):", X = 1, Y = 0 };
             var textProviderSetting = new TextField { Text = config.Provider ?? "LmStudio", X = 1, Y = 1, Width = Dim.Fill(2) };
 
             var lblApi = new Label { Text = "API Base URL:", X = 1, Y = 3 };

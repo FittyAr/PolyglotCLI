@@ -8,7 +8,6 @@ namespace PolyglotCLI
         LmStudio,
         LlamaCpp,
         OpenAi,
-        Anthropic,
         Gemini,
         Qwen,
         Kimi,
@@ -26,7 +25,6 @@ namespace PolyglotCLI
                 LlmProvider.LmStudio => "http://localhost:1234/v1",
                 LlmProvider.LlamaCpp => "http://localhost:8080/v1",
                 LlmProvider.OpenAi => "https://api.openai.com/v1",
-                LlmProvider.Anthropic => "https://api.anthropic.com/v1",
                 LlmProvider.Gemini => "https://generativelanguage.googleapis.com/v1beta",
                 LlmProvider.Qwen => "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 LlmProvider.Kimi => "https://api.moonshot.cn/v1",
@@ -41,7 +39,6 @@ namespace PolyglotCLI
             return provider switch
             {
                 LlmProvider.OpenAi => true,
-                LlmProvider.Anthropic => true,
                 LlmProvider.Gemini => true,
                 LlmProvider.Qwen => true,
                 LlmProvider.Kimi => true,
@@ -75,7 +72,6 @@ namespace PolyglotCLI
                 "lmstudio" => LlmProvider.LmStudio,
                 "llamacpp" or "llama" => LlmProvider.LlamaCpp,
                 "openai" or "opencode" => LlmProvider.OpenAi,
-                "anthropic" or "claude" => LlmProvider.Anthropic,
                 "gemini" or "google" => LlmProvider.Gemini,
                 "qwen" or "dashscope" => LlmProvider.Qwen,
                 "kimi" or "moonshot" => LlmProvider.Kimi,
