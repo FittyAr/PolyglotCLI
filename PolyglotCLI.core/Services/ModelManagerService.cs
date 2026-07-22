@@ -11,18 +11,18 @@ namespace PolyglotCLI
             AppConfig config, 
             bool requiresVisionModel)
         {
-            AppLogger.Info($"Connecting and validating API server at: {options.ApiUrl}");
-            using var checkClient = new LmStudioClient(options.ApiUrl, config.ModelCheckTimeoutSeconds);
+            AppLogger.Info($"Connecting and validating API server ({options.Provider}) at: {options.ApiUrl}");
+            using var checkClient = LlmClientFactory.CreateClient(options, config, config.ModelCheckTimeoutSeconds);
             
             string loadedModel = await checkClient.GetFirstLoadedModelAsync();
             if (string.IsNullOrWhiteSpace(loadedModel))
             {
-                AppLogger.WarnConsole("Warning: Could not detect any loaded models in LM Studio.");
-                AppLogger.Info("Please ensure LM Studio is running, local server is started, and a model is loaded.");
+                AppLogger.WarnConsole($"Warning: Could not detect any loaded models in {options.Provider}.");
+                AppLogger.Info("Please ensure the LLM service is running or configured correctly.");
             }
             else
             {
-                AppLogger.InfoConsole($"Detected loaded model in backend: {loadedModel}", ConsoleColor.Cyan);
+                AppLogger.InfoConsole($"Detected model in backend ({options.Provider}): {loadedModel}", ConsoleColor.Cyan);
             }
 
             string textModel = options.ModelName ?? loadedModel;
@@ -41,12 +41,14 @@ namespace PolyglotCLI
         public static async Task TransitionModelAsync(
             string apiUrl, 
             int timeoutSeconds, 
-            string visionModel)
+            string visionModel,
+            AppConfig? config = null)
         {
+            config ??= AppConfig.Load();
             AppLogger.InfoConsole($"Transitioning models: Unloading OCR Vision model ({visionModel}) to free VRAM...", ConsoleColor.Cyan);
             try
             {
-                using var client = new LmStudioClient(apiUrl, timeoutSeconds);
+                using var client = LlmClientFactory.CreateClient(config, timeoutSeconds);
                 bool unloaded = await client.UnloadModelAsync(visionModel);
                 if (unloaded)
                 {
@@ -54,7 +56,7 @@ namespace PolyglotCLI
                 }
                 else
                 {
-                    AppLogger.Info($"Model '{visionModel}' was not active in LM Studio or could not be found.");
+                    AppLogger.Info($"Model '{visionModel}' was not active or could not be unloaded.");
                 }
             }
             catch (Exception unloadEx)
@@ -63,13 +65,13 @@ namespace PolyglotCLI
             }
         }
 
-        public static async Task<(bool Success, string Message)> TestApiConnectionAsync(string apiUrl, int timeoutSeconds = 3)
+        public static async Task<(bool Success, string Message)> TestApiConnectionAsync(AppConfig config, int timeoutSeconds = 3)
         {
             try
             {
-                using var client = new LmStudioClient(apiUrl, timeoutSeconds);
+                using var client = LlmClientFactory.CreateClient(config, timeoutSeconds);
                 var models = await client.GetAvailableModelsAsync();
-                return (true, $"Connection successful!\nDetected {models.Count} loaded models.");
+                return (true, $"Connection successful!\nDetected {models.Count} available models for {config.Provider}.");
             }
             catch (Exception ex)
             {

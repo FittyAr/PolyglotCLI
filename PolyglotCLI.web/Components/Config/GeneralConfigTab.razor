@@ -1,6 +1,19 @@
+@using PolyglotCLI
+
+<RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="6">
+        <RadzenLabel Text="Proveedor LLM" class="rz-mb-2" />
+        <RadzenDropDown Data="@providerOptions" @bind-Value="AppConfig.Provider" Change="@OnProviderChanged" class="rz-w-100" />
+    </RadzenColumn>
+    <RadzenColumn Size="6">
+        <RadzenLabel Text="API Key (Para proveedores Cloud)" class="rz-mb-2" />
+        <RadzenTextBox @bind-Value="AppConfig.ApiKey" Placeholder="sk-..." class="rz-w-100" />
+    </RadzenColumn>
+</RadzenRow>
+
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12">
-        <RadzenLabel Text="URL de la API LM Studio" class="rz-mb-2" />
+        <RadzenLabel Text="URL Base de la API" class="rz-mb-2" />
         <div style="display: flex; gap: 0.5rem;">
             <RadzenTextBox @bind-Value="AppConfig.ApiUrl" style="flex-grow: 1;" />
             <RadzenButton Text="Probar Conexión" Icon="sync" ButtonStyle="ButtonStyle.Secondary" 
@@ -57,4 +70,27 @@
 
     [Parameter]
     public EventCallback OnTestConnection { get; set; }
+
+    private List<string> providerOptions = new List<string>
+    {
+        "Ollama",
+        "LmStudio",
+        "LlamaCpp",
+        "OpenAi",
+        "Anthropic",
+        "Gemini",
+        "Qwen",
+        "Kimi",
+        "MiniMax",
+        "Custom"
+    };
+
+    private void OnProviderChanged(object value)
+    {
+        if (value is string providerStr)
+        {
+            var provider = LlmProviderHelper.ParseProvider(providerStr);
+            AppConfig.ApiUrl = LlmProviderHelper.GetDefaultApiUrl(provider);
+        }
+    }
 }

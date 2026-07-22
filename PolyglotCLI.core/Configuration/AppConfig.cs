@@ -6,7 +6,38 @@ namespace PolyglotCLI
 {
     public class AppConfig
     {
+        public string Provider { get; set; } = "LmStudio";
         public string ApiUrl { get; set; } = "http://172.22.144.1:1234/v1";
+        public string? ApiKey { get; set; }
+        public Dictionary<string, string> ProviderApiKeys { get; set; } = new Dictionary<string, string>();
+
+        public string? GetApiKeyForProvider(string? providerStr = null)
+        {
+            string provider = providerStr ?? Provider;
+            if (!string.IsNullOrWhiteSpace(provider) && ProviderApiKeys.TryGetValue(provider, out string? key) && !string.IsNullOrWhiteSpace(key))
+            {
+                return key;
+            }
+            return ApiKey;
+        }
+
+        public void SetApiKeyForProvider(string providerStr, string? apiKey)
+        {
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                ProviderApiKeys.Remove(providerStr);
+            }
+            else
+            {
+                ProviderApiKeys[providerStr] = apiKey.Trim();
+            }
+
+            if (providerStr.Equals(Provider, StringComparison.OrdinalIgnoreCase))
+            {
+                ApiKey = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey.Trim();
+            }
+        }
+
         public string? DefaultModel { get; set; }
         public string? DefaultVisionModel { get; set; }
         public string TargetLanguage { get; set; } = "Spanish";
@@ -137,7 +168,10 @@ namespace PolyglotCLI
         public void Reload()
         {
             var fresh = Load(LoadedFromPath);
+            Provider = fresh.Provider;
             ApiUrl = fresh.ApiUrl;
+            ApiKey = fresh.ApiKey;
+            ProviderApiKeys = fresh.ProviderApiKeys ?? new Dictionary<string, string>();
             DefaultModel = fresh.DefaultModel;
             DefaultVisionModel = fresh.DefaultVisionModel;
             TargetLanguage = fresh.TargetLanguage;
@@ -192,7 +226,9 @@ namespace PolyglotCLI
         }
 
         public void UpdateAndSaveSettings(
+            string provider,
             string apiUrl,
+            string? apiKey,
             int modelCheckTimeoutSeconds,
             string outputDirectory,
             bool debug,
@@ -213,7 +249,9 @@ namespace PolyglotCLI
             bool saveMarkdown,
             string? defaultOutputFormat)
         {
+            Provider = string.IsNullOrWhiteSpace(provider) ? "LmStudio" : provider.Trim();
             ApiUrl = apiUrl;
+            SetApiKeyForProvider(Provider, apiKey);
             ModelCheckTimeoutSeconds = modelCheckTimeoutSeconds;
             OutputDirectory = outputDirectory;
             Debug = debug;

@@ -6,13 +6,13 @@ namespace PolyglotCLI
 {
     public class TranslatorService
     {
-        private readonly LmStudioClient _client;
+        private readonly ILlmClient _client;
         private readonly string _systemPrompt;
         private readonly string? _modelName;
         private readonly string _targetLanguage;
         public bool PreserveFormat { get; set; } = true;
 
-        public TranslatorService(LmStudioClient client, string systemPrompt, string? modelName = null, string targetLanguage = "Spanish")
+        public TranslatorService(ILlmClient client, string systemPrompt, string? modelName = null, string targetLanguage = "Spanish")
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
             _systemPrompt = systemPrompt ?? throw new ArgumentNullException(nameof(systemPrompt));

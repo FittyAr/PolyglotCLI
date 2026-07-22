@@ -79,7 +79,7 @@ namespace PolyglotCLI
             }
             catch {}
 
-            using var client = new LmStudioClient(apiUrl, config.TranslationTimeoutSeconds);
+            using var client = LlmClientFactory.CreateClient(LlmProviderHelper.ParseProvider(config.Provider), apiUrl, config.ApiKey, config.TranslationTimeoutSeconds);
             var ocrService = new OcrService(client, ocrPrompt, visionModel);
             var pageRenderer = new PdfPageRenderer();
 

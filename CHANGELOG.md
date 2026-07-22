@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Actualizada la dependencia del paquete `AngleSharp` a la versión `1.5.2` en `PolyglotCLI.core.csproj` para resolver programáticamente la vulnerabilidad NU1902 (GHSA-pgww-w46g-26qg) sin anular ni ignorar advertencias del compilador.
+
 ### Added
+- Arquitectura multi-proveedor LLM modular con soporte nativo para **Ollama**, **LM Studio**, **llama.cpp**, **OpenAI / OpenCode**, **Anthropic Claude**, **Google Gemini**, **Qwen / DashScope**, **Kimi / Moonshot**, **MiniMax** y endpoints personalizados OpenAI-compatible.
+- Interfaz genérica `ILlmClient` y fábrica `LlmClientFactory` para instanciar clientes HTTP desacoplados del resto de la aplicación.
+- Clientes nativos `OpenAiCompatibleClient`, `AnthropicClient` (API `/v1/messages`) y `GeminiClient` (API REST `/v1beta/models/...`).
+- Soporte para claves API independientes por proveedor (`ProviderApiKeys` / `GetApiKeyForProvider`) permitiendo almacenar credenciales individuales para cada servicio sin reescribirlas al alternar proveedores.
+- Nuevos parámetros CLI `--provider` / `-p` y `--api-key` / `-key` para configurar el servicio LLM dinámicamente.
+- Selector de proveedor LLM y campo de API Key en los paneles de configuración TUI (`SettingsDialog`) y Web Blazor (`GeneralConfigTab.razor`).
 - Agregado el control "Idioma Destino por Defecto" (`TargetLanguage`) en la pestaña de traducción del panel de configuración de la Web, garantizando la paridad total con las propiedades persistidas de `AppConfig`.
 - Añadidos controles interactivos en el Dashboard Web (`Home.razor`) para habilitar/deshabilitar de forma selectiva las fases de extracción/OCR (`Transcribe`), traducción (`Translate`) y el modo prueba (`Debug`), igualando las capacidades del CLI.
 - Implementado el soporte para visualizar y editar la lista de extensiones de archivos compatibles (`SupportedInputExtensions`) en la sección de formatos del panel de configuración web.

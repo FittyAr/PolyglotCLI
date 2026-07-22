@@ -9,7 +9,9 @@ namespace PolyglotCLI
         public List<string> Files { get; set; } = new List<string>();
         public List<DocumentTarget> DocumentTargets { get; set; } = new List<DocumentTarget>();
         public string Mode { get; set; } = "text"; // "text" or "image"
+        public string Provider { get; set; } = "LmStudio";
         public string ApiUrl { get; set; } = "http://172.22.144.1:1234/v1";
+        public string? ApiKey { get; set; }
         public string? ModelName { get; set; }
         public string? VisionModelName { get; set; }
         public string TargetLanguage { get; set; } = "Spanish";
@@ -29,7 +31,9 @@ namespace PolyglotCLI
         {
             var options = new CommandLineOptions
             {
+                Provider = config.Provider,
                 ApiUrl = config.ApiUrl,
+                ApiKey = config.ApiKey,
                 ModelName = config.DefaultModel,
                 VisionModelName = config.DefaultVisionModel,
                 AdditionalPrompt = config.AdditionalPrompt,
@@ -62,6 +66,19 @@ namespace PolyglotCLI
                         if (i + 1 < args.Length)
                         {
                             options.ApiUrl = args[++i];
+                        }
+                        break;
+                    case "--provider":
+                        if (i + 1 < args.Length)
+                        {
+                            options.Provider = args[++i];
+                        }
+                        break;
+                    case "--api-key":
+                    case "-key":
+                        if (i + 1 < args.Length)
+                        {
+                            options.ApiKey = args[++i];
                         }
                         break;
                     case "--model":

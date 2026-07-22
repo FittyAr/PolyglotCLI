@@ -13,39 +13,39 @@ namespace PolyglotCLI
 {
     public static class ModelSelectionDialog
     {
-        public static void Show(IApplication app, TextField targetField, string roleName, string apiUrl, int checkTimeoutSeconds)
+        public static void Show(IApplication app, TextField targetField, string roleName, AppConfig config, int checkTimeoutSeconds = 5)
         {
-            if (string.IsNullOrEmpty(apiUrl))
-            {
-                MessageBox.ErrorQuery(app, "Error",  "LM Studio API URL is empty.", new[] { "OK" });
-                return;
-            }
+            Show(app, targetField, roleName, config.ApiUrl, checkTimeoutSeconds, config);
+        }
 
+        public static void Show(IApplication app, TextField targetField, string roleName, string apiUrl, int checkTimeoutSeconds, AppConfig? config = null)
+        {
+            config ??= AppConfig.Load();
             var detectedList = new List<string>();
             try
             {
-                using var client = new LmStudioClient(apiUrl, checkTimeoutSeconds);
+                using var client = LlmClientFactory.CreateClient(LlmProviderHelper.ParseProvider(config.Provider), apiUrl, config.ApiKey, checkTimeoutSeconds);
                 var task = client.GetAvailableModelsAsync();
                 task.Wait();
                 detectedList = task.Result;
             }
             catch (Exception ex)
             {
-                MessageBox.ErrorQuery(app, "Connection Error",  $"Failed to connect to LM Studio: {ex.Message}", new[] { "OK" });
+                MessageBox.ErrorQuery(app, "Connection Error", $"Failed to connect to {config.Provider}: {ex.Message}", new[] { "OK" });
                 return;
             }
 
             if (detectedList.Count == 0)
             {
-                MessageBox.Query(app, "Status",  "No active models returned from API.", new[] { "OK" });
+                MessageBox.Query(app, "Status", $"No active models returned from {config.Provider}.", new[] { "OK" });
                 return;
             }
 
-            var dialog = new Dialog { Title = $"Select {roleName} Model", Width = 60, Height = 15, BorderStyle = LineStyle.Rounded };
+            var dialog = new Dialog { Title = $"Select {roleName} Model ({config.Provider})", Width = 60, Height = 15, BorderStyle = LineStyle.Rounded };
             
             var label = new Label 
             { 
-                Text = $"Available models in LM Studio (Select one):", 
+                Text = $"Available models in {config.Provider} (Select one):", 
                 X = 1,
                 Y = 1,
                 Width = Dim.Fill() 

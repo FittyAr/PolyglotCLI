@@ -43,20 +43,26 @@ namespace PolyglotCLI
 
             // --- 1. General Panel ---
             var viewGeneral = new FrameView { Title = "General Settings", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
-            var lblApi = new Label { Text = "LM Studio API URL:", X = 1, Y = 1 };
-            var textApiSetting = new TextField { Text = config.ApiUrl, X = 1, Y = 2, Width = Dim.Fill(2) };
+            var lblProvider = new Label { Text = "LLM Provider (Ollama/LmStudio/LlamaCpp/OpenAi/Anthropic/Gemini/Qwen/Kimi/MiniMax/Custom):", X = 1, Y = 0 };
+            var textProviderSetting = new TextField { Text = config.Provider ?? "LmStudio", X = 1, Y = 1, Width = Dim.Fill(2) };
 
-            var btnTestConn = new Button { Text = "Test Connection", X = 1, Y = 4 };
+            var lblApi = new Label { Text = "API Base URL:", X = 1, Y = 3 };
+            var textApiSetting = new TextField { Text = config.ApiUrl, X = 1, Y = 4, Width = Dim.Fill(2) };
+
+            var lblApiKey = new Label { Text = "API Key (Cloud Providers):", X = 1, Y = 6 };
+            var textApiKeySetting = new TextField { Text = config.ApiKey ?? "", X = 1, Y = 7, Width = Dim.Fill(2) };
+
+            var btnTestConn = new Button { Text = "Test Connection", X = 1, Y = 9 };
             
-            var lblModelCheckTimeout = new Label { Text = "Model Check Timeout (sec):", X = 1, Y = 6 };
-            var textModelCheckTimeout = new TextField { Text = config.ModelCheckTimeoutSeconds.ToString(), X = 32, Y = 6, Width = 10 };
+            var lblModelCheckTimeout = new Label { Text = "Model Check Timeout (sec):", X = 1, Y = 11 };
+            var textModelCheckTimeout = new TextField { Text = config.ModelCheckTimeoutSeconds.ToString(), X = 32, Y = 11, Width = 10 };
 
-            var lblOutputDir = new Label { Text = "Output Directory:", X = 1, Y = 8 };
-            var textOutputDirSetting = new TextField { Text = config.OutputDirectory ?? "output", X = 32, Y = 8, Width = 24 };
+            var lblOutputDir = new Label { Text = "Output Directory:", X = 1, Y = 13 };
+            var textOutputDirSetting = new TextField { Text = config.OutputDirectory ?? "output", X = 32, Y = 13, Width = 24 };
 
-            var checkDebugSetting = new CheckBox { Text = "Debug Mode (processes first 2 pages)", X = 1, Y = 10, Value = config.Debug ? CheckState.Checked : CheckState.UnChecked };
+            var checkDebugSetting = new CheckBox { Text = "Debug Mode (processes first 2 pages)", X = 1, Y = 15, Value = config.Debug ? CheckState.Checked : CheckState.UnChecked };
 
-            viewGeneral.Add(lblApi, textApiSetting, btnTestConn, lblModelCheckTimeout, textModelCheckTimeout, lblOutputDir, textOutputDirSetting, checkDebugSetting);
+            viewGeneral.Add(lblProvider, textProviderSetting, lblApi, textApiSetting, lblApiKey, textApiKeySetting, btnTestConn, lblModelCheckTimeout, textModelCheckTimeout, lblOutputDir, textOutputDirSetting, checkDebugSetting);
 
             // --- 2. OCR Panel ---
             var viewOcr = new FrameView { Title = "OCR Process Settings", X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), Visible = false };
@@ -182,14 +188,18 @@ namespace PolyglotCLI
             btnTestConn.Accepted += (s, e) =>
             {
                 string testUrl = textApiSetting.Text?.ToString()?.Trim() ?? "";
-                if (string.IsNullOrEmpty(testUrl))
+                string testProvider = textProviderSetting.Text?.ToString()?.Trim() ?? "LmStudio";
+                string testKey = textApiKeySetting.Text?.ToString()?.Trim() ?? "";
+
+                var testConfig = new AppConfig
                 {
-                    MessageBox.ErrorQuery(app, "Error",  "API URL is empty.", new[] { "OK" });
-                    return;
-                }
+                    Provider = testProvider,
+                    ApiUrl = testUrl,
+                    ApiKey = testKey
+                };
 
                 var dProgress = new Dialog { Title = "Testing Connection", Width = 45, Height = 5, BorderStyle = LineStyle.Rounded };
-                var lblStatus = new Label { Text = "Connecting to LM Studio...", X = Pos.Center(), Y = 1 };
+                var lblStatus = new Label { Text = $"Connecting to {testProvider}...", X = Pos.Center(), Y = 1 };
                 dProgress.Add(lblStatus);
 
                 bool success = false;
@@ -201,7 +211,7 @@ namespace PolyglotCLI
                     {
                         try
                         {
-                            var result = await ModelManagerService.TestApiConnectionAsync(testUrl, 3);
+                            var result = await ModelManagerService.TestApiConnectionAsync(testConfig, 3);
                             success = result.Success;
                             message = result.Message;
                         }
@@ -250,7 +260,9 @@ namespace PolyglotCLI
                     double.TryParse(textReviewTempSetting.Text?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double reviewTemp))
                 {
                     config.UpdateAndSaveSettings(
+                        textProviderSetting.Text?.ToString()?.Trim() ?? "LmStudio",
                         textApiSetting.Text?.ToString()?.Trim() ?? "",
+                        textApiKeySetting.Text?.ToString()?.Trim(),
                         checkTimeout,
                         textOutputDirSetting.Text?.ToString()?.Trim() ?? "output",
                         checkDebugSetting.Value == CheckState.Checked,

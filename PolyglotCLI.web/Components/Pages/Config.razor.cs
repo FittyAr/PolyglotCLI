@@ -51,9 +51,9 @@ public partial class Config : ComponentBase
         }
         catch {}
 
-        // Fetch models dynamically from LM Studio
+        // Fetch models dynamically from LLM Provider
         try {
-            using var client = new LmStudioClient(AppConfig.ApiUrl, 3);
+            using var client = LlmClientFactory.CreateClient(AppConfig, 3);
             availableModels = await client.GetAvailableModelsAsync();
         }
         catch {
@@ -79,9 +79,9 @@ public partial class Config : ComponentBase
         
         try
         {
-            using var client = new LmStudioClient(AppConfig.ApiUrl, AppConfig.ModelCheckTimeoutSeconds);
+            using var client = LlmClientFactory.CreateClient(AppConfig, AppConfig.ModelCheckTimeoutSeconds);
             availableModels = await client.GetAvailableModelsAsync();
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Carga Exitosa", Detail = $"Se cargaron {availableModels.Count} modelos del servidor." });
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Carga Exitosa", Detail = $"Se cargaron {availableModels.Count} modelos del servidor ({AppConfig.Provider})." });
             testConnectionResult = "Conexión exitosa";
         }
         catch (Exception ex)
