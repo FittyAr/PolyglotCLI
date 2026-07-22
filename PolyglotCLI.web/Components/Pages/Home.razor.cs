@@ -58,11 +58,11 @@ public partial class Home : ComponentBase, IDisposable
         options.TargetLanguage = Config.TargetLanguage;
         options.OutputDirectory = Config.OutputDirectory;
         options.SelectedFormat = Config.DefaultOutputFormat;
-        options.Verify = Config.EnableReview;
-        options.GenerateDoc = !string.IsNullOrEmpty(Config.DefaultOutputFormat);
+        options.Verify = Config.EnableReview && Config.ModuleReviewEnabled;
+        options.GenerateDoc = !string.IsNullOrEmpty(Config.DefaultOutputFormat) && Config.ModuleConversionEnabled;
         options.AdditionalPrompt = Config.AdditionalPrompt;
-        options.Transcribe = true;
-        options.Translate = true;
+        options.Transcribe = Config.ModuleExtractionEnabled;
+        options.Translate = Config.ModuleTranslationEnabled;
         options.Debug = Config.Debug;
 
         // Initialize drives

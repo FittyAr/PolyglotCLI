@@ -120,8 +120,8 @@ namespace PolyglotCLI
 
             // Initialize Review Service if enabled
             ReviewService? reviewService = null;
-            using var reviewClient = options.Verify ? LlmClientFactory.CreateClientForReview(options, config, config.ReviewTimeoutSeconds) : null;
-            if (options.Verify && reviewClient != null)
+            using var reviewClient = (options.Verify && config.ModuleReviewEnabled) ? LlmClientFactory.CreateClientForReview(options, config, config.ReviewTimeoutSeconds) : null;
+            if (options.Verify && config.ModuleReviewEnabled && reviewClient != null)
             {
                 try
                 {
@@ -258,7 +258,7 @@ namespace PolyglotCLI
                         }
 
                         List<PageProcessState> pageStates;
-                        if (options.Transcribe)
+                        if (options.Transcribe && config.ModuleExtractionEnabled)
                         {
                             pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer, cachedStates);
                             
@@ -391,7 +391,7 @@ namespace PolyglotCLI
                         dataJsonPath = Path.Combine(jobDir, $"{fileNameWithoutExt}_data.json");
                     }
 
-                    if (options.Translate)
+                    if (options.Translate && config.ModuleTranslationEnabled)
                     {
                         using var translationScope = AppLogger.BeginProcess("Translation");
                         foreach (var state in pageStates)
@@ -634,7 +634,7 @@ namespace PolyglotCLI
                     }
 
                     // Phase 4.5: Post-Translation Review (if enabled)
-                    if (reviewService != null)
+                    if (reviewService != null && config.ModuleReviewEnabled)
                     {
                         using var reviewScope = AppLogger.BeginProcess("Review");
                         AppLogger.InfoConsole($"\n[REVIEW] Running post-translation review for {fileName}...", ConsoleColor.Cyan);
@@ -722,11 +722,11 @@ namespace PolyglotCLI
                         IsTranslationSuccessful = !s.TranslationFailed
                     }).ToList();
 
-                    if (options.Transcribe)
+                    if (options.Transcribe && config.ModuleExtractionEnabled)
                     {
                         MarkdownWriter.ExportToMarkdown(originalOutputPath, fileNameWithoutExt, "Original", exportPages, true);
                     }
-                    if (options.Translate)
+                    if (options.Translate && config.ModuleTranslationEnabled)
                     {
                         MarkdownWriter.ExportToMarkdown(outputPath, fileNameWithoutExt, options.TargetLanguage, exportPages, false);
                     }
@@ -741,7 +741,7 @@ namespace PolyglotCLI
                     }
 
                     // Phase 5: Output Format Conversion
-                    if (options.GenerateDoc && !string.IsNullOrWhiteSpace(options.SelectedFormat))
+                    if (options.GenerateDoc && config.ModuleConversionEnabled && !string.IsNullOrWhiteSpace(options.SelectedFormat))
                     {
                         using var conversionScope = AppLogger.BeginProcess("Conversion");
                         AppLogger.InfoConsole($"Converting output to {options.SelectedFormat.ToUpperInvariant()}...", ConsoleColor.Cyan);
@@ -843,6 +843,222 @@ namespace PolyglotCLI
             {
                 OnPageOcrCompleted = null;
             }
+        }
+
+        public static async Task<bool> ReprocessPageAsync(string jobId, string sourceFilePath, int pageNumber, AppConfig config)
+        {
+            string jobDir = Path.Combine(GetJobsDirectory(), jobId);
+            string manifestPath = Path.Combine(jobDir, "manifest.json");
+            if (!File.Exists(manifestPath)) return false;
+
+            // 1. Cargar manifiesto
+            var options = new CommandLineOptions { ResumeJobId = jobId };
+            JobManifest manifest = JobManifestService.LoadOrInitializeManifest(jobDir, options, config, manifestPath);
+            
+            var fileManifest = manifest.Files.Find(f => f.SourceFilePath.Equals(sourceFilePath, StringComparison.OrdinalIgnoreCase));
+            if (fileManifest == null) return false;
+
+            string fileName = Path.GetFileName(sourceFilePath);
+            string fileNameWithoutExt = Path.GetFileNameWithoutExtension(sourceFilePath);
+            string dataJsonPath = Path.Combine(jobDir, "data", $"{fileNameWithoutExt}_data.json");
+            if (!File.Exists(dataJsonPath) && File.Exists(Path.Combine(jobDir, $"{fileNameWithoutExt}_data.json")))
+            {
+                dataJsonPath = Path.Combine(jobDir, $"{fileNameWithoutExt}_data.json");
+            }
+            if (!File.Exists(dataJsonPath)) return false;
+
+            // 2. Cargar datos del JSON
+            List<DocumentPageData> savedData;
+            try
+            {
+                string jsonStr = File.ReadAllText(dataJsonPath);
+                savedData = System.Text.Json.JsonSerializer.Deserialize<List<DocumentPageData>>(jsonStr) ?? new List<DocumentPageData>();
+            }
+            catch
+            {
+                return false;
+            }
+
+            var pageData = savedData.Find(d => d.PageNumber == pageNumber);
+            if (pageData == null) return false;
+
+            // 3. Inicializar clientes de LLM
+            var cmdOptions = new CommandLineOptions
+            {
+                ApiUrl = config.ApiUrl,
+                ModelName = config.DefaultModel,
+                VisionModelName = config.DefaultVisionModel,
+                TargetLanguage = config.TargetLanguage,
+                OutputDirectory = config.OutputDirectory
+            };
+
+            string loadedModel = config.DefaultModel ?? "default-model";
+            string textModel = config.DefaultModel ?? loadedModel;
+            string visionModel = config.DefaultVisionModel ?? loadedModel;
+
+            using var ocrClient = LlmClientFactory.CreateClientForOcr(cmdOptions, config, config.OcrTimeoutSeconds);
+            ocrClient.Temperature = config.OcrTemperature;
+
+            using var translatorClient = LlmClientFactory.CreateClientForTranslation(cmdOptions, config, config.TranslationTimeoutSeconds);
+            translatorClient.Temperature = config.Temperature;
+
+            var promptLoader = new PromptLoader();
+            string ocrPrompt = promptLoader.LoadOcrPrompt();
+            string translationPrompt = promptLoader.LoadTranslationPrompt();
+            if (!string.IsNullOrWhiteSpace(config.AdditionalPrompt))
+            {
+                translationPrompt += "\n\nAdditional instructions from user:\n" + config.AdditionalPrompt;
+            }
+
+            var ocrService = new OcrService(ocrClient, ocrPrompt, visionModel);
+            var translatorService = new TranslatorService(translatorClient, translationPrompt, textModel, config.TargetLanguage);
+            var pageRenderer = new PdfPageRenderer();
+
+            string ext = Path.GetExtension(sourceFilePath).ToLowerInvariant();
+            string tempPath = Path.Combine(jobDir, "temp");
+            string expectedPngPath = Path.Combine(tempPath, $"{fileNameWithoutExt}_page_{pageNumber}.png");
+            
+            bool isImage = File.Exists(expectedPngPath) ||
+                           ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff";
+
+            if (config.ModuleExtractionEnabled)
+            {
+                try
+                {
+                    if (isImage && ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        byte[] pngBytes = pageRenderer.RenderPageToPng(sourceFilePath, pageNumber);
+                        pageData.OriginalText = await ocrService.PerformOcrAsync(pngBytes, pageNumber);
+                    }
+                    else if (isImage)
+                    {
+                        byte[] imgBytes = File.ReadAllBytes(sourceFilePath);
+                        pageData.OriginalText = await ocrService.PerformOcrAsync(imgBytes, 1);
+                    }
+                    else
+                    {
+                        var extractorFactory = new DocumentExtractorFactory();
+                        var extractor = extractorFactory.GetExtractor(sourceFilePath);
+                        var target = new DocumentTarget { FilePath = sourceFilePath, Mode = "text", PageRange = pageNumber.ToString() };
+                        var reExtracted = await extractor.ExtractTextAsync(sourceFilePath, target, ocrService, pageRenderer);
+                        var matched = reExtracted.Find(s => s.PageNumber == pageNumber);
+                        if (matched != null)
+                        {
+                            pageData.OriginalText = matched.OcrText;
+                        }
+                    }
+                    pageData.IsOcrSuccessful = true;
+                    pageData.OcrErrorMessage = null;
+                    JobManifestService.UpdatePageOcr(manifest, manifestPath, sourceFilePath, pageNumber, true, null);
+                }
+                catch (Exception ex)
+                {
+                    pageData.IsOcrSuccessful = false;
+                    pageData.OcrErrorMessage = ex.Message;
+                    JobManifestService.UpdatePageOcr(manifest, manifestPath, sourceFilePath, pageNumber, false, ex.Message);
+                }
+            }
+
+            // 5. Reprocesar Traducción si la extracción tuvo éxito
+            if (config.ModuleTranslationEnabled && pageData.IsOcrSuccessful)
+            {
+                try
+                {
+                    pageData.TranslatedText = await translatorService.TranslateTextAsync(pageData.OriginalText ?? string.Empty, pageNumber);
+                    pageData.IsTranslationSuccessful = true;
+                    pageData.TranslationErrorMessage = null;
+                    JobManifestService.UpdatePageTranslation(manifest, manifestPath, sourceFilePath, pageNumber, true, null);
+                }
+                catch (Exception ex)
+                {
+                    pageData.IsTranslationSuccessful = false;
+                    pageData.TranslationErrorMessage = ex.Message;
+                    JobManifestService.UpdatePageTranslation(manifest, manifestPath, sourceFilePath, pageNumber, false, ex.Message);
+                }
+            }
+
+            // 6. Reprocesar Revisión si está habilitada y traducción tuvo éxito
+            if (config.EnableReview && config.ModuleReviewEnabled && pageData.IsTranslationSuccessful)
+            {
+                try
+                {
+                    string reviewPrompt = promptLoader.LoadReviewPrompt();
+                    using var reviewClient = LlmClientFactory.CreateClientForReview(cmdOptions, config, config.ReviewTimeoutSeconds);
+                    reviewClient.Temperature = config.ReviewTemperature;
+                    var reviewService = new ReviewService(reviewClient, reviewPrompt, config.ReviewModel ?? textModel);
+
+                    string reviewed = await reviewService.ReviewTranslationAsync(
+                        pageData.OriginalText ?? string.Empty,
+                        pageData.TranslatedText ?? string.Empty,
+                        pageNumber
+                    );
+                    pageData.ReviewedText = reviewed;
+                    pageData.TranslatedText = reviewed;
+                    JobManifestService.UpdatePageReview(manifest, manifestPath, sourceFilePath, pageNumber, true, null);
+                }
+                catch (Exception ex)
+                {
+                    JobManifestService.UpdatePageReview(manifest, manifestPath, sourceFilePath, pageNumber, false, ex.Message);
+                }
+            }
+
+            // 7. Guardar cambios en el JSON
+            JobManifestService.SavePageStatesToJson(savedData.Select(d => new PageProcessState
+            {
+                PageNumber = d.PageNumber,
+                OcrText = d.OriginalText,
+                TranslatedText = d.TranslatedText,
+                ReviewedText = d.ReviewedText,
+                OcrFailed = !d.IsOcrSuccessful,
+                TranslationFailed = !d.IsTranslationSuccessful,
+                OcrErrorMessage = d.OcrErrorMessage,
+                TranslationErrorMessage = d.TranslationErrorMessage
+            }).ToList(), dataJsonPath);
+
+            // 8. Re-exportar a Markdown
+            string absoluteOutputDir = Path.GetFullPath(config.OutputDirectory);
+            string outputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_{config.TargetLanguage}.md");
+            string originalOutputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_original.md");
+
+            if (config.ModuleExtractionEnabled)
+            {
+                MarkdownWriter.ExportToMarkdown(originalOutputPath, fileNameWithoutExt, "Original", savedData, true);
+            }
+            if (config.ModuleTranslationEnabled)
+            {
+                MarkdownWriter.ExportToMarkdown(outputPath, fileNameWithoutExt, config.TargetLanguage, savedData, false);
+            }
+
+            // Copiar al directorio del trabajo
+            string outputsDir = Path.Combine(jobDir, "outputs");
+            if (!Directory.Exists(outputsDir)) Directory.CreateDirectory(outputsDir);
+            if (File.Exists(outputPath)) File.Copy(outputPath, Path.Combine(outputsDir, Path.GetFileName(outputPath)), true);
+            if (File.Exists(originalOutputPath)) File.Copy(originalOutputPath, Path.Combine(outputsDir, Path.GetFileName(originalOutputPath)), true);
+
+            // 9. Re-ejecutar conversión
+            if (!string.IsNullOrEmpty(config.DefaultOutputFormat) && config.ModuleConversionEnabled)
+            {
+                try
+                {
+                    if (File.Exists(outputPath))
+                    {
+                        await OutputFormatConverter.ConvertToFormatsAsync(outputPath, config.DefaultOutputFormat);
+                    }
+                    if (File.Exists(originalOutputPath))
+                    {
+                        await OutputFormatConverter.ConvertToFormatsAsync(originalOutputPath, config.DefaultOutputFormat);
+                    }
+                    JobManifestService.UpdateFileConversion(manifest, manifestPath, sourceFilePath, true);
+                }
+                catch
+                {
+                    JobManifestService.UpdateFileConversion(manifest, manifestPath, sourceFilePath, false);
+                }
+            }
+
+            // Guardar manifiesto
+            manifest.Save(manifestPath);
+            return true;
         }
 
     }

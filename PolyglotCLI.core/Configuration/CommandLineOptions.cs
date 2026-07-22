@@ -43,8 +43,10 @@ namespace PolyglotCLI
                 ModelName = config.DefaultModel,
                 VisionModelName = config.DefaultVisionModel,
                 AdditionalPrompt = config.AdditionalPrompt,
-                Verify = config.EnableReview,
-                GenerateDoc = !string.IsNullOrEmpty(config.DefaultOutputFormat),
+                Transcribe = config.ModuleExtractionEnabled,
+                Translate = config.ModuleTranslationEnabled,
+                Verify = config.EnableReview && config.ModuleReviewEnabled,
+                GenerateDoc = !string.IsNullOrEmpty(config.DefaultOutputFormat) && config.ModuleConversionEnabled,
                 SelectedFormat = config.DefaultOutputFormat
             };
             var filesList = new List<string>();

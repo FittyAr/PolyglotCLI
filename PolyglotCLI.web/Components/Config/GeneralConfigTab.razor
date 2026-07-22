@@ -61,6 +61,27 @@
     </RadzenRow>
 </RadzenFieldset>
 
+<RadzenFieldset Text="Módulos Activos de la Traducción" class="rz-mt-4">
+    <RadzenRow Gap="1rem">
+        <RadzenColumn Size="3">
+            <RadzenCheckBox @bind-Value="AppConfig.ModuleExtractionEnabled" Name="modExtract" />
+            <RadzenLabel Text="Extracción / OCR" Component="modExtract" class="rz-ml-2" />
+        </RadzenColumn>
+        <RadzenColumn Size="3">
+            <RadzenCheckBox @bind-Value="AppConfig.ModuleTranslationEnabled" Name="modTranslate" />
+            <RadzenLabel Text="Traducción" Component="modTranslate" class="rz-ml-2" />
+        </RadzenColumn>
+        <RadzenColumn Size="3">
+            <RadzenCheckBox @bind-Value="AppConfig.ModuleReviewEnabled" Name="modReview" />
+            <RadzenLabel Text="Revisión (Review)" Component="modReview" class="rz-ml-2" />
+        </RadzenColumn>
+        <RadzenColumn Size="3">
+            <RadzenCheckBox @bind-Value="AppConfig.ModuleConversionEnabled" Name="modConvert" />
+            <RadzenLabel Text="Conversión de Formatos" Component="modConvert" class="rz-ml-2" />
+        </RadzenColumn>
+    </RadzenRow>
+</RadzenFieldset>
+
 @code {
     [Parameter]
     public PolyglotCLI.AppConfig AppConfig { get; set; } = default!;

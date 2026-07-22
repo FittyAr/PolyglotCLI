@@ -154,6 +154,10 @@ namespace PolyglotCLI
         public int OcrTimeoutSeconds { get; set; } = 300;
         public string OutputFormats { get; set; } = "md";
         public bool SaveMarkdown { get; set; } = true;
+        public bool ModuleExtractionEnabled { get; set; } = true;
+        public bool ModuleTranslationEnabled { get; set; } = true;
+        public bool ModuleReviewEnabled { get; set; } = true;
+        public bool ModuleConversionEnabled { get; set; } = true;
         public string? DefaultOutputFormat { get; set; }
         public List<string> SupportedOutputFormats { get; set; } = new List<string> { "html", "docx", "odf", "pdf" };
         public List<string> SupportedInputExtensions { get; set; } = new List<string>

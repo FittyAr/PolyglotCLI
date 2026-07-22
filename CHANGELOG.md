@@ -8,30 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Rediseñado y expandido el modal de "Detalles del Trabajo" (`JobDetailsDialog.razor`) a un tamaño mayor (1200px x 850px) incorporando pestañas interactivas para visualizar los archivos Markdown generados, renderizar las imágenes temporales extraídas del PDF y consultar todas las bitácoras de logs del backend.
-- Añadido un botón "Exportar y Convertir Documentos" (`save_alt`) en el grid del Historial de Trabajos para posibilitar la regeneración/exportación manual de cualquier traducción a Markdown y a los formatos convertidos definidos (DOCX, PDF, etc.).
-- Añadidos botones interactivos para maximizar/restaurar la consola de progreso y para activar/desactivar el desplazamiento automático (autoscroll) dinámico.
-- Añadido un botón "Detener Proceso" en la interfaz de usuario web que permite cancelar de forma inmediata y segura una ejecución de OCR/traducción activa.
-- Añadido un botón de eliminación en el historial de trabajos que permite borrar físicamente del disco la carpeta de datos de cualquier trabajo seleccionado (`jobs/<jobId>`) tras confirmación interactiva.
-
-### Changed
-- Integrada la biblioteca `Microsoft.SemanticKernel` (versión `1.78.0`) en el proyecto central, reemplazando la serialización JSON manual y las llamadas directas HTTP de `OpenAiCompatibleClient` y `GeminiClient` por conectores nativos oficiales (`OpenAI` y `Google` experimental `1.78.0-alpha`).
-- Simplificado `PromptHelperService` (métodos `ImprovePromptAsync`, `GenerateContextPromptAsync` y `AnalyzeErrorsAsync`) para reutilizar `LlmClientFactory` y la interfaz `ILlmClient` eliminando el código HTTP e inyecciones HttpClient repetitivas.
-- Eliminación completa del proveedor Anthropic Claude y su cliente dedicado `AnthropicClient` para simplificar la arquitectura, dejando únicamente los conectores oficiales integrados de Semantic Kernel.
-
-### Fixed
-- Corregidos errores de compilación causados por llaves de cierre faltantes en `History.razor` y falta de directivas using para `LogEntry` y la extensión `InvokeVoidAsync` de `IJSRuntime`.
-- Corregida la omisión de la escritura de archivos Markdown (`.md`) al finalizar exitosamente la ejecución del pipeline en `TranslationOrchestrator.cs`, lo que impedía que la fase subsecuente de conversión a formatos (como `.docx`) encontrara los archivos intermedios para convertirlos.
-- Corregida la pérdida del botón "Detener Proceso" y del estado de ejecución (incluyendo logs) en la UI web al cambiar de pestaña (enrutado de Blazor), moviendo el estado activo del proceso a una clase de sesión persistente (`TranslationSession`).
-- Corregido el dominio del endpoint por defecto de MiniMax a `api.minimax.io` en lugar del dominio obsoleto `.chat`.
-- Implementada la interrupción inmediata de todo el trabajo ante errores críticos de autenticación o API Key inválida (HTTP 401 Unauthorized), impidiendo ejecuciones fallidas repetidas en cascada por cada página del documento.
-- Implementada la consulta automática a internet (asíncrona y en segundo plano) de los modelos disponibles al cambiar el proveedor en el combobox de la UI web.
-- Restringida la limpieza y validación de VRAM únicamente a los proveedores locales y compatibles (Ollama, LM Studio), eliminando advertencias confusas e incorrectas sobre servidores en la nube como MiniMax, Gemini o OpenAI.
-- Corregida la actualización inmediata del selector de modelos en la interfaz web de configuración al cambiar de proveedor en las pestañas de OCR, traducción y revisión, limpiando o preseleccionando modelos válidos del nuevo proveedor.
-- Añadida precarga de modelos sugeridos por defecto para proveedores no conectados en la configuración de la Web, y actualizados los modelos de MiniMax con la serie oficial actual (MiniMax-M3, M2.7, M2.5, etc.) en lugar de la serie obsoleta abab6.5.
-- Corregida la sincronización de credenciales y URL en las pruebas de conexión del panel de configuración de la Web, asegurando que los valores editados en tiempo real en los textboxes tengan prioridad inmediata al realizar pruebas y listar modelos del proveedor seleccionado.
-- Corregida la resolución de la carpeta de prompts en `PromptLoader` para ascender por los directorios padres buscando la carpeta `prompts` real del proyecto raíz, eliminando la creación de archivos vacíos accidentales en `PolyglotCLI.web/prompts`.
-- Actualizada la dependencia del paquete `AngleSharp` a la versión `1.5.2` en `PolyglotCLI.core.csproj` para resolver programáticamente la vulnerabilidad NU1902 (GHSA-pgww-w46g-26qg) sin anular ni ignorar advertencias del compilador.
+- **Verificador de Páginas**: Incorporación de una nueva pestaña interactiva que muestra el contenido original (ya sea la imagen renderizada del PDF o el texto extraído) al lado de la traducción obtenida en tiempo real. Permite realizar correcciones manuales directamente en pantalla, actualizando al instante los documentos resultantes (Markdown, Word y PDF).
+- **Re-procesamiento de Páginas Individuales**: Posibilidad de volver a procesar y traducir una única página que haya fallado o requiera mejoras, de forma aislada y sin necesidad de reiniciar todo el trabajo desde el principio.
+- **Control de Módulos Activos**: Nueva sección en la configuración para habilitar o deshabilitar de forma independiente cada una de las fases del proceso: Extracción de texto/OCR, Traducción con Inteligencia Artificial, Revisión de traducción y Conversión final a formatos (como Word o PDF). Las fases desactivadas serán omitidas automáticamente para ahorrar tiempo y recursos.
+- **Diseño a Pantalla Completa**: Rediseño responsivo de la ventana de detalles de trabajos para aprovechar más del 90% del tamaño de tu pantalla. Los textos, consolas y visor de páginas del PDF se adaptan dinámicamente y se muestran a gran escala para una lectura cómoda.
+- **Consola de Progreso Avanzada**: Añadidos controles interactivos que permiten maximizar o restaurar la consola de comandos de fondo, así como activar o desactivar el desplazamiento automático (autoscroll) de los logs en pantalla.
+- **Cancelación en Caliente**: Añadido un botón para detener de forma inmediata y segura cualquier trabajo de traducción que se encuentre en ejecución activa.
+- **Exportación y Conversión Manual**: Incorporación de un botón en el historial de trabajos para regenerar y forzar la exportación de tus traducciones a Markdown y formatos de procesador de textos (DOCX, PDF) en cualquier momento.
+- **Eliminación Segura**: Capacidad para borrar físicamente del disco la carpeta de datos de cualquier trabajo seleccionado desde la interfaz web, tras una confirmación de seguridad.
 
 ### Added
 - Métodos de sugerencia de modelos por defecto (`GetDefaultSuggestedModels` y `GetDefaultSuggestedVisionModels` en `LlmProvider.cs`) para usarlos como fallback en la interfaz de usuario en las pestañas de configuración cuando el proveedor no tiene modelos probados o almacenados.
