@@ -84,7 +84,9 @@ namespace PolyglotCLI
                             }
                         }
 
-                        state.OcrText = await ocrService.PerformOcrAsync(pngBytes, pageNum);
+                        var ocrRes = await ocrService.PerformOcrAsync(pngBytes, pageNum);
+                        state.OcrText = ocrRes.Text;
+                        state.ThoughtText = ocrRes.Thought;
                         state.OcrFailed = false;
                         TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, pageNum, true, null);
                     }

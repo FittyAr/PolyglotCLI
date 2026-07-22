@@ -435,7 +435,30 @@ namespace PolyglotCLI
                                     try
                                     {
                                         translatorClient.Temperature = currentTemp;
-                                        state.TranslatedText = await translatorService.TranslateTextAsync(state.OcrText ?? string.Empty, pageNum);
+                                        string rawTranslation = await translatorService.TranslateTextAsync(state.OcrText ?? string.Empty, pageNum);
+                                        
+                                        string parsedTranslation = rawTranslation;
+                                        string? thought = null;
+                                        
+                                        var thinkMatch = System.Text.RegularExpressions.Regex.Match(rawTranslation, @"<think>([\s\S]*?)</think>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                                        if (thinkMatch.Success)
+                                        {
+                                            thought = thinkMatch.Groups[1].Value.Trim();
+                                            parsedTranslation = System.Text.RegularExpressions.Regex.Replace(rawTranslation, @"<think>[\s\S]*?</think>", string.Empty, System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+                                        }
+                                        
+                                        state.TranslatedText = parsedTranslation;
+                                        if (!string.IsNullOrEmpty(thought))
+                                        {
+                                            if (!string.IsNullOrEmpty(state.ThoughtText))
+                                            {
+                                                state.ThoughtText = $"[OCR]:\n{state.ThoughtText}\n\n[Traducción]:\n{thought}";
+                                            }
+                                            else
+                                            {
+                                                state.ThoughtText = thought;
+                                            }
+                                        }
                                         state.TranslationFailed = false;
                                         success = true;
                                     }
@@ -526,7 +549,9 @@ namespace PolyglotCLI
                                     try
                                     {
                                         byte[] pngBytes = pageRenderer.RenderPageToPng(filePath, pageNum);
-                                        state.OcrText = await ocrService.PerformOcrAsync(pngBytes, pageNum);
+                                        var ocrRes = await ocrService.PerformOcrAsync(pngBytes, pageNum);
+                                        state.OcrText = ocrRes.Text;
+                                        state.ThoughtText = ocrRes.Thought;
                                         state.OcrFailed = false;
                                         state.OcrErrorMessage = null;
                                         AppLogger.Info($"[RETRY] Page {pageNum}: Extraction successful on retry.");
@@ -551,7 +576,9 @@ namespace PolyglotCLI
                                     try
                                     {
                                         byte[] imgBytes = File.ReadAllBytes(filePath);
-                                        state.OcrText = await ocrService.PerformOcrAsync(imgBytes, 1);
+                                        var ocrRes = await ocrService.PerformOcrAsync(imgBytes, 1);
+                                        state.OcrText = ocrRes.Text;
+                                        state.ThoughtText = ocrRes.Thought;
                                         state.OcrFailed = false;
                                         state.OcrErrorMessage = null;
                                         AppLogger.Info($"[RETRY] Image OCR retry successful.");
@@ -610,7 +637,30 @@ namespace PolyglotCLI
                                 AppLogger.Info($"[RETRY] Page/Chunk {pageNum}: Retrying translation...");
                                 try
                                 {
-                                    state.TranslatedText = await translatorService.TranslateTextAsync(state.OcrText ?? string.Empty, pageNum);
+                                    string rawTranslation = await translatorService.TranslateTextAsync(state.OcrText ?? string.Empty, pageNum);
+                                    
+                                    string parsedTranslation = rawTranslation;
+                                    string? thought = null;
+                                    
+                                    var thinkMatch = System.Text.RegularExpressions.Regex.Match(rawTranslation, @"<think>([\s\S]*?)</think>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                                    if (thinkMatch.Success)
+                                    {
+                                        thought = thinkMatch.Groups[1].Value.Trim();
+                                        parsedTranslation = System.Text.RegularExpressions.Regex.Replace(rawTranslation, @"<think>[\s\S]*?</think>", string.Empty, System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+                                    }
+                                    
+                                    state.TranslatedText = parsedTranslation;
+                                    if (!string.IsNullOrEmpty(thought))
+                                    {
+                                        if (!string.IsNullOrEmpty(state.ThoughtText))
+                                        {
+                                            state.ThoughtText = $"[OCR]:\n{state.ThoughtText}\n\n[Traducción]:\n{thought}";
+                                        }
+                                        else
+                                        {
+                                            state.ThoughtText = thought;
+                                        }
+                                    }
                                     state.TranslationFailed = false;
                                     state.TranslationErrorMessage = null;
                                     AppLogger.Info($"[RETRY] Page {pageNum}: Translation successful on retry.");
@@ -719,7 +769,8 @@ namespace PolyglotCLI
                         TranslatedText = s.TranslatedText,
                         ReviewedText = s.ReviewedText,
                         IsOcrSuccessful = !s.OcrFailed,
-                        IsTranslationSuccessful = !s.TranslationFailed
+                        IsTranslationSuccessful = !s.TranslationFailed,
+                        ThoughtText = s.ThoughtText
                     }).ToList();
 
                     if (options.Transcribe && config.ModuleExtractionEnabled)
@@ -928,12 +979,16 @@ namespace PolyglotCLI
                     if (isImage && ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
                     {
                         byte[] pngBytes = pageRenderer.RenderPageToPng(sourceFilePath, pageNumber);
-                        pageData.OriginalText = await ocrService.PerformOcrAsync(pngBytes, pageNumber);
+                        var ocrRes = await ocrService.PerformOcrAsync(pngBytes, pageNumber);
+                        pageData.OriginalText = ocrRes.Text;
+                        pageData.ThoughtText = ocrRes.Thought;
                     }
                     else if (isImage)
                     {
                         byte[] imgBytes = File.ReadAllBytes(sourceFilePath);
-                        pageData.OriginalText = await ocrService.PerformOcrAsync(imgBytes, 1);
+                        var ocrRes = await ocrService.PerformOcrAsync(imgBytes, 1);
+                        pageData.OriginalText = ocrRes.Text;
+                        pageData.ThoughtText = ocrRes.Thought;
                     }
                     else
                     {
@@ -945,6 +1000,7 @@ namespace PolyglotCLI
                         if (matched != null)
                         {
                             pageData.OriginalText = matched.OcrText;
+                            pageData.ThoughtText = matched.ThoughtText;
                         }
                     }
                     pageData.IsOcrSuccessful = true;
@@ -964,7 +1020,30 @@ namespace PolyglotCLI
             {
                 try
                 {
-                    pageData.TranslatedText = await translatorService.TranslateTextAsync(pageData.OriginalText ?? string.Empty, pageNumber);
+                    string rawTranslation = await translatorService.TranslateTextAsync(pageData.OriginalText ?? string.Empty, pageNumber);
+                    
+                    string parsedTranslation = rawTranslation;
+                    string? thought = null;
+                    
+                    var thinkMatch = System.Text.RegularExpressions.Regex.Match(rawTranslation, @"<think>([\s\S]*?)</think>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    if (thinkMatch.Success)
+                    {
+                        thought = thinkMatch.Groups[1].Value.Trim();
+                        parsedTranslation = System.Text.RegularExpressions.Regex.Replace(rawTranslation, @"<think>[\s\S]*?</think>", string.Empty, System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+                    }
+                    
+                    pageData.TranslatedText = parsedTranslation;
+                    if (!string.IsNullOrEmpty(thought))
+                    {
+                        if (!string.IsNullOrEmpty(pageData.ThoughtText))
+                        {
+                            pageData.ThoughtText = $"[OCR]:\n{pageData.ThoughtText}\n\n[Traducción]:\n{thought}";
+                        }
+                        else
+                        {
+                            pageData.ThoughtText = thought;
+                        }
+                    }
                     pageData.IsTranslationSuccessful = true;
                     pageData.TranslationErrorMessage = null;
                     JobManifestService.UpdatePageTranslation(manifest, manifestPath, sourceFilePath, pageNumber, true, null);
@@ -1012,7 +1091,8 @@ namespace PolyglotCLI
                 OcrFailed = !d.IsOcrSuccessful,
                 TranslationFailed = !d.IsTranslationSuccessful,
                 OcrErrorMessage = d.OcrErrorMessage,
-                TranslationErrorMessage = d.TranslationErrorMessage
+                TranslationErrorMessage = d.TranslationErrorMessage,
+                ThoughtText = d.ThoughtText
             }).ToList(), dataJsonPath);
 
             // 8. Re-exportar a Markdown

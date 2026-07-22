@@ -12,5 +12,6 @@ namespace PolyglotCLI
         public string? ReviewedText { get; set; }
         public bool ReviewFailed { get; set; }
         public string? ReviewErrorMessage { get; set; }
+        public string? ThoughtText { get; set; }
     }
 }

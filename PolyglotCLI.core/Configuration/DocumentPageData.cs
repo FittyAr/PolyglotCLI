@@ -14,5 +14,6 @@ namespace PolyglotCLI
         public string? TranslationErrorMessage { get; set; }
         public double UsedTemperature { get; set; }
         public int RetryCount { get; set; }
+        public string? ThoughtText { get; set; }
     }
 }

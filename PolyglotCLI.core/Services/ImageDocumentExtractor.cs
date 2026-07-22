@@ -38,13 +38,13 @@ namespace PolyglotCLI
 
                 byte[] imageBytes = File.ReadAllBytes(filePath);
                 
-                // Perform OCR on the image. Since it is a single image, page number is 1.
-                string transcribedText = await ocrService.PerformOcrAsync(imageBytes, 1);
+                var ocrRes = await ocrService.PerformOcrAsync(imageBytes, 1);
                 
                 var state = new PageProcessState
                 {
                     PageNumber = 1,
-                    OcrText = transcribedText,
+                    OcrText = ocrRes.Text,
+                    ThoughtText = ocrRes.Thought,
                     OcrFailed = false
                 };
                 pageStates.Add(state);

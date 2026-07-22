@@ -22,9 +22,16 @@ namespace PolyglotCLI
 
         public async Task<string> TranslateTextAsync(string sourceText, int pageNumber)
         {
-            if (string.IsNullOrWhiteSpace(sourceText))
+            string cleanSource = System.Text.RegularExpressions.Regex.Replace(
+                sourceText ?? string.Empty, 
+                @"<think>[\s\S]*?</think>", 
+                string.Empty, 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            ).Trim();
+
+            if (string.IsNullOrWhiteSpace(cleanSource))
             {
-                AppLogger.Warn($"Translation page {pageNumber}: Source text was empty. Skipping API request.");
+                AppLogger.Warn($"Translation page {pageNumber}: Source text was empty (after think removal). Skipping API request.");
                 return $"*Page {pageNumber} was empty.*";
             }
 
@@ -32,9 +39,9 @@ namespace PolyglotCLI
                 ? "Preserve all Markdown formatting (headers, tables, lists, bold, italic, links)."
                 : "Translate only the text content. Do not preserve Markdown formatting, output plain text.";
 
-            string userPrompt = $"Translate the following text into {_targetLanguage}. {formatInstruction} Make sure to only return the translation:\n\n{sourceText}";
+            string userPrompt = $"Translate the following text into {_targetLanguage}. {formatInstruction} Make sure to only return the translation:\n\n{cleanSource}";
 
-            AppLogger.Info($"Translation page {pageNumber}: Starting text request to model '{_modelName}' (Input length: {sourceText.Length} chars)...");
+            AppLogger.Info($"Translation page {pageNumber}: Starting text request to model '{_modelName}' (Input length: {cleanSource.Length} chars)...");
 
             var stopwatch = Stopwatch.StartNew();
             try

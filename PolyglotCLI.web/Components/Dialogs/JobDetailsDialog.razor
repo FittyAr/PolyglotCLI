@@ -307,25 +307,56 @@
                             
                             <RadzenRow Gap="1rem" style="flex-grow: 1;">
                                 <RadzenColumn Size="6" style="display: flex; flex-direction: column;">
-                                    <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold; color: #a5b4fc;" class="rz-mb-1">Origen (PDF / OCR / Texto)</RadzenText>
-                                    <div style="flex-grow: 1; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; overflow: auto; background: #000; display: flex; flex-direction: column; height: calc(92vh - 310px);">
-                                        @if (hasPageImage && !string.IsNullOrEmpty(pageImageBase64))
-                                        {
-                                            <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; padding: 8px;">
-                                                <img src="data:image/png;base64,@pageImageBase64" style="max-width: 100%; max-height: calc(92vh - 330px); object-fit: contain;" />
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <pre style="flex-grow: 1; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #94a3b8; white-space: pre-wrap; background: #0f172a; height: 100%; overflow-y: auto;">@selectedPageData.OriginalText</pre>
-                                        }
-                                    </div>
+                                    <RadzenTabs RenderMode="TabRenderMode.Client" style="flex-grow: 1; display: flex; flex-direction: column; height: calc(92vh - 310px);">
+                                        <Tabs>
+                                            <RadzenTabsItem Text="Original (PDF / Imagen)" Icon="image">
+                                                <div style="height: calc(92vh - 390px); display: flex; flex-direction: column; margin-top: 8px; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; overflow: auto; background: #000; justify-content: center; align-items: center;">
+                                                    @if (hasPageImage && !string.IsNullOrEmpty(pageImageBase64))
+                                                    {
+                                                        <div style="flex-grow: 1; display: flex; justify-content: center; align-items: center; padding: 8px;">
+                                                            <img src="data:image/png;base64,@pageImageBase64" style="max-width: 100%; max-height: calc(92vh - 410px); object-fit: contain;" />
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #b0bec5; font-size: 0.9rem; padding: 12px; text-align: center;">
+                                                            No hay imagen renderizada disponible para este tipo de documento.
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </RadzenTabsItem>
+                                            <RadzenTabsItem Text="Texto Extraído (OCR)" Icon="description">
+                                                <div style="height: calc(92vh - 390px); display: flex; flex-direction: column; margin-top: 8px;">
+                                                    <pre style="flex-grow: 1; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #94a3b8; white-space: pre-wrap; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; height: 100%; overflow-y: auto;">@selectedPageData.OriginalText</pre>
+                                                </div>
+                                            </RadzenTabsItem>
+                                        </Tabs>
+                                    </RadzenTabs>
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" style="display: flex; flex-direction: column;">
-                                    <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold; color: #a5b4fc;" class="rz-mb-1">Traducción</RadzenText>
-                                    <div style="flex-grow: 1; display: flex; flex-direction: column; height: calc(92vh - 310px);">
-                                        <RadzenTextArea @bind-Value="selectedPageData.TranslatedText" style="flex-grow: 1; font-family: monospace; font-size: 0.9rem; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); padding: 12px; border-radius: 4px; resize: none; height: 100%;" Change="@OnTranslationEdited" />
-                                    </div>
+                                    <RadzenTabs RenderMode="TabRenderMode.Client" style="flex-grow: 1; display: flex; flex-direction: column; height: calc(92vh - 310px);">
+                                        <Tabs>
+                                            <RadzenTabsItem Text="Traducción" Icon="translate">
+                                                <div style="height: calc(92vh - 390px); display: flex; flex-direction: column; margin-top: 8px;">
+                                                    <RadzenTextArea @bind-Value="selectedPageData.TranslatedText" style="flex-grow: 1; font-family: monospace; font-size: 0.9rem; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); padding: 12px; border-radius: 4px; resize: none; height: 100%;" Change="@OnTranslationEdited" />
+                                                </div>
+                                            </RadzenTabsItem>
+                                            <RadzenTabsItem Text="Pensamiento (Reasoning)" Icon="psychology">
+                                                <div style="height: calc(92vh - 390px); display: flex; flex-direction: column; margin-top: 8px;">
+                                                    @if (!string.IsNullOrEmpty(selectedPageData.ThoughtText))
+                                                    {
+                                                        <pre style="flex-grow: 1; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #f59e0b; white-space: pre-wrap; background: #0b0f19; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; height: 100%; overflow-y: auto;">@selectedPageData.ThoughtText</pre>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #b0bec5; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; background: #0b0f19;">
+                                                            No hay trazas de razonamiento (&lt;think&gt;) disponibles para esta página.
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </RadzenTabsItem>
+                                        </Tabs>
+                                    </RadzenTabs>
                                 </RadzenColumn>
                             </RadzenRow>
                         }
@@ -469,7 +500,8 @@
                     OcrFailed = !d.IsOcrSuccessful,
                     TranslationFailed = !d.IsTranslationSuccessful,
                     OcrErrorMessage = d.OcrErrorMessage,
-                    TranslationErrorMessage = d.TranslationErrorMessage
+                    TranslationErrorMessage = d.TranslationErrorMessage,
+                    ThoughtText = d.ThoughtText
                 }).ToList();
                 
                 JobManifestService.SavePageStatesToJson(states, filePath);

@@ -19,13 +19,27 @@ namespace PolyglotCLI
 
         public async Task<string> ReviewTranslationAsync(string originalText, string translatedText, int pageNumber)
         {
-            if (string.IsNullOrWhiteSpace(translatedText))
+            string cleanOriginal = System.Text.RegularExpressions.Regex.Replace(
+                originalText ?? string.Empty, 
+                @"<think>[\s\S]*?</think>", 
+                string.Empty, 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            ).Trim();
+
+            string cleanTranslated = System.Text.RegularExpressions.Regex.Replace(
+                translatedText ?? string.Empty, 
+                @"<think>[\s\S]*?</think>", 
+                string.Empty, 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            ).Trim();
+
+            if (string.IsNullOrWhiteSpace(cleanTranslated))
             {
-                AppLogger.Warn($"Review page {pageNumber}: Translated text was empty. Skipping API request.");
-                return translatedText ?? string.Empty;
+                AppLogger.Warn($"Review page {pageNumber}: Translated text was empty (after think removal). Skipping API request.");
+                return cleanTranslated;
             }
 
-            string userPrompt = $"--- ORIGINAL TEXT ---\n{originalText}\n\n--- TRANSLATED TEXT ---\n{translatedText}";
+            string userPrompt = $"--- ORIGINAL TEXT ---\n{cleanOriginal}\n\n--- TRANSLATED TEXT ---\n{cleanTranslated}";
 
             AppLogger.Info($"Review page {pageNumber}: Starting text request to model '{_modelName}'...");
 

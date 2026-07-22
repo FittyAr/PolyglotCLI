@@ -320,16 +320,7 @@ namespace PolyglotCLI
         private string CleanResponse(string? content)
         {
             if (string.IsNullOrEmpty(content)) return string.Empty;
-            
-            // Expresión regular para remover la etiqueta <think>...</think> y todo su contenido
-            string cleaned = System.Text.RegularExpressions.Regex.Replace(
-                content, 
-                @"<think>[\s\S]*?</think>", 
-                string.Empty, 
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            
-            return cleaned.Trim();
+            return content;
         }
 
         public void Dispose()
