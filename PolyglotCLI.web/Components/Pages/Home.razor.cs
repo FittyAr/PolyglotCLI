@@ -32,11 +32,14 @@ public partial class Home : ComponentBase, IDisposable
     public string? ResumeJobId { get; set; }
 
     protected CommandLineOptions options = new CommandLineOptions();
-    protected bool isProcessing = false;
+    protected bool isProcessing 
+    { 
+        get => TranslationSession.IsProcessing; 
+        set => TranslationSession.IsProcessing = value; 
+    }
     protected bool isConsoleExpanded = false;
     protected bool isAutoscrollEnabled = true;
-    protected System.Threading.CancellationTokenSource? cts;
-    protected List<LogEntry> logs = new List<LogEntry>();
+    protected List<LogEntry> logs => TranslationSession.Logs;
     protected List<string> availableModels = new List<string>();
     private bool hasResumed = false;
     
@@ -488,14 +491,14 @@ public partial class Home : ComponentBase, IDisposable
 
         isProcessing = true;
         logs.Clear();
-        cts = new System.Threading.CancellationTokenSource();
+        TranslationSession.Cts = new System.Threading.CancellationTokenSource();
         StateHasChanged();
 
         try
         {
-            int exitCode = await Task.Run(() => TranslationOrchestrator.ExecuteAsync(args, Config, cts.Token));
+            int exitCode = await Task.Run(() => TranslationOrchestrator.ExecuteAsync(args, Config, TranslationSession.Cts.Token));
             
-            if (cts.IsCancellationRequested)
+            if (TranslationSession.Cts.IsCancellationRequested)
             {
                 AppLogger.WarnConsole("\n[SYSTEM] Traducción detenida por el usuario.");
             }
@@ -514,7 +517,7 @@ public partial class Home : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            if (cts.IsCancellationRequested || ex is OperationCanceledException || ex.InnerException is OperationCanceledException)
+            if (TranslationSession.Cts.IsCancellationRequested || ex is OperationCanceledException || ex.InnerException is OperationCanceledException)
             {
                 AppLogger.WarnConsole("\n[SYSTEM] El proceso fue cancelado por el usuario.");
             }
@@ -526,18 +529,18 @@ public partial class Home : ComponentBase, IDisposable
         finally
         {
             isProcessing = false;
-            cts?.Dispose();
-            cts = null;
+            TranslationSession.Cts?.Dispose();
+            TranslationSession.Cts = null;
             StateHasChanged();
         }
     }
 
     protected void CancelProcess()
     {
-        if (cts != null)
+        if (TranslationSession.Cts != null)
         {
             AppLogger.WarnConsole("\n[USER] Solicitando detención inmediata. Cancelando tareas...");
-            cts.Cancel();
+            TranslationSession.Cts.Cancel();
         }
     }
 

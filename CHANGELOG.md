@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eliminación completa del proveedor Anthropic Claude y su cliente dedicado `AnthropicClient` para simplificar la arquitectura, dejando únicamente los conectores oficiales integrados de Semantic Kernel.
 
 ### Fixed
+- Corregida la pérdida del botón "Detener Proceso" y del estado de ejecución (incluyendo logs) en la UI web al cambiar de pestaña (enrutado de Blazor), moviendo el estado activo del proceso a una clase de sesión persistente (`TranslationSession`).
 - Corregido el dominio del endpoint por defecto de MiniMax a `api.minimax.io` en lugar del dominio obsoleto `.chat`.
 - Implementada la interrupción inmediata de todo el trabajo ante errores críticos de autenticación o API Key inválida (HTTP 401 Unauthorized), impidiendo ejecuciones fallidas repetidas en cascada por cada página del documento.
 - Implementada la consulta automática a internet (asíncrona y en segundo plano) de los modelos disponibles al cambiar el proveedor en el combobox de la UI web.
