@@ -11,6 +11,7 @@ namespace PolyglotCLI
     {
         public static string? CurrentJobDirectory { get; set; }
         public static Action<string, int, bool, string?>? OnPageOcrCompleted { get; set; }
+        public static System.Threading.CancellationToken ActiveCancellationToken { get; set; } = System.Threading.CancellationToken.None;
 
         public static string GetJobsDirectory()
         {
@@ -22,8 +23,11 @@ namespace PolyglotCLI
             return Path.Combine(AppContext.BaseDirectory, "jobs");
         }
 
-        public static async Task<int> ExecuteAsync(CommandLineOptions options, AppConfig config)
+        public static async Task<int> ExecuteAsync(CommandLineOptions options, AppConfig config, System.Threading.CancellationToken cancellationToken = default)
         {
+            ActiveCancellationToken = cancellationToken;
+            ActiveCancellationToken.ThrowIfCancellationRequested();
+
             // 0. Setup Job Directory
             string timestamp = !string.IsNullOrEmpty(options.ResumeJobId) ? options.ResumeJobId : DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string jobDir = Path.Combine(GetJobsDirectory(), timestamp);
@@ -164,6 +168,7 @@ namespace PolyglotCLI
 
                 foreach (var target in options.DocumentTargets)
                 {
+                    ActiveCancellationToken.ThrowIfCancellationRequested();
                     string filePath = target.FilePath;
                     string fileName = Path.GetFileName(filePath);
                     string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
@@ -355,6 +360,7 @@ namespace PolyglotCLI
 
             foreach (var target in options.DocumentTargets)
             {
+                ActiveCancellationToken.ThrowIfCancellationRequested();
                 string filePath = target.FilePath;
                 string fileName = Path.GetFileName(filePath);
                 string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
@@ -390,6 +396,7 @@ namespace PolyglotCLI
                         using var translationScope = AppLogger.BeginProcess("Translation");
                         foreach (var state in pageStates)
                         {
+                            ActiveCancellationToken.ThrowIfCancellationRequested();
                             int pageNum = state.PageNumber;
 
                             // Check manifest first if resuming
@@ -506,6 +513,7 @@ namespace PolyglotCLI
 
                         foreach (var state in failedPages)
                         {
+                            ActiveCancellationToken.ThrowIfCancellationRequested();
                             int pageNum = state.PageNumber;
 
                             if (state.OcrFailed)
@@ -633,6 +641,7 @@ namespace PolyglotCLI
 
                         foreach (var state in pageStates)
                         {
+                            ActiveCancellationToken.ThrowIfCancellationRequested();
                             if (state.OcrFailed || state.TranslationFailed)
                             {
                                 continue;

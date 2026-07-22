@@ -177,6 +177,10 @@
 
                 <RadzenButton ButtonType="ButtonType.Submit" Text="Iniciar Traducción" Icon="play_arrow" 
                                ButtonStyle="ButtonStyle.Primary" BusyText="Procesando..." IsBusy="@isProcessing" class="rz-mt-2" />
+                @if (isProcessing)
+                {
+                    <RadzenButton Text="Detener Proceso" Icon="stop" ButtonStyle="ButtonStyle.Danger" Click="@CancelProcess" class="rz-mt-2 rz-ml-2" />
+                }
             </RadzenTemplateForm>
         </RadzenCard>
     </RadzenColumn>

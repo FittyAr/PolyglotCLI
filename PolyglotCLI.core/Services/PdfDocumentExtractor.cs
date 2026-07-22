@@ -39,6 +39,7 @@ namespace PolyglotCLI
 
             foreach (int pageNum in resolvedPages)
             {
+                TranslationOrchestrator.ActiveCancellationToken.ThrowIfCancellationRequested();
                 var state = new PageProcessState { PageNumber = pageNum };
                 pageStates.Add(state);
 

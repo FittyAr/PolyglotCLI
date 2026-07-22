@@ -19,7 +19,7 @@
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="JobManifest" Property="CreatedAt" Title="Fecha" FormatString="{0:d/M/yyyy HH:mm}" Width="150px" />
         <RadzenDataGridColumn TItem="JobManifest" Property="ModelName" Title="Modelo" Width="150px" />
-        <RadzenDataGridColumn TItem="JobManifest" Title="Acciones" Width="220px" Filterable="false" Sortable="false">
+        <RadzenDataGridColumn TItem="JobManifest" Title="Acciones" Width="260px" Filterable="false" Sortable="false">
             <Template Context="job">
                 <RadzenButton Icon="list" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" class="rz-mr-1" title="Ver Detalles del Trabajo" 
                               Click="@(() => ViewJobDetails(job))" />
@@ -32,6 +32,9 @@
                     <RadzenButton Icon="psychology" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" class="rz-mr-1" title="Análisis de Errores IA" 
                                   Click="@(() => AnalyzeErrors(job))" />
                 }
+
+                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" class="rz-mr-1" title="Borrar Trabajo" 
+                              Click="@(() => DeleteJob(job))" />
             </Template>
         </RadzenDataGridColumn>
     </Columns>
@@ -114,5 +117,31 @@
         {
             { "Job", job }
         }, new DialogOptions { Width = "900px", Height = "650px", Resizable = true, Draggable = true });
+    }
+
+    async Task DeleteJob(JobManifest job)
+    {
+        bool? confirm = await DialogService.Confirm(
+            $"¿Estás seguro de que deseas eliminar el trabajo '{job.JobId}' y toda su carpeta de datos del disco?", 
+            "Confirmar Eliminación", 
+            new ConfirmOptions { OkButtonText = "Eliminar", CancelButtonText = "Cancelar" });
+
+        if (confirm == true)
+        {
+            try
+            {
+                string jobDir = Path.Combine(TranslationOrchestrator.GetJobsDirectory(), job.JobId);
+                if (Directory.Exists(jobDir))
+                {
+                    Directory.Delete(jobDir, true);
+                }
+                LoadManifests();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                await DialogService.Alert($"Error al eliminar la carpeta del trabajo: {ex.Message}", "Error");
+            }
+        }
     }
 }

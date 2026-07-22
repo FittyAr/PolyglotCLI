@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Añadido un botón "Detener Proceso" en la interfaz de usuario web que permite cancelar de forma inmediata y segura una ejecución de OCR/traducción activa.
+- Añadido un botón de eliminación en el historial de trabajos que permite borrar físicamente del disco la carpeta de datos de cualquier trabajo seleccionado (`jobs/<jobId>`) tras confirmación interactiva.
+
 ### Changed
 - Integrada la biblioteca `Microsoft.SemanticKernel` (versión `1.78.0`) en el proyecto central, reemplazando la serialización JSON manual y las llamadas directas HTTP de `OpenAiCompatibleClient` y `GeminiClient` por conectores nativos oficiales (`OpenAI` y `Google` experimental `1.78.0-alpha`).
 - Simplificado `PromptHelperService` (métodos `ImprovePromptAsync`, `GenerateContextPromptAsync` y `AnalyzeErrorsAsync`) para reutilizar `LlmClientFactory` y la interfaz `ILlmClient` eliminando el código HTTP e inyecciones HttpClient repetitivas.

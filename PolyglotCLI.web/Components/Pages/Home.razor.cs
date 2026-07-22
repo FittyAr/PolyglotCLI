@@ -30,6 +30,7 @@ public partial class Home : ComponentBase, IDisposable
 
     protected CommandLineOptions options = new CommandLineOptions();
     protected bool isProcessing = false;
+    protected System.Threading.CancellationTokenSource? cts;
     protected List<LogEntry> logs = new List<LogEntry>();
     protected List<string> availableModels = new List<string>();
     private bool hasResumed = false;
@@ -471,25 +472,56 @@ public partial class Home : ComponentBase, IDisposable
 
         isProcessing = true;
         logs.Clear();
+        cts = new System.Threading.CancellationTokenSource();
         StateHasChanged();
 
         try
         {
-            int exitCode = await Task.Run(() => TranslationOrchestrator.ExecuteAsync(args, Config));
+            int exitCode = await Task.Run(() => TranslationOrchestrator.ExecuteAsync(args, Config, cts.Token));
             
-            if(exitCode == 0)
+            if (cts.IsCancellationRequested)
+            {
+                AppLogger.WarnConsole("\n[SYSTEM] Traducción detenida por el usuario.");
+            }
+            else if (exitCode == 0)
+            {
                 AppLogger.Info($"Traducción finalizada con éxito. Salida en: {Config.OutputDirectory}");
+            }
             else
+            {
                 AppLogger.Error($"Traducción falló con código {exitCode}.");
+            }
         }
-        catch(Exception ex)
+        catch (OperationCanceledException)
         {
-            AppLogger.Fatal($"Error crítico: {ex.Message}");
+            AppLogger.WarnConsole("\n[SYSTEM] El proceso fue cancelado por el usuario.");
+        }
+        catch (Exception ex)
+        {
+            if (cts.IsCancellationRequested || ex is OperationCanceledException || ex.InnerException is OperationCanceledException)
+            {
+                AppLogger.WarnConsole("\n[SYSTEM] El proceso fue cancelado por el usuario.");
+            }
+            else
+            {
+                AppLogger.Fatal($"Error crítico: {ex.Message}");
+            }
         }
         finally
         {
             isProcessing = false;
+            cts?.Dispose();
+            cts = null;
             StateHasChanged();
+        }
+    }
+
+    protected void CancelProcess()
+    {
+        if (cts != null)
+        {
+            AppLogger.WarnConsole("\n[USER] Solicitando detención inmediata. Cancelando tareas...");
+            cts.Cancel();
         }
     }
 }
