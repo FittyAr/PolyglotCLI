@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="PolyglotCLI.core/PolyglotCLI.core.csproj" />
   <Project Path="PolyglotCLI.web/PolyglotCLI.web.csproj" />
+  <Project Path="PolyglotCLI.test/PolyglotCLI.test.csproj" />
 </Solution>
