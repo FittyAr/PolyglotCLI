@@ -1,14 +1,21 @@
+@using PolyglotCLI
+
 <RadzenRow Gap="1rem" class="rz-mb-4">
-    <RadzenColumn Size="12">
+    <RadzenColumn Size="6">
+        <RadzenLabel Text="Proveedor LLM para OCR" class="rz-mb-2" />
+        <RadzenDropDown Data="@providerOptions" @bind-Value="AppConfig.OcrProvider" Change="@OnProviderChanged" class="rz-w-100" />
+    </RadzenColumn>
+    <RadzenColumn Size="6">
         <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
             <div style="flex-grow: 1;">
                 <RadzenLabel Text="Modelo de Visión (OCR)" class="rz-mb-2" />
-                <RadzenDropDown @bind-Value="AppConfig.DefaultVisionModel" Data="@AvailableModels" class="rz-w-100" Placeholder="Seleccionar modelo de visión..." AllowClear="true" />
+                <RadzenDropDown @bind-Value="AppConfig.DefaultVisionModel" Data="@currentModels" class="rz-w-100" Placeholder="Seleccionar modelo de visión..." AllowClear="true" AllowFiltering="true" />
             </div>
-            <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@(async () => await OnLoadModels.InvokeAsync())" Tooltip="Cargar modelos desde el servidor" IsBusy="@IsTestingConnection" />
+            <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@FetchModelsForProvider" Tooltip="Cargar modelos desde el servidor seleccionado" IsBusy="@isLoadingModels" />
         </div>
     </RadzenColumn>
 </RadzenRow>
+
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
         <RadzenLabel Text="Temperatura OCR (0.0 - 1.0)" class="rz-mb-2" />
@@ -32,4 +39,67 @@
 
     [Parameter]
     public EventCallback OnLoadModels { get; set; }
+
+    private List<string> currentModels = new();
+    private bool isLoadingModels = false;
+
+    private List<string> providerOptions => AppConfig?.GetTestedProviders() ?? new List<string>();
+
+    protected override void OnInitialized()
+    {
+        UpdateModelsList();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (currentModels.Count == 0)
+        {
+            UpdateModelsList();
+        }
+    }
+
+    private void OnProviderChanged(object value)
+    {
+        UpdateModelsList();
+    }
+
+    private void UpdateModelsList()
+    {
+        var savedModels = AppConfig.GetModelsForProvider(AppConfig.OcrProvider);
+        if (savedModels.Count > 0)
+        {
+            currentModels = new List<string>(savedModels);
+        }
+        else
+        {
+            currentModels = new List<string>(AvailableModels);
+        }
+
+        if (!string.IsNullOrEmpty(AppConfig.DefaultVisionModel) && !currentModels.Contains(AppConfig.DefaultVisionModel))
+        {
+            currentModels.Add(AppConfig.DefaultVisionModel);
+        }
+    }
+
+    private async Task FetchModelsForProvider()
+    {
+        isLoadingModels = true;
+        StateHasChanged();
+        try
+        {
+            using var client = LlmClientFactory.CreateClientForOcr(null, AppConfig, AppConfig.ModelCheckTimeoutSeconds);
+            var fetched = await client.GetAvailableModelsAsync();
+            if (fetched.Count > 0)
+            {
+                AppConfig.SaveTestedProvider(AppConfig.OcrProvider, AppConfig.GetProviderConfig(AppConfig.OcrProvider).ApiUrl, AppConfig.GetApiKeyForProvider(AppConfig.OcrProvider), fetched);
+                currentModels = fetched;
+            }
+        }
+        catch {}
+        finally
+        {
+            isLoadingModels = false;
+            StateHasChanged();
+        }
+    }
 }

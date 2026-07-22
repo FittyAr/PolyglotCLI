@@ -10,6 +10,9 @@ namespace PolyglotCLI
         public List<DocumentTarget> DocumentTargets { get; set; } = new List<DocumentTarget>();
         public string Mode { get; set; } = "text"; // "text" or "image"
         public string Provider { get; set; } = "LmStudio";
+        public string? OcrProvider { get; set; }
+        public string? TranslationProvider { get; set; }
+        public string? ReviewProvider { get; set; }
         public string ApiUrl { get; set; } = "http://172.22.144.1:1234/v1";
         public string? ApiKey { get; set; }
         public string? ModelName { get; set; }
@@ -32,6 +35,9 @@ namespace PolyglotCLI
             var options = new CommandLineOptions
             {
                 Provider = config.Provider,
+                OcrProvider = config.OcrProvider,
+                TranslationProvider = config.TranslationProvider,
+                ReviewProvider = config.ReviewProvider,
                 ApiUrl = config.ApiUrl,
                 ApiKey = config.ApiKey,
                 ModelName = config.DefaultModel,
@@ -72,6 +78,24 @@ namespace PolyglotCLI
                         if (i + 1 < args.Length)
                         {
                             options.Provider = args[++i];
+                        }
+                        break;
+                    case "--ocr-provider":
+                        if (i + 1 < args.Length)
+                        {
+                            options.OcrProvider = args[++i];
+                        }
+                        break;
+                    case "--translation-provider":
+                        if (i + 1 < args.Length)
+                        {
+                            options.TranslationProvider = args[++i];
+                        }
+                        break;
+                    case "--review-provider":
+                        if (i + 1 < args.Length)
+                        {
+                            options.ReviewProvider = args[++i];
                         }
                         break;
                     case "--api-key":

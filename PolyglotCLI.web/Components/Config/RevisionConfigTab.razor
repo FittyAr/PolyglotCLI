@@ -1,3 +1,5 @@
+@using PolyglotCLI
+
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12">
         <RadzenCheckBox @bind-Value="AppConfig.EnableReview" Name="cfgReview" />
@@ -5,13 +7,17 @@
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
-    <RadzenColumn Size="12">
+    <RadzenColumn Size="6">
+        <RadzenLabel Text="Proveedor LLM para Revisión" class="rz-mb-2" />
+        <RadzenDropDown Data="@providerOptions" @bind-Value="AppConfig.ReviewProvider" Change="@OnProviderChanged" class="rz-w-100" Disabled="@(!AppConfig.EnableReview)" />
+    </RadzenColumn>
+    <RadzenColumn Size="6">
         <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
             <div style="flex-grow: 1;">
                 <RadzenLabel Text="Modelo de Revisión" class="rz-mb-2" />
-                <RadzenDropDown @bind-Value="AppConfig.ReviewModel" Data="@AvailableModels" class="rz-w-100" Placeholder="Seleccionar modelo de revisión..." AllowClear="true" Disabled="@(!AppConfig.EnableReview)" />
+                <RadzenDropDown @bind-Value="AppConfig.ReviewModel" Data="@currentModels" class="rz-w-100" Placeholder="Seleccionar modelo de revisión..." AllowClear="true" AllowFiltering="true" Disabled="@(!AppConfig.EnableReview)" />
             </div>
-            <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@(async () => await OnLoadModels.InvokeAsync())" Tooltip="Cargar modelos desde el servidor" IsBusy="@IsTestingConnection" Disabled="@(!AppConfig.EnableReview)" />
+            <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@FetchModelsForProvider" Tooltip="Cargar modelos desde el servidor seleccionado" IsBusy="@isLoadingModels" Disabled="@(!AppConfig.EnableReview)" />
         </div>
     </RadzenColumn>
 </RadzenRow>
@@ -38,4 +44,67 @@
 
     [Parameter]
     public EventCallback OnLoadModels { get; set; }
+
+    private List<string> currentModels = new();
+    private bool isLoadingModels = false;
+
+    private List<string> providerOptions => AppConfig?.GetTestedProviders() ?? new List<string>();
+
+    protected override void OnInitialized()
+    {
+        UpdateModelsList();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (currentModels.Count == 0)
+        {
+            UpdateModelsList();
+        }
+    }
+
+    private void OnProviderChanged(object value)
+    {
+        UpdateModelsList();
+    }
+
+    private void UpdateModelsList()
+    {
+        var savedModels = AppConfig.GetModelsForProvider(AppConfig.ReviewProvider);
+        if (savedModels.Count > 0)
+        {
+            currentModels = new List<string>(savedModels);
+        }
+        else
+        {
+            currentModels = new List<string>(AvailableModels);
+        }
+
+        if (!string.IsNullOrEmpty(AppConfig.ReviewModel) && !currentModels.Contains(AppConfig.ReviewModel))
+        {
+            currentModels.Add(AppConfig.ReviewModel);
+        }
+    }
+
+    private async Task FetchModelsForProvider()
+    {
+        isLoadingModels = true;
+        StateHasChanged();
+        try
+        {
+            using var client = LlmClientFactory.CreateClientForReview(null, AppConfig, AppConfig.ModelCheckTimeoutSeconds);
+            var fetched = await client.GetAvailableModelsAsync();
+            if (fetched.Count > 0)
+            {
+                AppConfig.SaveTestedProvider(AppConfig.ReviewProvider, AppConfig.GetProviderConfig(AppConfig.ReviewProvider).ApiUrl, AppConfig.GetApiKeyForProvider(AppConfig.ReviewProvider), fetched);
+                currentModels = fetched;
+            }
+        }
+        catch {}
+        finally
+        {
+            isLoadingModels = false;
+            StateHasChanged();
+        }
+    }
 }

@@ -74,19 +74,7 @@ namespace PolyglotCLI
             }
             catch (Exception ex)
             {
-                AppLogger.Debug($"Gemini GET /models failed ({ex.Message}), using fallback model list.");
-            }
-
-            if (models.Count == 0)
-            {
-                models.AddRange(new[]
-                {
-                    "gemini-1.5-flash",
-                    "gemini-1.5-pro",
-                    "gemini-2.0-flash",
-                    "gemini-2.0-flash-lite",
-                    "gemini-1.0-pro"
-                });
+                AppLogger.Debug($"Gemini GET /models failed ({ex.Message}).");
             }
 
             return models;

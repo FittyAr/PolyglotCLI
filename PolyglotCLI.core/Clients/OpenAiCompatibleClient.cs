@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -33,78 +34,109 @@ namespace PolyglotCLI
 
         public async Task<string> GetFirstLoadedModelAsync()
         {
-            AppLogger.Debug("GET /models: Fetching loaded models list...");
-            var stopwatch = Stopwatch.StartNew();
-            try
-            {
-                var response = await _httpClient.GetAsync($"{_apiUrl}/models");
-                stopwatch.Stop();
-                AppLogger.Debug($"GET /models: Response received in {stopwatch.ElapsedMilliseconds}ms. Status: {response.StatusCode}");
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync();
-                    using var doc = JsonDocument.Parse(content);
-                    if (doc.RootElement.TryGetProperty("data", out var dataElement) && dataElement.ValueKind == JsonValueKind.Array && dataElement.GetArrayLength() > 0)
-                    {
-                        string firstModel = dataElement[0].GetProperty("id").GetString() ?? string.Empty;
-                        AppLogger.Debug($"GET /models: Found model: '{firstModel}'");
-                        return firstModel;
-                    }
-                }
-                else
-                {
-                    string errContent = await response.Content.ReadAsStringAsync();
-                    AppLogger.Warn($"GET /models: Failed (Code: {response.StatusCode}). Content: {errContent}");
-                }
-            }
-            catch (Exception ex)
-            {
-                stopwatch.Stop();
-                AppLogger.Error($"GET /models: Connection request failed in {stopwatch.ElapsedMilliseconds}ms.", ex);
-            }
-
-            return string.Empty;
+            var models = await GetAvailableModelsAsync();
+            return models.Count > 0 ? models[0] : string.Empty;
         }
 
         public async Task<List<string>> GetAvailableModelsAsync()
         {
-            AppLogger.Debug("GET /models: Fetching models list...");
+            AppLogger.Debug($"GET /models: Fetching models list from {_apiUrl}...");
             var models = new List<string>();
-            try
+
+            var endpointsToTry = new List<string> { $"{_apiUrl}/models" };
+            
+            if (_apiUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
             {
-                var response = await _httpClient.GetAsync($"{_apiUrl}/models");
-                if (response.IsSuccessStatusCode)
+                string baseAddr = _apiUrl.Substring(0, _apiUrl.Length - 3);
+                endpointsToTry.Add($"{baseAddr}/api/tags");
+                endpointsToTry.Add($"{baseAddr}/models");
+            }
+
+            foreach (var endpoint in endpointsToTry)
+            {
+                try
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    using var doc = JsonDocument.Parse(content);
-                    if (doc.RootElement.TryGetProperty("data", out var dataElement) && dataElement.ValueKind == JsonValueKind.Array)
+                    var response = await _httpClient.GetAsync(endpoint);
+                    if (response.IsSuccessStatusCode)
                     {
-                        foreach (var item in dataElement.EnumerateArray())
+                        var content = await response.Content.ReadAsStringAsync();
+                        using var doc = JsonDocument.Parse(content);
+                        ExtractModelsFromJson(doc.RootElement, models);
+
+                        if (models.Count > 0)
                         {
-                            if (item.TryGetProperty("id", out var idProp))
-                            {
-                                string id = idProp.GetString() ?? string.Empty;
-                                if (!string.IsNullOrEmpty(id))
-                                {
-                                    models.Add(id);
-                                }
-                            }
+                            AppLogger.Debug($"GET {endpoint}: Found {models.Count} models dynamically.");
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        string errContent = await response.Content.ReadAsStringAsync();
+                        AppLogger.Warn($"GET {endpoint}: Failed (Code: {response.StatusCode}). Content: {errContent}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn($"GET {endpoint}: Request failed ({ex.Message}).");
+                }
+            }
+
+            return models.Distinct().ToList();
+        }
+
+        private static void ExtractModelsFromJson(JsonElement element, List<string> models)
+        {
+            if (element.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in element.EnumerateArray())
+                {
+                    ExtractModelIdFromElement(item, models);
+                }
+            }
+            else if (element.ValueKind == JsonValueKind.Object)
+            {
+                if (element.TryGetProperty("data", out var dataArr) && dataArr.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in dataArr.EnumerateArray())
+                    {
+                        ExtractModelIdFromElement(item, models);
+                    }
+                }
+                else if (element.TryGetProperty("models", out var modelsArr) && modelsArr.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in modelsArr.EnumerateArray())
+                    {
+                        ExtractModelIdFromElement(item, models);
+                    }
+                }
+            }
+        }
+
+        private static void ExtractModelIdFromElement(JsonElement item, List<string> models)
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                string strVal = item.GetString() ?? "";
+                if (!string.IsNullOrWhiteSpace(strVal)) models.Add(strVal);
+                return;
+            }
+
+            if (item.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var propName in new[] { "id", "name", "model", "model_name", "key" })
+                {
+                    if (item.TryGetProperty(propName, out var idProp) && idProp.ValueKind == JsonValueKind.String)
+                    {
+                        string id = idProp.GetString() ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(id))
+                        {
+                            if (id.StartsWith("models/")) id = id.Substring(7);
+                            models.Add(id);
+                            break;
                         }
                     }
                 }
-                else
-                {
-                    string errContent = await response.Content.ReadAsStringAsync();
-                    AppLogger.Warn($"GET /models: Failed (Code: {response.StatusCode}). Content: {errContent}");
-                }
             }
-            catch (Exception ex)
-            {
-                AppLogger.Error("GET /models: Connection request failed.", ex);
-                throw;
-            }
-            return models;
         }
 
         public async Task<string> SendTextRequestAsync(string systemPrompt, string userPrompt, string? modelName)

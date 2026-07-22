@@ -62,19 +62,7 @@ namespace PolyglotCLI
             }
             catch (Exception ex)
             {
-                AppLogger.Debug($"Anthropic GET /models failed ({ex.Message}), using default model list.");
-            }
-
-            if (models.Count == 0)
-            {
-                models.AddRange(new[]
-                {
-                    "claude-3-5-sonnet-20241022",
-                    "claude-3-5-haiku-20241022",
-                    "claude-3-opus-20240229",
-                    "claude-3-haiku-20240307",
-                    "claude-3-sonnet-20240229"
-                });
+                AppLogger.Debug($"Anthropic GET /models failed ({ex.Message}).");
             }
 
             return models;

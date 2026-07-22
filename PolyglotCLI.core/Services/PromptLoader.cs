@@ -9,17 +9,57 @@ namespace PolyglotCLI
 
         public PromptLoader(string? promptsDirectory = null)
         {
-            // Default to 'prompts' folder relative to the execution directory
-            _promptsDirectory = promptsDirectory ?? Path.Combine(AppContext.BaseDirectory, "prompts");
-            
-            // If it doesn't exist relative to execution, fallback to project root folder prompts
-            if (!Directory.Exists(_promptsDirectory))
-            {
-                _promptsDirectory = Path.Combine(Directory.GetCurrentDirectory(), "prompts");
-            }
+            _promptsDirectory = ResolvePromptsDirectory(promptsDirectory);
         }
 
         public string PromptsDirectory => _promptsDirectory;
+
+        private static string ResolvePromptsDirectory(string? explicitPath)
+        {
+            if (!string.IsNullOrWhiteSpace(explicitPath) && Directory.Exists(explicitPath))
+            {
+                return explicitPath;
+            }
+
+            // 1. Try AppContext.BaseDirectory / prompts
+            string baseDirPrompts = Path.Combine(AppContext.BaseDirectory, "prompts");
+            if (Directory.Exists(baseDirPrompts) && File.Exists(Path.Combine(baseDirPrompts, "translation_prompt.md")))
+            {
+                return baseDirPrompts;
+            }
+
+            // 2. Try CurrentDirectory / prompts
+            string currentDirPrompts = Path.Combine(Directory.GetCurrentDirectory(), "prompts");
+            if (Directory.Exists(currentDirPrompts) && File.Exists(Path.Combine(currentDirPrompts, "translation_prompt.md")))
+            {
+                return currentDirPrompts;
+            }
+
+            // 3. Walk up parent directories to find the project root prompts/
+            var searchDir = new DirectoryInfo(Directory.GetCurrentDirectory());
+            while (searchDir != null)
+            {
+                string candidate = Path.Combine(searchDir.FullName, "prompts");
+                if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "translation_prompt.md")))
+                {
+                    return candidate;
+                }
+                searchDir = searchDir.Parent;
+            }
+
+            var baseSearchDir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (baseSearchDir != null)
+            {
+                string candidate = Path.Combine(baseSearchDir.FullName, "prompts");
+                if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "translation_prompt.md")))
+                {
+                    return candidate;
+                }
+                baseSearchDir = baseSearchDir.Parent;
+            }
+
+            return currentDirPrompts;
+        }
 
         public string LoadOcrPrompt()
         {

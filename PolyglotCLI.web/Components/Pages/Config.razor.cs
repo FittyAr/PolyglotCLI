@@ -81,7 +81,8 @@ public partial class Config : ComponentBase
         {
             using var client = LlmClientFactory.CreateClient(AppConfig, AppConfig.ModelCheckTimeoutSeconds);
             availableModels = await client.GetAvailableModelsAsync();
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Carga Exitosa", Detail = $"Se cargaron {availableModels.Count} modelos del servidor ({AppConfig.Provider})." });
+            AppConfig.SaveTestedProvider(AppConfig.Provider, AppConfig.ApiUrl, AppConfig.ApiKey, availableModels);
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Carga y Registro Exitoso", Detail = $"Servidor '{AppConfig.Provider}' verificado con {availableModels.Count} modelos y registrado para usar en OCR, Traducción y Revisión." });
             testConnectionResult = "Conexión exitosa";
         }
         catch (Exception ex)

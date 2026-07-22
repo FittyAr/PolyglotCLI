@@ -100,11 +100,11 @@ namespace PolyglotCLI
             string textModel = options.ModelName ?? loadedModel;
             string visionModel = options.VisionModelName ?? loadedModel;
 
-            // Initialize separate clients for OCR and Translation processes
-            using var ocrClient = LlmClientFactory.CreateClient(options, config, config.OcrTimeoutSeconds);
+            // Initialize separate clients for OCR, Translation and Review processes
+            using var ocrClient = LlmClientFactory.CreateClientForOcr(options, config, config.OcrTimeoutSeconds);
             ocrClient.Temperature = config.OcrTemperature;
 
-            using var translatorClient = LlmClientFactory.CreateClient(options, config, config.TranslationTimeoutSeconds);
+            using var translatorClient = LlmClientFactory.CreateClientForTranslation(options, config, config.TranslationTimeoutSeconds);
             translatorClient.Temperature = config.Temperature;
 
             var ocrService = new OcrService(ocrClient, ocrPrompt, visionModel);
@@ -116,7 +116,7 @@ namespace PolyglotCLI
 
             // Initialize Review Service if enabled
             ReviewService? reviewService = null;
-            using var reviewClient = options.Verify ? LlmClientFactory.CreateClient(options, config, config.ReviewTimeoutSeconds) : null;
+            using var reviewClient = options.Verify ? LlmClientFactory.CreateClientForReview(options, config, config.ReviewTimeoutSeconds) : null;
             if (options.Verify && reviewClient != null)
             {
                 try

@@ -4,12 +4,101 @@ using System.Text.Json;
 
 namespace PolyglotCLI
 {
+    public class ProviderConfig
+    {
+        public string ApiUrl { get; set; } = string.Empty;
+        public string? ApiKey { get; set; }
+        public bool IsTested { get; set; } = false;
+        public List<string> AvailableModels { get; set; } = new List<string>();
+    }
+
     public class AppConfig
     {
         public string Provider { get; set; } = "LmStudio";
+        public string OcrProvider { get; set; } = "LmStudio";
+        public string TranslationProvider { get; set; } = "LmStudio";
+        public string ReviewProvider { get; set; } = "LmStudio";
+
         public string ApiUrl { get; set; } = "http://172.22.144.1:1234/v1";
         public string? ApiKey { get; set; }
         public Dictionary<string, string> ProviderApiKeys { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, ProviderConfig> ProviderConfigs { get; set; } = new Dictionary<string, ProviderConfig>();
+
+        public ProviderConfig GetProviderConfig(string? providerStr = null)
+        {
+            string provider = providerStr ?? Provider;
+            if (!string.IsNullOrWhiteSpace(provider) && ProviderConfigs.TryGetValue(provider, out var existingConfig))
+            {
+                return existingConfig;
+            }
+
+            var pEnum = LlmProviderHelper.ParseProvider(provider);
+            var cfg = new ProviderConfig
+            {
+                ApiUrl = provider.Equals(Provider, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(ApiUrl)
+                    ? ApiUrl
+                    : LlmProviderHelper.GetDefaultApiUrl(pEnum),
+                ApiKey = GetApiKeyForProvider(provider),
+                IsTested = false
+            };
+            return cfg;
+        }
+
+        public void SaveTestedProvider(string providerStr, string apiUrl, string? apiKey, List<string> models)
+        {
+            if (string.IsNullOrWhiteSpace(providerStr)) return;
+
+            string normalizedProvider = providerStr.Trim();
+            SetApiKeyForProvider(normalizedProvider, apiKey);
+
+            if (!ProviderConfigs.TryGetValue(normalizedProvider, out var pCfg))
+            {
+                pCfg = new ProviderConfig();
+                ProviderConfigs[normalizedProvider] = pCfg;
+            }
+
+            pCfg.ApiUrl = apiUrl;
+            pCfg.ApiKey = apiKey;
+            pCfg.IsTested = true;
+            pCfg.AvailableModels = models ?? new List<string>();
+
+            if (normalizedProvider.Equals(Provider, StringComparison.OrdinalIgnoreCase))
+            {
+                ApiUrl = apiUrl;
+            }
+
+            Save();
+        }
+
+        public List<string> GetModelsForProvider(string? providerStr)
+        {
+            string provider = providerStr ?? Provider;
+            if (!string.IsNullOrWhiteSpace(provider) && ProviderConfigs.TryGetValue(provider, out var pCfg) && pCfg.AvailableModels.Count > 0)
+            {
+                return pCfg.AvailableModels;
+            }
+
+            return new List<string>();
+        }
+
+        public List<string> GetTestedProviders()
+        {
+            var tested = new List<string>();
+            foreach (var kvp in ProviderConfigs)
+            {
+                if (kvp.Value.IsTested && !string.IsNullOrWhiteSpace(kvp.Key))
+                {
+                    tested.Add(kvp.Key);
+                }
+            }
+
+            if (tested.Count == 0 && !string.IsNullOrWhiteSpace(Provider))
+            {
+                tested.Add(Provider);
+            }
+
+            return tested.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
 
         public string? GetApiKeyForProvider(string? providerStr = null)
         {
@@ -169,9 +258,13 @@ namespace PolyglotCLI
         {
             var fresh = Load(LoadedFromPath);
             Provider = fresh.Provider;
+            OcrProvider = fresh.OcrProvider ?? fresh.Provider;
+            TranslationProvider = fresh.TranslationProvider ?? fresh.Provider;
+            ReviewProvider = fresh.ReviewProvider ?? fresh.Provider;
             ApiUrl = fresh.ApiUrl;
             ApiKey = fresh.ApiKey;
             ProviderApiKeys = fresh.ProviderApiKeys ?? new Dictionary<string, string>();
+            ProviderConfigs = fresh.ProviderConfigs ?? new Dictionary<string, ProviderConfig>();
             DefaultModel = fresh.DefaultModel;
             DefaultVisionModel = fresh.DefaultVisionModel;
             TargetLanguage = fresh.TargetLanguage;

@@ -8,9 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Corregida la resolución de la carpeta de prompts en `PromptLoader` para ascender por los directorios padres buscando la carpeta `prompts` real del proyecto raíz, eliminando la creación de archivos vacíos accidentales en `PolyglotCLI.web/prompts`.
 - Actualizada la dependencia del paquete `AngleSharp` a la versión `1.5.2` en `PolyglotCLI.core.csproj` para resolver programáticamente la vulnerabilidad NU1902 (GHSA-pgww-w46g-26qg) sin anular ni ignorar advertencias del compilador.
 
 ### Added
+- Eliminadas totalmente las listas de modelos hardcodeadas en favor de descubrimiento y extracción 100% dinámica vía endpoints API HTTP (`GET /v1/models`, `GET /api/tags`), con soporte universal para esquemas JSON con propiedades `data`, `models` o listas de cadenas.
+- Restricción estricta de selección en las pestañas OCR Process, Translation y Revision para permitir seleccionar únicamente los proveedores que han sido probados y verificados con éxito en la pestaña General (vía `AppConfig.GetTestedProviders`).
+- Sistema de registro automático de servicios probados (`SaveTestedProvider`), que graba la URL, API Key y lista de modelos devueltos al pasar la prueba de conexión ("PROBAR CONEXIÓN").
+- Selección independiente de proveedor LLM por etapa (`OcrProvider`, `TranslationProvider`, `ReviewProvider`) permitiendo combinar distintos proveedores (ej. Ollama local en OCR, MiniMax en Traducción y Anthropic en Revisión).
+- Actualización dinámica del desplegable de modelos en las pestañas de OCR Process, Translation y Revision según el proveedor seleccionado para esa etapa específica.
 - Arquitectura multi-proveedor LLM modular con soporte nativo para **Ollama**, **LM Studio**, **llama.cpp**, **OpenAI / OpenCode**, **Anthropic Claude**, **Google Gemini**, **Qwen / DashScope**, **Kimi / Moonshot**, **MiniMax** y endpoints personalizados OpenAI-compatible.
 - Interfaz genérica `ILlmClient` y fábrica `LlmClientFactory` para instanciar clientes HTTP desacoplados del resto de la aplicación.
 - Clientes nativos `OpenAiCompatibleClient`, `AnthropicClient` (API `/v1/messages`) y `GeminiClient` (API REST `/v1beta/models/...`).
