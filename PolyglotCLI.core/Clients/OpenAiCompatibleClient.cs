@@ -185,7 +185,7 @@ namespace PolyglotCLI
                 stopwatch.Stop();
                 AppLogger.Info($"POST /chat/completions (SK): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
-                return response.Content ?? string.Empty;
+                return CleanResponse(response.Content);
             }
             catch (Exception ex)
             {
@@ -242,7 +242,7 @@ namespace PolyglotCLI
                 stopwatch.Stop();
                 AppLogger.Info($"POST /chat/completions (SK Vision): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
-                return response.Content ?? string.Empty;
+                return CleanResponse(response.Content);
             }
             catch (Exception ex)
             {
@@ -315,6 +315,21 @@ namespace PolyglotCLI
             {
                 AppLogger.Debug($"UnloadAllExceptAsync ignored error: {ex.Message}");
             }
+        }
+
+        private string CleanResponse(string? content)
+        {
+            if (string.IsNullOrEmpty(content)) return string.Empty;
+            
+            // Expresión regular para remover la etiqueta <think>...</think> y todo su contenido
+            string cleaned = System.Text.RegularExpressions.Regex.Replace(
+                content, 
+                @"<think>[\s\S]*?</think>", 
+                string.Empty, 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            
+            return cleaned.Trim();
         }
 
         public void Dispose()

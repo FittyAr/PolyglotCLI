@@ -118,7 +118,7 @@ namespace PolyglotCLI
                 stopwatch.Stop();
                 AppLogger.Info($"POST Gemini generateContent (SK): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
-                return response.Content ?? string.Empty;
+                return CleanResponse(response.Content);
             }
             catch (Exception ex)
             {
@@ -167,7 +167,7 @@ namespace PolyglotCLI
                 stopwatch.Stop();
                 AppLogger.Info($"POST Gemini generateContent (SK Vision): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
-                return response.Content ?? string.Empty;
+                return CleanResponse(response.Content);
             }
             catch (Exception ex)
             {
@@ -180,6 +180,21 @@ namespace PolyglotCLI
         public Task<bool> UnloadModelAsync(string modelIdentifier) => Task.FromResult(true);
 
         public Task UnloadAllExceptAsync(string keepModelIdentifier) => Task.CompletedTask;
+
+        private string CleanResponse(string? content)
+        {
+            if (string.IsNullOrEmpty(content)) return string.Empty;
+            
+            // Expresión regular para remover la etiqueta <think>...</think> y todo su contenido
+            string cleaned = System.Text.RegularExpressions.Regex.Replace(
+                content, 
+                @"<think>[\s\S]*?</think>", 
+                string.Empty, 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            
+            return cleaned.Trim();
+        }
 
         public void Dispose()
         {
