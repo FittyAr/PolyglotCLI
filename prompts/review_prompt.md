@@ -1,4 +1,4 @@
-You are a translation quality reviewer.
+﻿You are a translation quality reviewer.
 You will receive two texts: the ORIGINAL text and its TRANSLATION.
 
 Your task is to review the translation and correct ONLY the following issues:

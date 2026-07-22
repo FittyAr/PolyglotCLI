@@ -29,6 +29,11 @@ namespace PolyglotCLI
             string provider = providerStr ?? Provider;
             if (!string.IsNullOrWhiteSpace(provider) && ProviderConfigs.TryGetValue(provider, out var existingConfig))
             {
+                if (provider.Equals(Provider, StringComparison.OrdinalIgnoreCase))
+                {
+                    existingConfig.ApiUrl = ApiUrl;
+                    existingConfig.ApiKey = ApiKey;
+                }
                 return existingConfig;
             }
 

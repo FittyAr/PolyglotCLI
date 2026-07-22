@@ -48,13 +48,19 @@ namespace PolyglotCLI
             var provider = LlmProviderHelper.ParseProvider(providerStr);
 
             var pCfg = config.GetProviderConfig(providerStr);
+            bool isActiveProvider = providerStr.Equals(config.Provider, StringComparison.OrdinalIgnoreCase);
+
             string apiUrl = (options != null && !string.IsNullOrWhiteSpace(options.ApiUrl) && providerStr.Equals(options.Provider, StringComparison.OrdinalIgnoreCase))
                 ? options.ApiUrl
-                : (!string.IsNullOrWhiteSpace(pCfg.ApiUrl) ? pCfg.ApiUrl : LlmProviderHelper.GetDefaultApiUrl(provider));
+                : (isActiveProvider && !string.IsNullOrWhiteSpace(config.ApiUrl)
+                    ? config.ApiUrl
+                    : (!string.IsNullOrWhiteSpace(pCfg.ApiUrl) ? pCfg.ApiUrl : LlmProviderHelper.GetDefaultApiUrl(provider)));
 
             string? apiKey = (options != null && !string.IsNullOrWhiteSpace(options.ApiKey) && providerStr.Equals(options.Provider, StringComparison.OrdinalIgnoreCase))
                 ? options.ApiKey
-                : (!string.IsNullOrWhiteSpace(pCfg.ApiKey) ? pCfg.ApiKey : config.GetApiKeyForProvider(providerStr));
+                : (isActiveProvider
+                    ? config.ApiKey
+                    : (!string.IsNullOrWhiteSpace(pCfg.ApiKey) ? pCfg.ApiKey : config.GetApiKeyForProvider(providerStr)));
 
             return CreateClient(provider, apiUrl, apiKey, timeoutSeconds);
         }

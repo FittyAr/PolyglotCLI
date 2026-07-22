@@ -13,14 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eliminación completa del proveedor Anthropic Claude y su cliente dedicado `AnthropicClient` para simplificar la arquitectura, dejando únicamente los conectores oficiales integrados de Semantic Kernel.
 
 ### Fixed
+- Corregida la actualización inmediata del selector de modelos en la interfaz web de configuración al cambiar de proveedor en las pestañas de OCR, traducción y revisión, limpiando o preseleccionando modelos válidos del nuevo proveedor.
+- Añadida precarga de modelos sugeridos por defecto para proveedores no conectados en la configuración de la Web, y actualizados los modelos de MiniMax con la serie oficial actual (MiniMax-M3, M2.7, M2.5, etc.) en lugar de la serie obsoleta abab6.5.
+- Corregida la sincronización de credenciales y URL en las pruebas de conexión del panel de configuración de la Web, asegurando que los valores editados en tiempo real en los textboxes tengan prioridad inmediata al realizar pruebas y listar modelos del proveedor seleccionado.
 - Corregida la resolución de la carpeta de prompts en `PromptLoader` para ascender por los directorios padres buscando la carpeta `prompts` real del proyecto raíz, eliminando la creación de archivos vacíos accidentales en `PolyglotCLI.web/prompts`.
 - Actualizada la dependencia del paquete `AngleSharp` a la versión `1.5.2` en `PolyglotCLI.core.csproj` para resolver programáticamente la vulnerabilidad NU1902 (GHSA-pgww-w46g-26qg) sin anular ni ignorar advertencias del compilador.
 
 ### Added
+- Métodos de sugerencia de modelos por defecto (`GetDefaultSuggestedModels` y `GetDefaultSuggestedVisionModels` en `LlmProvider.cs`) para usarlos como fallback en la interfaz de usuario en las pestañas de configuración cuando el proveedor no tiene modelos probados o almacenados.
 - Eliminadas totalmente las listas de modelos hardcodeadas en favor de descubrimiento y extracción 100% dinámica vía endpoints API HTTP (`GET /v1/models`, `GET /api/tags`), con soporte universal para esquemas JSON con propiedades `data`, `models` o listas de cadenas.
 - Restricción estricta de selección en las pestañas OCR Process, Translation y Revision para permitir seleccionar únicamente los proveedores que han sido probados y verificados con éxito en la pestaña General (vía `AppConfig.GetTestedProviders`).
 - Sistema de registro automático de servicios probados (`SaveTestedProvider`), que graba la URL, API Key y lista de modelos devueltos al pasar la prueba de conexión ("PROBAR CONEXIÓN").
-- Selección independiente de proveedor LLM por etapa (`OcrProvider`, `TranslationProvider`, `ReviewProvider`) permitiendo combinar distintos proveedores (ej. Ollama local en OCR, MiniMax en Traducción y Anthropic en Revisión).
+- Selección independiente de proveedor LLM por etapa (`OcrProvider`, `TranslationProvider`, `ReviewProvider`) permitiendo combinar distintos proveedores (ej. Ollama local en OCR, MiniMax en Traducción y Gemini en Revisión).
 - Actualización dinámica del desplegable de modelos en las pestañas de OCR Process, Translation y Revision según el proveedor seleccionado para esa etapa específica.
 - Arquitectura multi-proveedor LLM modular con soporte nativo para **Ollama**, **LM Studio**, **llama.cpp**, **OpenAI / OpenCode**, **Anthropic Claude**, **Google Gemini**, **Qwen / DashScope**, **Kimi / Moonshot**, **MiniMax** y endpoints personalizados OpenAI-compatible.
 - Interfaz genérica `ILlmClient` y fábrica `LlmClientFactory` para instanciar clientes HTTP desacoplados del resto de la aplicación.

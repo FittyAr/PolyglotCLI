@@ -62,17 +62,43 @@
 
     private void OnProviderChanged(object value)
     {
-        UpdateModelsList();
+        if (value is string providerStr)
+        {
+            AppConfig.ReviewProvider = providerStr;
+        }
+        UpdateModelsList(true);
     }
 
-    private void UpdateModelsList()
+    private void UpdateModelsList(bool providerChanged = false)
     {
         var savedModels = AppConfig.GetModelsForProvider(AppConfig.ReviewProvider);
+        if (savedModels == null || savedModels.Count == 0)
+        {
+            var providerEnum = LlmProviderHelper.ParseProvider(AppConfig.ReviewProvider);
+            savedModels = LlmProviderHelper.GetDefaultSuggestedModels(providerEnum);
+        }
         currentModels = new List<string>(savedModels);
 
-        if (!string.IsNullOrEmpty(AppConfig.ReviewModel) && !currentModels.Contains(AppConfig.ReviewModel))
+        if (providerChanged)
         {
-            currentModels.Add(AppConfig.ReviewModel);
+            if (!string.IsNullOrEmpty(AppConfig.ReviewModel) && !currentModels.Contains(AppConfig.ReviewModel))
+            {
+                if (currentModels.Count > 0)
+                {
+                    AppConfig.ReviewModel = currentModels[0];
+                }
+                else
+                {
+                    AppConfig.ReviewModel = null;
+                }
+            }
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(AppConfig.ReviewModel) && !currentModels.Contains(AppConfig.ReviewModel))
+            {
+                currentModels.Add(AppConfig.ReviewModel);
+            }
         }
     }
 

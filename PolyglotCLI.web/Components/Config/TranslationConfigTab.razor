@@ -78,17 +78,43 @@
 
     private void OnProviderChanged(object value)
     {
-        UpdateModelsList();
+        if (value is string providerStr)
+        {
+            AppConfig.TranslationProvider = providerStr;
+        }
+        UpdateModelsList(true);
     }
 
-    private void UpdateModelsList()
+    private void UpdateModelsList(bool providerChanged = false)
     {
         var savedModels = AppConfig.GetModelsForProvider(AppConfig.TranslationProvider);
+        if (savedModels == null || savedModels.Count == 0)
+        {
+            var providerEnum = LlmProviderHelper.ParseProvider(AppConfig.TranslationProvider);
+            savedModels = LlmProviderHelper.GetDefaultSuggestedModels(providerEnum);
+        }
         currentModels = new List<string>(savedModels);
 
-        if (!string.IsNullOrEmpty(AppConfig.DefaultModel) && !currentModels.Contains(AppConfig.DefaultModel))
+        if (providerChanged)
         {
-            currentModels.Add(AppConfig.DefaultModel);
+            if (!string.IsNullOrEmpty(AppConfig.DefaultModel) && !currentModels.Contains(AppConfig.DefaultModel))
+            {
+                if (currentModels.Count > 0)
+                {
+                    AppConfig.DefaultModel = currentModels[0];
+                }
+                else
+                {
+                    AppConfig.DefaultModel = null;
+                }
+            }
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(AppConfig.DefaultModel) && !currentModels.Contains(AppConfig.DefaultModel))
+            {
+                currentModels.Add(AppConfig.DefaultModel);
+            }
         }
     }
 

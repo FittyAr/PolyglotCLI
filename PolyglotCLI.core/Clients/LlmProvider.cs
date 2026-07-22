@@ -79,5 +79,37 @@ namespace PolyglotCLI
                 _ => LlmProvider.Custom
             };
         }
+
+        public static System.Collections.Generic.List<string> GetDefaultSuggestedModels(LlmProvider provider)
+        {
+            return provider switch
+            {
+                LlmProvider.Ollama => new System.Collections.Generic.List<string> { "llama3.1:8b", "gemma2:9b", "mistral:7b", "phi3:medium", "qwen2:7b" },
+                LlmProvider.LmStudio => new System.Collections.Generic.List<string> { "meta-llama-3-8b-instruct", "microsoft-phi-3-medium-4k-instruct", "mistral-7b-instruct" },
+                LlmProvider.LlamaCpp => new System.Collections.Generic.List<string> { "meta-llama-3-8b-instruct", "microsoft-phi-3-medium-4k-instruct" },
+                LlmProvider.OpenAi => new System.Collections.Generic.List<string> { "gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo" },
+                LlmProvider.Gemini => new System.Collections.Generic.List<string> { "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro" },
+                LlmProvider.Qwen => new System.Collections.Generic.List<string> { "qwen-turbo", "qwen-plus", "qwen-max" },
+                LlmProvider.Kimi => new System.Collections.Generic.List<string> { "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k" },
+                LlmProvider.MiniMax => new System.Collections.Generic.List<string> { "MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5", "MiniMax-M2.1", "MiniMax-M2" },
+                _ => new System.Collections.Generic.List<string>()
+            };
+        }
+
+        public static System.Collections.Generic.List<string> GetDefaultSuggestedVisionModels(LlmProvider provider)
+        {
+            return provider switch
+            {
+                LlmProvider.Ollama => new System.Collections.Generic.List<string> { "llava:7b", "llama3-vision", "bakllava" },
+                LlmProvider.LmStudio => new System.Collections.Generic.List<string> { "meta-llama-3-8b-instruct" },
+                LlmProvider.LlamaCpp => new System.Collections.Generic.List<string> { "meta-llama-3-8b-instruct" },
+                LlmProvider.OpenAi => new System.Collections.Generic.List<string> { "gpt-4o", "gpt-4o-mini", "gpt-4-vision-preview" },
+                LlmProvider.Gemini => new System.Collections.Generic.List<string> { "gemini-1.5-flash", "gemini-1.5-pro" },
+                LlmProvider.Qwen => new System.Collections.Generic.List<string> { "qwen-vl-max", "qwen-vl-plus" },
+                LlmProvider.Kimi => new System.Collections.Generic.List<string> { "moonshot-v1-8k" },
+                LlmProvider.MiniMax => new System.Collections.Generic.List<string> { "MiniMax-M3", "MiniMax-M2.7" },
+                _ => new System.Collections.Generic.List<string>()
+            };
+        }
     }
 }

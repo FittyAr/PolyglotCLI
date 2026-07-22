@@ -57,17 +57,43 @@
 
     private void OnProviderChanged(object value)
     {
-        UpdateModelsList();
+        if (value is string providerStr)
+        {
+            AppConfig.OcrProvider = providerStr;
+        }
+        UpdateModelsList(true);
     }
 
-    private void UpdateModelsList()
+    private void UpdateModelsList(bool providerChanged = false)
     {
         var savedModels = AppConfig.GetModelsForProvider(AppConfig.OcrProvider);
+        if (savedModels == null || savedModels.Count == 0)
+        {
+            var providerEnum = LlmProviderHelper.ParseProvider(AppConfig.OcrProvider);
+            savedModels = LlmProviderHelper.GetDefaultSuggestedVisionModels(providerEnum);
+        }
         currentModels = new List<string>(savedModels);
 
-        if (!string.IsNullOrEmpty(AppConfig.DefaultVisionModel) && !currentModels.Contains(AppConfig.DefaultVisionModel))
+        if (providerChanged)
         {
-            currentModels.Add(AppConfig.DefaultVisionModel);
+            if (!string.IsNullOrEmpty(AppConfig.DefaultVisionModel) && !currentModels.Contains(AppConfig.DefaultVisionModel))
+            {
+                if (currentModels.Count > 0)
+                {
+                    AppConfig.DefaultVisionModel = currentModels[0];
+                }
+                else
+                {
+                    AppConfig.DefaultVisionModel = null;
+                }
+            }
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(AppConfig.DefaultVisionModel) && !currentModels.Contains(AppConfig.DefaultVisionModel))
+            {
+                currentModels.Add(AppConfig.DefaultVisionModel);
+            }
         }
     }
 
