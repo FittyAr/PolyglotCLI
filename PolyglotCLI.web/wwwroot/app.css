@@ -124,6 +124,7 @@ h1, h2, h3, h4, h5, h6, .rz-text {
     font-size: 0.85rem;
     line-height: 1.6;
     box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.7);
+    white-space: pre-wrap;
 }
 
 .log-info { color: #cbd5e1; }

@@ -24,12 +24,17 @@ public partial class Home : ComponentBase, IDisposable
     [Inject]
     protected NavigationManager NavigationManager { get; set; } = default!;
 
+    [Inject]
+    protected Microsoft.JSInterop.IJSRuntime JSRuntime { get; set; } = default!;
+
     [Parameter]
     [SupplyParameterFromQuery(Name = "resumeJobId")]
     public string? ResumeJobId { get; set; }
 
     protected CommandLineOptions options = new CommandLineOptions();
     protected bool isProcessing = false;
+    protected bool isConsoleExpanded = false;
+    protected bool isAutoscrollEnabled = true;
     protected System.Threading.CancellationTokenSource? cts;
     protected List<LogEntry> logs = new List<LogEntry>();
     protected List<string> availableModels = new List<string>();
@@ -126,10 +131,21 @@ public partial class Home : ComponentBase, IDisposable
             _ => "log-info"
         };
         
-        InvokeAsync(() => {
+        InvokeAsync(async () => {
             logs.Add(new LogEntry { Message = $"[{DateTime.Now:HH:mm:ss}] {message}", CssClass = cssClass });
             if(logs.Count > 100) logs.RemoveAt(0); // keep max 100 lines
             StateHasChanged();
+            
+            if (isAutoscrollEnabled)
+            {
+                try
+                {
+                    // Delay breve para asegurar que el navegador haya renderizado el nuevo elemento en el DOM
+                    await Task.Delay(10);
+                    await JSRuntime.InvokeVoidAsync("eval", "var el = document.getElementById('consoleOutput'); if(el) el.scrollTop = el.scrollHeight;");
+                }
+                catch {}
+            }
         });
     }
 
@@ -523,5 +539,17 @@ public partial class Home : ComponentBase, IDisposable
             AppLogger.WarnConsole("\n[USER] Solicitando detención inmediata. Cancelando tareas...");
             cts.Cancel();
         }
+    }
+
+    protected void ToggleConsoleExpansion()
+    {
+        isConsoleExpanded = !isConsoleExpanded;
+        StateHasChanged();
+    }
+
+    protected void ToggleAutoscroll()
+    {
+        isAutoscrollEnabled = !isAutoscrollEnabled;
+        StateHasChanged();
     }
 }

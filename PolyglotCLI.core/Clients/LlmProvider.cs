@@ -28,7 +28,7 @@ namespace PolyglotCLI
                 LlmProvider.Gemini => "https://generativelanguage.googleapis.com/v1beta",
                 LlmProvider.Qwen => "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 LlmProvider.Kimi => "https://api.moonshot.cn/v1",
-                LlmProvider.MiniMax => "https://api.minimax.chat/v1",
+                LlmProvider.MiniMax => "https://api.minimax.io/v1",
                 LlmProvider.Custom => "http://localhost:1234/v1",
                 _ => "http://localhost:1234/v1"
             };

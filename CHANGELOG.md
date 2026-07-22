@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Añadidos botones interactivos para maximizar/restaurar la consola de progreso y para activar/desactivar el desplazamiento automático (autoscroll) dinámico.
 - Añadido un botón "Detener Proceso" en la interfaz de usuario web que permite cancelar de forma inmediata y segura una ejecución de OCR/traducción activa.
 - Añadido un botón de eliminación en el historial de trabajos que permite borrar físicamente del disco la carpeta de datos de cualquier trabajo seleccionado (`jobs/<jobId>`) tras confirmación interactiva.
 
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eliminación completa del proveedor Anthropic Claude y su cliente dedicado `AnthropicClient` para simplificar la arquitectura, dejando únicamente los conectores oficiales integrados de Semantic Kernel.
 
 ### Fixed
+- Corregido el dominio del endpoint por defecto de MiniMax a `api.minimax.io` en lugar del dominio obsoleto `.chat`.
 - Implementada la interrupción inmediata de todo el trabajo ante errores críticos de autenticación o API Key inválida (HTTP 401 Unauthorized), impidiendo ejecuciones fallidas repetidas en cascada por cada página del documento.
 - Implementada la consulta automática a internet (asíncrona y en segundo plano) de los modelos disponibles al cambiar el proveedor en el combobox de la UI web.
 - Restringida la limpieza y validación de VRAM únicamente a los proveedores locales y compatibles (Ollama, LM Studio), eliminando advertencias confusas e incorrectas sobre servidores en la nube como MiniMax, Gemini o OpenAI.

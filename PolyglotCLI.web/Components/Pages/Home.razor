@@ -3,8 +3,10 @@
 <PageTitle>Traductor - PolyglotCLI</PageTitle>
 
 <RadzenRow>
-    <RadzenColumn SizeMD="7" SizeLG="8">
-        <RadzenCard class="rz-mb-4">
+    @if (!isConsoleExpanded)
+    {
+        <RadzenColumn SizeMD="7" SizeLG="8">
+            <RadzenCard class="rz-mb-4">
             <RadzenText TextStyle="TextStyle.H4" class="rz-mb-4">Nueva Traducción</RadzenText>
             
             <RadzenTemplateForm Data="@options" Submit="@(async (CommandLineOptions args) => await RunTranslation(args))">
@@ -183,13 +185,30 @@
                 }
             </RadzenTemplateForm>
         </RadzenCard>
-    </RadzenColumn>
+        </RadzenColumn>
+    }
 
-    <RadzenColumn SizeMD="5" SizeLG="4">
-        <RadzenCard class="rz-h-100" style="display: flex; flex-direction: column;">
-            <RadzenText TextStyle="TextStyle.H6" class="rz-mb-4">Consola de Progreso</RadzenText>
+    <RadzenColumn SizeMD="@(isConsoleExpanded ? 12 : 5)" SizeLG="@(isConsoleExpanded ? 12 : 4)">
+        <RadzenCard class="rz-h-100" style="display: flex; flex-direction: column; min-height: 500px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;" class="rz-mb-4">
+                <RadzenText TextStyle="TextStyle.H6" style="margin: 0;">Consola de Progreso</RadzenText>
+                <div>
+                    <RadzenButton Icon="@(isAutoscrollEnabled ? "arrow_downward" : "remove")" 
+                                  ButtonStyle="@(isAutoscrollEnabled ? ButtonStyle.Success : ButtonStyle.Secondary)" 
+                                  Size="ButtonSize.Small" 
+                                  Click="@ToggleAutoscroll" 
+                                  Tooltip="@(isAutoscrollEnabled ? "Desactivar Auto-scroll" : "Activar Auto-scroll")" />
+                    
+                    <RadzenButton Icon="@(isConsoleExpanded ? "fullscreen_exit" : "fullscreen")" 
+                                  ButtonStyle="ButtonStyle.Secondary" 
+                                  Size="ButtonSize.Small" 
+                                  Click="@ToggleConsoleExpansion" 
+                                  Tooltip="@(isConsoleExpanded ? "Restaurar tamaño" : "Maximizar consola")" 
+                                  class="rz-ml-2" />
+                </div>
+            </div>
             
-            <div class="virtual-console flex-grow-1" id="consoleOutput">
+            <div class="virtual-console flex-grow-1" id="consoleOutput" style="@(isConsoleExpanded ? "max-height: 800px; height: 600px;" : "")">
                 @foreach(var log in logs)
                 {
                     <div class="@log.CssClass">@log.Message</div>
