@@ -5,6 +5,11 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Connectors.Google;
+
+#pragma warning disable SKEXP0070 // Suppress experimental Google Gemini connector warning
 
 namespace PolyglotCLI
 {
@@ -85,61 +90,40 @@ namespace PolyglotCLI
             modelName = string.IsNullOrWhiteSpace(modelName) ? "gemini-1.5-flash" : modelName;
             if (modelName.StartsWith("models/")) modelName = modelName.Substring(7);
 
-            AppLogger.Info($"POST /models/{modelName}:generateContent (Gemini): Sending text request");
-
-            var payload = new
-            {
-                systemInstruction = new
-                {
-                    parts = new[] { new { text = systemPrompt } }
-                },
-                contents = new[]
-                {
-                    new
-                    {
-                        parts = new[] { new { text = userPrompt } }
-                    }
-                },
-                generationConfig = new
-                {
-                    temperature = Temperature
-                }
-            };
-
-            string jsonPayload = JsonSerializer.Serialize(payload);
-            using var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+            AppLogger.Info($"POST /models/{modelName} (SK Gemini): Sending text request");
 
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                string endpoint = $"{_apiUrl}/models/{modelName}:generateContent";
-                var response = await _httpClient.PostAsync(endpoint, httpContent);
+                var builder = Kernel.CreateBuilder();
+                builder.AddGoogleAIGeminiChatCompletion(
+                    modelId: modelName,
+                    apiKey: _apiKey,
+                    httpClient: _httpClient
+                );
+
+                var kernel = builder.Build();
+                var chatService = kernel.GetRequiredService<IChatCompletionService>();
+
+                var history = new ChatHistory();
+                history.AddSystemMessage(systemPrompt);
+                history.AddUserMessage(userPrompt);
+
+                var settings = new GeminiPromptExecutionSettings
+                {
+                    Temperature = (float)Temperature
+                };
+
+                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel);
                 stopwatch.Stop();
-                AppLogger.Info($"POST Gemini generateContent: Finished in {stopwatch.ElapsedMilliseconds}ms. Status: {response.StatusCode}");
+                AppLogger.Info($"POST Gemini generateContent (SK): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
-                string responseJson = await response.Content.ReadAsStringAsync();
-                if (!response.IsSuccessStatusCode)
-                {
-                    throw new HttpRequestException($"Gemini API error ({response.StatusCode}): {responseJson}");
-                }
-
-                using var doc = JsonDocument.Parse(responseJson);
-                var candidates = doc.RootElement.GetProperty("candidates");
-                if (candidates.GetArrayLength() > 0)
-                {
-                    var parts = candidates[0].GetProperty("content").GetProperty("parts");
-                    if (parts.GetArrayLength() > 0)
-                    {
-                        return parts[0].GetProperty("text").GetString() ?? string.Empty;
-                    }
-                }
-
-                return string.Empty;
+                return response.Content ?? string.Empty;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                AppLogger.Error($"POST Gemini generateContent failed.", ex);
+                AppLogger.Error($"POST Gemini generateContent (SK) failed.", ex);
                 throw;
             }
         }
@@ -149,74 +133,46 @@ namespace PolyglotCLI
             modelName = string.IsNullOrWhiteSpace(modelName) ? "gemini-1.5-flash" : modelName;
             if (modelName.StartsWith("models/")) modelName = modelName.Substring(7);
 
-            AppLogger.Info($"POST /models/{modelName}:generateContent (Gemini Vision): Sending request");
-
-            string base64Image = Convert.ToBase64String(imageBytes);
-
-            var payload = new
-            {
-                systemInstruction = new
-                {
-                    parts = new[] { new { text = systemPrompt } }
-                },
-                contents = new[]
-                {
-                    new
-                    {
-                        parts = new object[]
-                        {
-                            new
-                            {
-                                inlineData = new
-                                {
-                                    mimeType = imageMimeType,
-                                    data = base64Image
-                                }
-                            },
-                            new { text = userPrompt }
-                        }
-                    }
-                },
-                generationConfig = new
-                {
-                    temperature = Temperature
-                }
-            };
-
-            string jsonPayload = JsonSerializer.Serialize(payload);
-            using var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+            AppLogger.Info($"POST /models/{modelName} (SK Gemini Vision): Sending request");
 
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                string endpoint = $"{_apiUrl}/models/{modelName}:generateContent";
-                var response = await _httpClient.PostAsync(endpoint, httpContent);
+                var builder = Kernel.CreateBuilder();
+                builder.AddGoogleAIGeminiChatCompletion(
+                    modelId: modelName,
+                    apiKey: _apiKey,
+                    httpClient: _httpClient
+                );
+
+                var kernel = builder.Build();
+                var chatService = kernel.GetRequiredService<IChatCompletionService>();
+
+                var history = new ChatHistory();
+                history.AddSystemMessage(systemPrompt);
+
+                var userMessage = new ChatMessageContent(AuthorRole.User, new ChatMessageContentItemCollection
+                {
+                    new TextContent(userPrompt),
+                    new ImageContent(new ReadOnlyMemory<byte>(imageBytes), imageMimeType)
+                });
+                history.Add(userMessage);
+
+                var settings = new GeminiPromptExecutionSettings
+                {
+                    Temperature = (float)Temperature
+                };
+
+                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel);
                 stopwatch.Stop();
-                AppLogger.Info($"POST Gemini generateContent (Vision): Finished in {stopwatch.ElapsedMilliseconds}ms. Status: {response.StatusCode}");
+                AppLogger.Info($"POST Gemini generateContent (SK Vision): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
-                string responseJson = await response.Content.ReadAsStringAsync();
-                if (!response.IsSuccessStatusCode)
-                {
-                    throw new HttpRequestException($"Gemini API vision error ({response.StatusCode}): {responseJson}");
-                }
-
-                using var doc = JsonDocument.Parse(responseJson);
-                var candidates = doc.RootElement.GetProperty("candidates");
-                if (candidates.GetArrayLength() > 0)
-                {
-                    var parts = candidates[0].GetProperty("content").GetProperty("parts");
-                    if (parts.GetArrayLength() > 0)
-                    {
-                        return parts[0].GetProperty("text").GetString() ?? string.Empty;
-                    }
-                }
-
-                return string.Empty;
+                return response.Content ?? string.Empty;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                AppLogger.Error($"POST Gemini Vision generateContent failed.", ex);
+                AppLogger.Error($"POST Gemini Vision generateContent (SK) failed.", ex);
                 throw;
             }
         }
@@ -231,3 +187,4 @@ namespace PolyglotCLI
         }
     }
 }
+#pragma warning restore SKEXP0070

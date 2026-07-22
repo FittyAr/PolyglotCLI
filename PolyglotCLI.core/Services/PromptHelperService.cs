@@ -1,14 +1,27 @@
 using System;
 using System.IO;
-using System.Net.Http;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace PolyglotCLI
 {
     public static class PromptHelperService
     {
+        private static LlmProvider ParseProviderByUrl(string apiUrl)
+        {
+            string url = apiUrl.ToLowerInvariant();
+            if (url.Contains("minimax")) return LlmProvider.MiniMax;
+            if (url.Contains("moonshot") || url.Contains("kimi")) return LlmProvider.Kimi;
+            if (url.Contains("dashscope") || url.Contains("qwen")) return LlmProvider.Qwen;
+            if (url.Contains("openai")) return LlmProvider.OpenAi;
+            if (url.Contains("anthropic")) return LlmProvider.Anthropic;
+            if (url.Contains("generativelanguage") || url.Contains("gemini")) return LlmProvider.Gemini;
+            if (url.Contains("ollama")) return LlmProvider.Ollama;
+            if (url.Contains("1234")) return LlmProvider.LmStudio;
+            if (url.Contains("8080")) return LlmProvider.LlamaCpp;
+            return LlmProvider.Custom;
+        }
+
         public static async Task<string> ImprovePromptAsync(string rawInput, string apiUrl, string model, int timeoutSeconds, double temperature)
         {
             string promptTemplate = "";
@@ -24,41 +37,14 @@ namespace PolyglotCLI
 
             string systemMessage = promptTemplate.Replace("{user_input}", rawInput);
 
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            var config = AppConfig.Load();
+            var provider = ParseProviderByUrl(apiUrl);
+            string? apiKey = config.GetApiKeyForProvider(provider.ToString());
 
-            var requestBody = new
-            {
-                model = model,
-                messages = new[]
-                {
-                    new { role = "user", content = systemMessage }
-                },
-                temperature = temperature
-            };
+            using var client = LlmClientFactory.CreateClient(provider, apiUrl, apiKey, timeoutSeconds);
+            client.Temperature = temperature;
 
-            string jsonString = JsonSerializer.Serialize(requestBody);
-            using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
-
-            var response = await httpClient.PostAsync($"{apiUrl.TrimEnd('/')}/chat/completions", content);
-            if (response.IsSuccessStatusCode)
-            {
-                string responseJson = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(responseJson);
-                var choices = doc.RootElement.GetProperty("choices");
-                if (choices.GetArrayLength() > 0)
-                {
-                    string text = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
-                    return text.Trim();
-                }
-            }
-            else
-            {
-                string errContent = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"API returned status code: {response.StatusCode}. Details: {errContent}");
-            }
-
-            throw new Exception("No output returned from AI.");
+            return await client.SendTextRequestAsync("You are an expert translation system prompt engineer.", systemMessage, model);
         }
 
         public static async Task<string> GenerateContextPromptAsync(
@@ -128,42 +114,10 @@ namespace PolyglotCLI
 
             string userMessage = $"Here is the text content of the document to analyze:\n\n{fileText}";
 
-            var requestBody = new
-            {
-                model = model,
-                messages = new[]
-                {
-                    new { role = "system", content = systemPrompt },
-                    new { role = "user", content = userMessage }
-                },
-                temperature = config.Temperature
-            };
+            using var translationClient = LlmClientFactory.CreateClient(LlmProviderHelper.ParseProvider(config.Provider), apiUrl, config.ApiKey, config.PromptImproveTimeoutSeconds);
+            translationClient.Temperature = config.Temperature;
 
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromSeconds(config.PromptImproveTimeoutSeconds);
-
-            string jsonString = JsonSerializer.Serialize(requestBody);
-            using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
-
-            var response = await httpClient.PostAsync($"{apiUrl.TrimEnd('/')}/chat/completions", content);
-            if (response.IsSuccessStatusCode)
-            {
-                string responseJson = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(responseJson);
-                var choices = doc.RootElement.GetProperty("choices");
-                if (choices.GetArrayLength() > 0)
-                {
-                    string text = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
-                    return text.Trim();
-                }
-            }
-            else
-            {
-                string errContent = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"API returned status code: {response.StatusCode}. Details: {errContent}");
-            }
-
-            throw new Exception("No output returned from AI.");
+            return await translationClient.SendTextRequestAsync(systemPrompt, userMessage, model);
         }
 
         public static async Task<string> AnalyzeErrorsAsync(string errorReport, string apiUrl, string model, int timeoutSeconds, double temperature)
@@ -179,42 +133,14 @@ namespace PolyglotCLI
                 throw new Exception($"Failed to load error analysis prompt: {ex.Message}");
             }
 
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            var config = AppConfig.Load();
+            var provider = ParseProviderByUrl(apiUrl);
+            string? apiKey = config.GetApiKeyForProvider(provider.ToString());
 
-            var requestBody = new
-            {
-                model = model,
-                messages = new[]
-                {
-                    new { role = "system", content = promptTemplate },
-                    new { role = "user", content = errorReport }
-                },
-                temperature = temperature
-            };
+            using var client = LlmClientFactory.CreateClient(provider, apiUrl, apiKey, timeoutSeconds);
+            client.Temperature = temperature;
 
-            string jsonString = JsonSerializer.Serialize(requestBody);
-            using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
-
-            var response = await httpClient.PostAsync($"{apiUrl.TrimEnd('/')}/chat/completions", content);
-            if (response.IsSuccessStatusCode)
-            {
-                string responseJson = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(responseJson);
-                var choices = doc.RootElement.GetProperty("choices");
-                if (choices.GetArrayLength() > 0)
-                {
-                    string text = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
-                    return text.Trim();
-                }
-            }
-            else
-            {
-                string errContent = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"API returned status code: {response.StatusCode}. Details: {errContent}");
-            }
-
-            throw new Exception("No output returned from AI.");
+            return await client.SendTextRequestAsync(promptTemplate, errorReport, model);
         }
     }
 }

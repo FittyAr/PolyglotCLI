@@ -7,6 +7,11 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
+
+#pragma warning disable SKEXP0010 // Suppress experimental custom endpoint warning
 
 namespace PolyglotCLI
 {
@@ -151,52 +156,41 @@ namespace PolyglotCLI
                 }
             }
 
-            AppLogger.Info($"POST /chat/completions: Sending text request to model '{modelName}' (Temp: {Temperature})");
-
-            var payload = new
-            {
-                model = modelName,
-                messages = new[]
-                {
-                    new { role = "system", content = systemPrompt },
-                    new { role = "user", content = userPrompt }
-                },
-                temperature = Temperature
-            };
-
-            string jsonPayload = JsonSerializer.Serialize(payload);
-            using var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+            AppLogger.Info($"POST /chat/completions (SK): Sending text request to model '{modelName}' (Temp: {Temperature})");
 
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                var response = await _httpClient.PostAsync($"{_apiUrl}/chat/completions", httpContent);
-                stopwatch.Stop();
-                AppLogger.Info($"POST /chat/completions: Finished in {stopwatch.ElapsedMilliseconds}ms. Status: {response.StatusCode}");
+                var builder = Kernel.CreateBuilder();
+                builder.AddOpenAIChatCompletion(
+                    modelId: modelName,
+                    apiKey: _apiKey ?? string.Empty,
+                    endpoint: new Uri(_apiUrl),
+                    httpClient: _httpClient
+                );
 
-                if (!response.IsSuccessStatusCode)
+                var kernel = builder.Build();
+                var chatService = kernel.GetRequiredService<IChatCompletionService>();
+
+                var history = new ChatHistory();
+                history.AddSystemMessage(systemPrompt);
+                history.AddUserMessage(userPrompt);
+
+                var settings = new OpenAIPromptExecutionSettings
                 {
-                    string errorContent = await response.Content.ReadAsStringAsync();
-                    var exception = new HttpRequestException($"API request failed with status code {response.StatusCode}. Details: {errorContent}");
-                    AppLogger.Error($"POST /chat/completions: Request failed.", exception);
-                    throw exception;
-                }
+                    Temperature = Temperature
+                };
 
-                string responseJson = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(responseJson);
-                
-                string contentResult = doc.RootElement
-                    .GetProperty("choices")[0]
-                    .GetProperty("message")
-                    .GetProperty("content")
-                    .GetString() ?? string.Empty;
+                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel);
+                stopwatch.Stop();
+                AppLogger.Info($"POST /chat/completions (SK): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
-                return contentResult;
+                return response.Content ?? string.Empty;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                AppLogger.Error($"POST /chat/completions: Call failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
+                AppLogger.Error($"POST /chat/completions (SK): Call failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
                 throw;
             }
         }
@@ -213,67 +207,47 @@ namespace PolyglotCLI
                 }
             }
 
-            AppLogger.Info($"POST /chat/completions (Vision): Sending request to model '{modelName}' (Temp: {Temperature})");
-
-            string base64Image = Convert.ToBase64String(imageBytes);
-            var imageUrl = $"data:{imageMimeType};base64,{base64Image}";
-
-            var payload = new
-            {
-                model = modelName,
-                messages = new object[]
-                {
-                    new { role = "system", content = systemPrompt },
-                    new
-                    {
-                        role = "user",
-                        content = new object[]
-                        {
-                            new { type = "text", text = userPrompt },
-                            new
-                            {
-                                type = "image_url",
-                                image_url = new { url = imageUrl }
-                            }
-                        }
-                    }
-                },
-                temperature = Temperature
-            };
-
-            string jsonPayload = JsonSerializer.Serialize(payload);
-            using var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+            AppLogger.Info($"POST /chat/completions (SK Vision): Sending request to model '{modelName}' (Temp: {Temperature})");
 
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                var response = await _httpClient.PostAsync($"{_apiUrl}/chat/completions", httpContent);
-                stopwatch.Stop();
-                AppLogger.Info($"POST /chat/completions (Vision): Finished in {stopwatch.ElapsedMilliseconds}ms. Status: {response.StatusCode}");
+                var builder = Kernel.CreateBuilder();
+                builder.AddOpenAIChatCompletion(
+                    modelId: modelName,
+                    apiKey: _apiKey ?? string.Empty,
+                    endpoint: new Uri(_apiUrl),
+                    httpClient: _httpClient
+                );
 
-                if (!response.IsSuccessStatusCode)
+                var kernel = builder.Build();
+                var chatService = kernel.GetRequiredService<IChatCompletionService>();
+
+                var history = new ChatHistory();
+                history.AddSystemMessage(systemPrompt);
+
+                var userMessage = new ChatMessageContent(AuthorRole.User, new ChatMessageContentItemCollection
                 {
-                    string errorContent = await response.Content.ReadAsStringAsync();
-                    var exception = new HttpRequestException($"API vision request failed with status code {response.StatusCode}. Details: {errorContent}");
-                    AppLogger.Error($"POST /chat/completions (Vision): Vision request failed.", exception);
-                    throw exception;
-                }
+                    new TextContent(userPrompt),
+                    new ImageContent(new ReadOnlyMemory<byte>(imageBytes), imageMimeType)
+                });
+                history.Add(userMessage);
 
-                string responseJson = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(responseJson);
+                var settings = new OpenAIPromptExecutionSettings
+                {
+                    Temperature = Temperature
+                };
 
-                string contentResult = doc.RootElement
-                    .GetProperty("choices")[0]
-                    .GetProperty("message")
-                    .GetProperty("content")
-                    .GetString() ?? string.Empty;
+                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel);
+                stopwatch.Stop();
+                AppLogger.Info($"POST /chat/completions (SK Vision): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
-                return contentResult;
+                return response.Content ?? string.Empty;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                AppLogger.Error($"POST /chat/completions (Vision): Call failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
+                AppLogger.Error($"POST /chat/completions (SK Vision): Call failed after {stopwatch.ElapsedMilliseconds}ms.", ex);
                 throw;
             }
         }
@@ -349,3 +323,4 @@ namespace PolyglotCLI
         }
     }
 }
+#pragma warning restore SKEXP0010
