@@ -145,17 +145,23 @@ emite **`WIX0091`** para cada colisión.
 
 ### Workaround aplicado (en `ExampleComponents.wxs`)
 
+> **Estado real después de CI**: el primer intento con dos `<Fragment>` y
+> `Directory="..."` explícito NO resolvió el WIX0091. El harvester de WiX 4 sigue
+> sintetizando el mismo `directoryId` raíz. El fix **definitivo** es forzar
+> `directoryId` distintos vía el atributo `Subdirectory`, que añade una
+> subcarpeta sintética al `directoryId` del hash.
+
 ```xml
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <ComponentGroup Id="ServerComponents" Directory="ServerFolder">
-      <Files Include="..\publish_out\**" Directory="ServerFolder" />
+      <Files Include="..\publish_out\**" Subdirectory="serverapp" Directory="ServerFolder" />
     </ComponentGroup>
   </Fragment>
 
   <Fragment>
     <ComponentGroup Id="DesktopComponents" Directory="DesktopFolder_App">
-      <Files Include="..\publish_maui\**" Directory="DesktopFolder_App" />
+      <Files Include="..\publish_maui\**" Subdirectory="desktopapp" Directory="DesktopFolder_App" />
     </ComponentGroup>
   </Fragment>
 </Wix>
@@ -163,16 +169,28 @@ emite **`WIX0091`** para cada colisión.
 
 **Cambios:**
 
-1. **Separación en dos `<Fragment>` distintos.** Cada harvest queda en su propia
-   sección de compilación con su propio ámbito de `directoryId`.
-2. **`Directory="…"` explícito en cada `<Files>`.** Forzamos a WiX a usar el
-   subdirectorio declarado como raíz del harvest, en lugar de que se resuelva
-   implícitamente al `INSTALLFOLDER`.
+1. **`Subdirectory="serverapp"` / `Subdirectory="desktopapp"` por `<Files>`.**
+   Subdirectory crea una subcarpeta sintética bajo el `directoryId` del padre.
+   Eso hace que el hash del auto-id (`fls|SHA1(directoryId|filename)`) sea
+   distinto aunque los archivos tengan los mismos nombres en ambos publish.
+2. **`Directory="..."` explícito** en cada `<Files>`, redundante con el del
+   `<ComponentGroup>` padre pero sirve de salvaguarda.
 
-Esto NO cambia las rutas de instalación — los archivos siguen copiándose
-exactamente en `INSTALLFOLDER/Server/...` y `INSTALLFOLDER/Desktop/...`,
-manteniendo intactos los `Target="[ServerFolder]PolyglotCLI.exe"` y
-`WorkingDirectory="ServerFolder"` de `Shortcuts.wxs`.
+**Consecuencia sobre las rutas de instalación:**
+
+| Sin Subdirectory (antes, fallaba)              | Con Subdirectory (fix actual)                                |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| `INSTALLFOLDER/Server/PolyglotCLI.exe`         | `INSTALLFOLDER/Server/serverapp/PolyglotCLI.exe`             |
+| `INSTALLFOLDER/Server/appsettings.json`        | `INSTALLFOLDER/Server/serverapp/appsettings.json`            |
+| `INSTALLFOLDER/Desktop/PolyglotCLI.Maui.exe`   | `INSTALLFOLDER/Desktop/desktopapp/PolyglotCLI.Maui.exe`     |
+| `INSTALLFOLDER/Desktop/PolyglotCLI.core.dll`   | `INSTALLFOLDER/Desktop/desktopapp/PolyglotCLI.core.dll`     |
+
+`Shortcuts.wxs` actualizado para reflejar las nuevas rutas:
+
+```xml
+<Shortcut Target="[ServerFolder]serverapp\PolyglotCLI.exe"        WorkingDirectory="ServerFolder"     ... />
+<Shortcut Target="[DesktopFolder_App]desktopapp\PolyglotCLI.Maui.exe" WorkingDirectory="DesktopFolder_App" ... />
+```
 
 ### Nota: por qué local no exhibía Familia B pero CI sí
 
@@ -192,10 +210,11 @@ Con el workaround aplicado, ambos entornos deberían comportarse igual.
 | Archivo | Cambio | Efecto |
 | --- | --- | --- |
 | `PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj` | Añadido `<SuppressIces>ICE03;ICE60</SuppressIces>` | Silencia `WIX0204`/`WIX1076` de validación ICE. **Workaround**, no fix. |
-| `PolyglotCLI.Wix/ExampleComponents.wxs` | Dos `<Fragment>` separados y atributo `Directory=""` explícito por `<Files>` | Resuelve `WIX0091` de cosecha. **Fix estructural correcto**. |
+| `PolyglotCLI.Wix/ExampleComponents.wxs` | Dos `<Fragment>` separados + `Subdirectory="serverapp"` / `"desktopapp"` + `Directory="..."` explícito | Resuelve `WIX0091` forzando `directoryId`s distintos. Cambia rutas de instalación (ver tabla anterior). |
+| `PolyglotCLI.Wix/Shortcuts.wxs` | `Target` actualizado a `[ServerFolder]serverapp\PolyglotCLI.exe` y `[DesktopFolder_App]desktopapp\PolyglotCLI.Maui.exe` | Que los accesos directos apunten a los `.exe` reales tras el `Subdirectory`. |
 
-Ambos deben permanecer hasta que la deuda técnica del workaround ICE sea
-pagada. La Familia B ya está resuelta en su origen.
+`<SuppressIces>` debe permanecer hasta que la deuda técnica del workaround ICE
+sea pagada. La Familia B **ya está resuelta** en su origen.
 
 ---
 
@@ -330,8 +349,10 @@ Para la versión **v1.1.0** actual:
 
 1. **Mantener** `<SuppressIces>ICE03;ICE60</SuppressIces>` en
    `PolyglotCLI.Wix.wixproj`. Es lo mínimo invasivo y deja el MSI funcional.
-2. **Mantener** el split en dos `<Fragment>` + `Directory="..."` en
-   `ExampleComponents.wxs`. Corrige Familia B sin cambiar rutas de instalación.
+2. **Mantener** el `Subdirectory="serverapp"` / `"desktopapp"` en
+   `ExampleComponents.wxs`. Corrige Familia B (las rutas ahora son
+   `INSTALLFOLDER/Server/serverapp/...` y `INSTALLFOLDER/Desktop/desktopapp/...`,
+   y `Shortcuts.wxs` ya apunta a ellas).
 3. **Registrar la deuda técnica** de Familia A en `docs/CHANGELOG.md` bajo
    `### Known Issues` para que quede explícito al lector del release.
 

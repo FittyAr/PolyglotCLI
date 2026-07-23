@@ -18,7 +18,7 @@
         <Shortcut Id="ServerStartMenuShortcut"
                   Name="PolyglotCLI Server"
                   Description="Inicia el servidor web PolyglotCLI en el navegador"
-                  Target="[ServerFolder]PolyglotCLI.exe"
+                  Target="[ServerFolder]serverapp\PolyglotCLI.exe"
                   WorkingDirectory="ServerFolder"
                   Icon="AppIcon" />
         <RemoveFolder Id="CleanupServerShortcut" Directory="ApplicationProgramsFolder" On="uninstall" />
@@ -32,9 +32,10 @@
         <Shortcut Id="DesktopAppStartMenuShortcut"
                   Name="PolyglotCLI Desktop"
                   Description="Inicia la aplicacion de escritorio PolyglotCLI"
-                  Target="[DesktopFolder_App]PolyglotCLI.Maui.exe"
+                  Target="[DesktopFolder_App]desktopapp\PolyglotCLI.Maui.exe"
                   WorkingDirectory="DesktopFolder_App"
                   Icon="AppIcon" />
+        <RemoveFolder Id="CleanupServerShortcut" Directory="ApplicationProgramsFolder" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\FittyAr\PolyglotCLI" Name="desktopAppInstalled" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </ComponentGroup>
@@ -49,7 +50,7 @@
         <Shortcut Id="ServerDesktopShortcut"
                   Name="PolyglotCLI Server"
                   Description="Inicia el servidor web PolyglotCLI en el navegador"
-                  Target="[ServerFolder]PolyglotCLI.exe"
+                  Target="[ServerFolder]serverapp\PolyglotCLI.exe"
                   WorkingDirectory="ServerFolder"
                   Icon="AppIcon" />
         <RegistryValue Root="HKCU" Key="Software\FittyAr\PolyglotCLI" Name="serverDesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
@@ -62,7 +63,7 @@
         <Shortcut Id="DesktopAppDesktopShortcut"
                   Name="PolyglotCLI Desktop"
                   Description="Inicia la aplicacion de escritorio PolyglotCLI"
-                  Target="[DesktopFolder_App]PolyglotCLI.Maui.exe"
+                  Target="[DesktopFolder_App]desktopapp\PolyglotCLI.Maui.exe"
                   WorkingDirectory="DesktopFolder_App"
                   Icon="AppIcon" />
         <RegistryValue Root="HKCU" Key="Software\FittyAr\PolyglotCLI" Name="desktopAppDesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
