@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Creado el script de instalación dedicado [install.ps1](file:///d:/GitHub/PolyglotCLI/install.ps1) reubicando la lógica de instalación y desinstalación local.
+- Creados los assets y el manifiesto MSIX en la ruta `manifests/msix/` para habilitar el empaquetado del instalador compatible con la Microsoft Store.
+
+### Changed
+- Modificado [run.ps1](file:///d:/GitHub/PolyglotCLI/run.ps1) para remover la instalación local e implementar una consola de desarrollo interactiva con opciones para iniciar la app, correr tests, compilar y ejecutar el pipeline de release (commit, tag, push en GitHub y migración automática de novedades de `docs/UNRELEASE.md` a `docs/CHANGELOG.md`).
+- Actualizada la instrucción de la skill [changelog-helper](file:///d:/GitHub/PolyglotCLI/.agents/skills/changelog-helper/SKILL.md) para indicar a los agentes de IA que deben registrar sus cambios de desarrollo en `docs/UNRELEASE.md` en lugar de `CHANGELOG.md` en la raíz.
+- Configurada la aceptación automática del EULA de WiX Toolset v7 en [PolyglotCLI.Wix.wixproj](file:///d:/GitHub/PolyglotCLI/PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj) para evitar errores de compilación asociados al OSMF (Open Source Maintenance Fee) en compilaciones locales y de CI/CD.
+- Modificado el workflow de GitHub Actions [release.yml](file:///d:/GitHub/PolyglotCLI/.github/workflows/release.yml) para compilar la aplicación, empaquetar el instalador `.msi` (mediante WiX v7) y el paquete `.msix` (para la Windows Store), subiendo exclusivamente ambos formatos en las publicaciones de GitHub Releases y removiendo el archivo comprimido `.zip`.
+- Adaptadas las plantillas de GitHub Discussions y de reporte de problemas/propuestas de mejoras en [10_bug_report.yml](file:///d:/GitHub/PolyglotCLI/.github/ISSUE_TEMPLATE/10_bug_report.yml), [20_feature_request.yml](file:///d:/GitHub/PolyglotCLI/.github/ISSUE_TEMPLATE/20_feature_request.yml) y [config.yml](file:///d:/GitHub/PolyglotCLI/.github/ISSUE_TEMPLATE/config.yml) para referenciar a PolyglotCLI, sus archivos de configuración (`config.json`), archivos de bitácora (`polyglot.log`) y su respectivo foro de discusiones en el repositorio de GitHub.
+
+### Fixed
+- Corregida la opción de salida (cambiada de `6` a `0`) en [run.ps1](file:///d:/GitHub/PolyglotCLI/run.ps1) utilizando la palabra clave `return` para salir correctamente del bucle infinito de la consola interactiva.
+- Corregido el problema de visualización de caracteres especiales con acentos en la consola de PowerShell en [run.ps1](file:///d:/GitHub/PolyglotCLI/run.ps1), [install.ps1](file:///d:/GitHub/PolyglotCLI/install.ps1) y [bump_version.ps1](file:///d:/GitHub/PolyglotCLI/scripts/bump_version.ps1) estableciendo la salida a UTF-8 y guardando los archivos con codificación UTF-8 con BOM.
+
 ### Removed
 - Eliminado por completo el proyecto de interfaz de consola interactiva (`PolyglotCLI.cli`) para centralizar el desarrollo y las funcionalidades exclusivamente en la versión Web (`PolyglotCLI.web`).
 
@@ -20,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Ajustada la altura del visor de archivos de texto y la consola de logs en la pestaña de bitácoras para aprovechar al máximo el espacio vertical del cuadro contenedor.
 
 ### Fixed
+- **Inicialización del Instalador**: Corregida la definición de `$scriptDir` en `install.ps1` para asegurar la copia correcta del directorio de prompts durante la instalación.
+- **Robustez en la Obtención de Releases**: Corregido el comportamiento del instalador en caso de fallar la conexión con la API de GitHub (como en repositorios privados o sin releases públicos), permitiendo compilar e instalar desde fuentes locales de forma interactiva si se detecta el SDK de .NET.
 - **Copia de Formatos de Conversión**: Corregido el flujo del orquestador y la exportación manual para copiar todos los formatos generados (DOCX, PDF, HTML, ODT, etc.) al subdirectorio `outputs` de cada trabajo, asegurando que se visualicen correctamente en la pestaña de archivos generados.
 - **Verificador de Páginas en Pestañas**: Se ha rediseñado la interfaz del verificador de páginas dividiendo ambos paneles en pestañas. El panel izquierdo ahora permite comparar la imagen original de la página con el texto plano extraído (OCR) completamente limpio (sin trazas de razonamiento), mientras que el panel derecho separa la edición de la traducción de las trazas de pensamiento.
 - **Visor de Trazas de Pensamiento (Reasoning)**: Soporte para procesar, extraer y persistir los bloques `<think>...</think>` que envían los modelos de razonamiento (tanto en la fase de extracción OCR como en la de traducción) en el JSON del trabajo. Los usuarios pueden visualizar cómodamente qué pensó el modelo en cada página de forma opcional a través de una pestaña dedicada en el verificador de páginas.

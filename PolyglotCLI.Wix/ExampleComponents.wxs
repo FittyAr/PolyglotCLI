@@ -1,9 +1,8 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <ComponentGroup Id="ExampleComponents" Directory="INSTALLFOLDER">
-      <Component>
-        <File Source="ExampleComponents.wxs" />
-      </Component>
+      <!-- Cosechar de forma recursiva todos los archivos de la salida de publicación -->
+      <Files Include="..\publish_out\**" />
     </ComponentGroup>
   </Fragment>
 </Wix>

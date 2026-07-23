@@ -1,0 +1,78 @@
+name: Report a bug
+description: Report a problem with PolyglotCLI.
+type: Bug
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues to see if this bug has already been reported.
+
+        For feature requests, please use the Feature Request template or open a discussion.
+  - type: textarea
+    attributes:
+      label: Reproduction steps
+      description: A step-by-step description of how to reproduce the bug.
+      placeholder: |
+        1. Iniciar la aplicación Web (dotnet run)
+        2. Configurar la pestaña OCR Process
+        3. Seleccionar archivo y procesar...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Current vs. Expected behavior
+      description: What happens vs. what you expected to happen.
+      placeholder: |
+        Current: The app freezes on extracting text from a scanned PDF.
+        Expected: The app should successfully run OCR and display the extracted text in the viewer.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: PolyglotCLI version and system details
+      description: |
+        Indique la versión exacta de PolyglotCLI (la puede consultar en el pie de página de la UI Web o en PolyglotCLI.web.csproj).
+      placeholder: |
+        PolyglotCLI: v1.0.0
+        Navegador: Chrome / Edge
+        OS: Windows 11 / Linux
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Attach PolyglotCLI log file (`polyglot.log`)
+      description: |
+        Por favor, revise la carpeta del trabajo (/jobs/...) o la carpeta de configuración `%APPDATA%/PolyglotCLI/logs/` y pegue la sección relevante del archivo `polyglot.log` aquí.
+
+        ⚠️ **Please review your log file for secrets and redact them before posting.**
+      value: |
+        <details><summary>polyglot.log</summary>
+
+        <!-- Paste your log inside the code block. -->
+        ```log
+
+        ```
+
+        </details>
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Relevant configuration settings
+      description: |
+        De ser relevante, pegue aquí el contenido de su archivo `config.json` (ubicado en `%APPDATA%/PolyglotCLI/config.json`).
+
+        ⚠️ **Please review files for secrets and redact them before posting.**
+      value: |
+        <details><summary>config.json</summary>
+
+        <!-- Paste your settings inside the code block. -->
+        ```json
+
+        ```
+
+        </details>
+    validations:
+      required: false
+

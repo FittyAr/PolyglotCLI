@@ -50,14 +50,60 @@ jobs:
                   Write-Host "Fallo al sanitizar config.json: $_"
               }
           }
-
-      - name: Compress Release Archive
+      - name: Build MSIX Package
         shell: pwsh
         run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          if ($version -match '^\d+\.\d+\.\d+$') {
+              $msixVersion = "$version.0"
+          } else {
+              $msixVersion = "1.0.0.0"
+          }
+          
+          $staging = "msix_staging"
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+          
+          Copy-Item -Path publish_out\* -Destination $staging -Recurse -Force
+          Copy-Item -Path manifests/msix/Assets -Destination "$staging/Assets" -Recurse -Force
+          Copy-Item -Path manifests/msix/AppxManifest.xml -Destination $staging -Force
+          
+          $manifestPath = "$staging/AppxManifest.xml"
+          $manifestContent = Get-Content -Raw -Path $manifestPath
+          
+          $identityName = if ("${{ secrets.MS_STORE_IDENTITY_NAME }}") { "${{ secrets.MS_STORE_IDENTITY_NAME }}" } else { "30176FittyDev.PolyglotCLI" }
+          $publisher = if ("${{ secrets.MS_STORE_PUBLISHER }}") { "${{ secrets.MS_STORE_PUBLISHER }}" } else { "CN=EDC5BDED-A726-42CD-B98E-5657B88D9832" }
+          $publisherName = if ("${{ secrets.MS_STORE_PUBLISHER_DISPLAY_NAME }}") { "${{ secrets.MS_STORE_PUBLISHER_DISPLAY_NAME }}" } else { "FittyAr" }
+          
+          $manifestContent = $manifestContent -replace 'TEMPLATE_PACKAGE_IDENTITY_NAME', $identityName
+          $manifestContent = $manifestContent -replace 'TEMPLATE_PACKAGE_IDENTITY_PUBLISHER', $publisher
+          $manifestContent = $manifestContent -replace 'TEMPLATE_PUBLISHER_DISPLAY_NAME', $publisherName
+          $manifestContent = $manifestContent -replace 'Version="1.0.0.0"', "Version=`"$msixVersion`""
+          
+          Set-Content -Path $manifestPath -Value $manifestContent -Encoding UTF8
+          
+          $makeappx = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "makeappx.exe" -Recurse | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1).FullName
+          if (-not $makeappx) {
+              $makeappx = "makeappx"
+          }
+          
+          $msixName = "PolyglotCLI-${{ github.ref_name }}-x64.msix"
+          Write-Host "Ejecutando makeappx para empaquetar MSIX..."
+          & $makeappx pack /d $staging /p $msixName /o
+          Write-Host "Paquete MSIX creado con éxito: $msixName"
+
+      - name: Build MSI Installer (WiX)
+        shell: pwsh
+        run: |
+          dotnet build PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj -c Release
           $version = "${{ github.ref_name }}"
-          $zipName = "PolyglotCLI-$version-win-x64.zip"
-          Compress-Archive -Path publish_out\* -DestinationPath $zipName -Force
-          Write-Host "Archivo zip creado: $zipName"
+          $msiFile = Get-ChildItem -Path PolyglotCLI.Wix/bin -Filter "PolyglotCLI.Wix.msi" -Recurse | Select-Object -First 1
+          if ($msiFile) {
+              Copy-Item -Path $msiFile.FullName -Destination "PolyglotCLI-$version-x64.msi" -Force
+              Write-Host "Instalador MSI copiado a: PolyglotCLI-$version-x64.msi"
+          } else {
+              Write-Error "No se encontró el instalador MSI generado."
+              exit 1
+          }
 
       - name: Extract Changelog Section
         shell: pwsh
@@ -75,7 +121,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: PolyglotCLI-*.zip
+          files: |
+            PolyglotCLI-*.msix
+            PolyglotCLI-*.msi
           body_path: release_notes.md
           name: ${{ github.ref_name }}
         env:
