@@ -42,12 +42,23 @@ if (-not $NoPublish) {
     Write-Host "[1,2/3] Publicacion omitida (-NoPublish)." -ForegroundColor DarkYellow
 }
 
-# 2. Localizar ISCC (Inno Setup 7)
+# 2. Localizar ISCC (Inno Setup)
+$cmdIscc = (Get-Command iscc.exe -ErrorAction SilentlyContinue)
+if (-not $cmdIscc) {
+    $cmdIscc = (Get-Command iscc -ErrorAction SilentlyContinue)
+}
+
 $isccCandidates = @(
+    $cmdIscc.Source,
+    $cmdIscc.Path,
     (Join-Path $env:ProgramFiles "Inno Setup 7\ISCC.exe"),
     (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 7\ISCC.exe"),
+    (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe"),
+    (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
     "C:\Program Files\Inno Setup 7\ISCC.exe",
-    "C:\Program Files (x86)\Inno Setup 7\ISCC.exe"
+    "C:\Program Files (x86)\Inno Setup 7\ISCC.exe",
+    "C:\Program Files\Inno Setup 6\ISCC.exe",
+    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 )
 $iscc = $null
 foreach ($candidate in $isccCandidates) {
@@ -58,7 +69,7 @@ foreach ($candidate in $isccCandidates) {
 }
 
 if (-not $iscc) {
-    Write-Error "No se encontro ISCC.exe (Inno Setup 7). Instale Inno Setup 7 desde https://jrsoftware.org/isinfo.php"
+    Write-Error "No se encontro ISCC.exe (Inno Setup). Instale Inno Setup desde https://jrsoftware.org/isinfo.php"
     exit 1
 }
 
