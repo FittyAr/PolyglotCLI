@@ -10,6 +10,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v1.0.0] - 2026-07-23
 
 ### Added
+
+### Improved
+
+### Changed
+- Reubicado el script de instalación dedicada [install.ps1](file:///d:/GitHub/PolyglotCLI/scripts/install.ps1) a la carpeta `scripts/`, adaptando la resolución de rutas para que se ejecute relativo a la raíz del repositorio de forma correcta.
+- Modificado [run.ps1](file:///d:/GitHub/PolyglotCLI/run.ps1) en la raíz para incluir la opción `6` en el menú interactivo, la cual invoca directamente al instalador local reubicado.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+---
+
+## [v1.0.0] - 2026-07-23
+
+### Added
 - Creado el script de instalación dedicado [install.ps1](file:///d:/GitHub/PolyglotCLI/install.ps1) reubicando la lógica de instalación y desinstalación local.
 - Creados los assets y el manifiesto MSIX en la ruta `manifests/msix/` para habilitar el empaquetado del instalador compatible con la Microsoft Store.
 
