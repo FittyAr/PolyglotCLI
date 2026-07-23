@@ -82,6 +82,24 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 
 # 4. Compilar el .iss con ISCC
 Write-Host "[3/3] Compilando instalador con ISCC (version $Version)..." -ForegroundColor Yellow
+
+# Validar que los artefactos publicados existan antes de compilar.
+# (Esto NO se valida dentro del .iss porque el instalador final empaqueta los
+# archivos en su interior y los usuarios que lo descargan desde GitHub / winget
+# no necesitan estas carpetas en su equipo.)
+if (-not (Test-Path "artifacts/publish_out")) {
+    Write-Error "La carpeta 'artifacts\publish_out' no existe. Ejecute primero:" `
+        "`n  dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o artifacts\publish_out" `
+        "`no vuelva a ejecutar este script SIN el parametro -NoPublish."
+    exit 1
+}
+if (-not (Test-Path "artifacts/publish_maui")) {
+    Write-Error "La carpeta 'artifacts\publish_maui' no existe. Ejecute primero:" `
+        "`n  dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -o artifacts\publish_maui" `
+        "`no vuelva a ejecutar este script SIN el parametro -NoPublish."
+    exit 1
+}
+
 & $iscc /DAPP_VERSION=$Version /Q installer/PolyglotCLI.iss
 if ($LASTEXITCODE -ne 0) {
     Write-Error "ISCC fallo con codigo $LASTEXITCODE."

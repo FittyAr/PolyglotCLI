@@ -61,7 +61,7 @@ OutputDir=dist
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
-BeveledLabel={#MyAppName} {#APP_VERSION} - Instalador creado con Inno Setup
+BeveledLabel={#MyAppName} {#APP_VERSION}
 
 [Files]
 ; Servidor Web (PolyglotCLI.web)
@@ -119,29 +119,8 @@ Filename: "{app}\Server\serverapp\PolyglotCLI.exe"; \
     Description: "Iniciar PolyglotCLI Server al finalizar"; \
     Flags: nowait postinstall skipifsilent runascurrentuser
 
-[Code]
-// Valida que existan los artefactos publicados antes de continuar.
-function InitializeSetup(): Boolean;
-begin
-  if not DirExists(ExpandConstant('{src}\..\artifacts\publish_out')) then
-  begin
-    MsgBox('No se encontró la carpeta "artifacts\publish_out".' + #13#10 +
-           'Ejecute primero:' + #13#10 +
-           '  dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o artifacts\publish_out',
-      mbCriticalError, MB_OK);
-    Result := False;
-    exit;
-  end;
-
-  if not DirExists(ExpandConstant('{src}\..\artifacts\publish_maui')) then
-  begin
-    MsgBox('No se encontró la carpeta "artifacts\publish_maui".' + #13#10 +
-           'Ejecute primero:' + #13#10 +
-           '  dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -o artifacts\publish_maui',
-      mbCriticalError, MB_OK);
-    Result := False;
-    exit;
-  end;
-
-  Result := True;
-end;
+; Nota: las validaciones de los artefactos publicados (artifacts/publish_out y
+; artifacts/publish_maui) viven en scripts/build_installer.ps1, NO aqui.
+; El instalador final empaqueta los archivos en su interior y los usuarios
+; finales (descargados desde GitHub Releases o winget) no necesitan tener esas
+; carpetas en su equipo.
