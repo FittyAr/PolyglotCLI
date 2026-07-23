@@ -19,7 +19,7 @@ Set-Location $scriptDir
 # Flujo del menu principal del script
 function Show-MainMenu {
     while ($true) {
-Clear-Host
+        Clear-Host
         Write-Host "==========================================" -ForegroundColor Blue
         Write-Host "      Consola de Desarrollo PolyglotCLI   " -ForegroundColor Blue
         Write-Host "==========================================" -ForegroundColor Blue
@@ -30,11 +30,10 @@ Clear-Host
         Write-Host " 5. Limpiar Compilaciones (dotnet clean)" -ForegroundColor White
         Write-Host " 6. Versionar y Publicar Release (Git Release Pipeline)" -ForegroundColor Cyan
         Write-Host " 7. Instalar/Desinstalar Localmente (ejecutar instalador)" -ForegroundColor White
-        Write-Host " 8. Instalar/Desinstalar Localmente con NSIS (instalador Nullsoft)" -ForegroundColor White
         Write-Host " 0. Salir" -ForegroundColor White
         Write-Host "==========================================" -ForegroundColor Blue
 
-        $opt = Read-Host "Seleccione una opcion [0-8]"
+        $opt = Read-Host "Seleccione una opcion [0-7]"
 
         switch ($opt) {
             "1" {
@@ -72,11 +71,6 @@ Clear-Host
                 powershell -ExecutionPolicy Bypass -File scripts/install.ps1
                 Read-Host "Presione Enter para continuar..."
             }
-            "8" {
-                Write-Host "[INFO] Iniciando instalador NSIS (Nullsoft)..." -ForegroundColor Yellow
-                powershell -ExecutionPolicy Bypass -File scripts/install_nsis.ps1
-                Read-Host "Presione Enter para continuar..."
-            }
             "0" {
                 Write-Host "Saliendo..." -ForegroundColor Yellow
                 return
@@ -91,4 +85,3 @@ Clear-Host
 
 # Ejecutar el menu principal
 Show-MainMenu
-
