@@ -202,6 +202,111 @@ Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#MyApp
 Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1"; ValueType: string; ValueName: "HelpLink";        ValueData: "{#MyAppURL}";         Flags: uninsdeletevalue
 
 [Code]
+
+function IsDotNet10Installed: Boolean;
+var
+  SearchRec: TFindRec;
+  FolderPath: string;
+  FileName: string;
+  Output: AnsiString;
+  ResultCode: Integer;
+begin
+  Result := False;
+
+  // 1. Verificacion directa en directorios de runtimes instalados
+  FolderPath := ExpandConstant('{commonpf}\dotnet\shared\Microsoft.WindowsDesktop.App');
+  if FindFirst(FolderPath + '\10.*', SearchRec) then
+  begin
+    FindClose(SearchRec);
+    Result := True;
+    Exit;
+  end;
+
+  FolderPath := ExpandConstant('{commonpf}\dotnet\shared\Microsoft.NETCore.App');
+  if FindFirst(FolderPath + '\10.*', SearchRec) then
+  begin
+    FindClose(SearchRec);
+    Result := True;
+    Exit;
+  end;
+
+  // 2. Consulta via 'dotnet --list-runtimes'
+  FileName := ExpandConstant('{tmp}\dotnet_runtimes_check.txt');
+  if Exec('cmd.exe', '/C dotnet --list-runtimes > "' + FileName + '" 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if LoadStringFromFile(FileName, Output) then
+    begin
+      if (Pos('Microsoft.WindowsDesktop.App 10.', string(Output)) > 0) or
+         (Pos('Microsoft.NETCore.App 10.', string(Output)) > 0) or
+         (Pos('Microsoft.AspNetCore.App 10.', string(Output)) > 0) then
+      begin
+        Result := True;
+      end;
+    end;
+    DeleteFile(FileName);
+  end;
+end;
+
+function InstallDotNet10: Boolean;
+var
+  ResultCode: Integer;
+  InstallerPath: string;
+  DownloadUrl: string;
+begin
+  Result := False;
+
+  // Intentar instalacion desatendida mediante winget en Windows 10/11
+  Exec('cmd.exe', '/C winget install --id Microsoft.DotNet.DesktopRuntime.10 --silent --accept-package-agreements --accept-source-agreements', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if IsDotNet10Installed then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  // Si winget no completa la instalacion, descargar ejecutable directo via Inno Setup
+  InstallerPath := ExpandConstant('{tmp}\dotnet-desktop-runtime-10-setup.exe');
+  DownloadUrl := 'https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe';
+
+  try
+    DownloadTemporaryFile(DownloadUrl, 'dotnet-desktop-runtime-10-setup.exe', '', nil);
+    if FileExists(InstallerPath) then
+    begin
+      if Exec(InstallerPath, '/passive /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+      begin
+        Result := IsDotNet10Installed or (ResultCode = 0) or (ResultCode = 3010);
+      end;
+    end;
+  except
+    MsgBox('No se pudo descargar automáticamente el instalador de .NET 10: ' + GetExceptionMessage + #13#10 +
+           'Por favor, descárguelo e instálelo manualmente desde https://dotnet.microsoft.com/download/dotnet/10.0', mbError, MB_OK);
+  end;
+end;
+
+function InitializeSetup: Boolean;
+begin
+  Result := True;
+
+  if not IsDotNet10Installed then
+  begin
+    if MsgBox(
+      'PolyglotCLI requiere .NET 10 Desktop Runtime para funcionar correctamente y no se ha detectado en su sistema.' + #13#10 + #13#10 +
+      '¿Desea descargar e instalar .NET 10 Desktop Runtime automáticamente ahora?',
+      mbConfirmation, MB_YESNO) = idYes then
+    begin
+      if not InstallDotNet10 then
+      begin
+        if MsgBox(
+          'No se pudo confirmar la instalación de .NET 10 Desktop Runtime.' + #13#10 + #13#10 +
+          '¿Desea continuar con la instalación de PolyglotCLI de todos modos?',
+          mbConfirmation, MB_YESNO) = idNo then
+        begin
+          Result := False;
+        end;
+      end;
+    end;
+  end;
+end;
+
 // Garantiza que el usuario seleccione al menos un componente antes de
 // pasar de la pagina de seleccion. Sin esta validacion es posible
 // "instalar" PolyglotCLI sin instalar nada util.

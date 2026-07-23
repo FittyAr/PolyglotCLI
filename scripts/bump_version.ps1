@@ -106,6 +106,26 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         exit 1
     }
 
+    if ($newVersion -eq $currentVersion) {
+        Write-Host "[ADVERTENCIA] La version ingresada ($newVersion) es igual a la version actual." -ForegroundColor Yellow
+        Write-Host "No se realizara ninguna modificacion en el proyecto ni en los changelogs (UNRELEASE/CHANGELOG se mantienen intactos)." -ForegroundColor Yellow
+        exit 0
+    }
+
+    # Guardar copia en memoria del contenido original para poder revertir si el usuario cancela o si ocurre un fallo
+    $origCsproj = $csprojContent
+    $origChangelog = Get-Content -Raw -Path $changelogPath
+    $origUnreleased = Get-Content -Raw -Path $unreleasedPath
+
+    function Restore-VersionFiles {
+        Write-Host "Revirtiendo cambios locales en csproj, CHANGELOG.md y UNRELEASE.md..." -ForegroundColor Yellow
+        Set-Content -Path $csprojPath -Value $origCsproj -Encoding UTF8
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText((Resolve-Path $changelogPath).Path, $origChangelog, $utf8NoBom)
+        [System.IO.File]::WriteAllText((Resolve-Path $unreleasedPath).Path, $origUnreleased, $utf8NoBom)
+        Write-Host "Archivos de version restaurados a su estado original." -ForegroundColor Green
+    }
+
     # 3. Leer y procesar docs/UNRELEASE.md y docs/CHANGELOG.md
     if (-not (Test-Path $unreleasedPath)) {
         Write-Error "No se encontro el archivo $unreleasedPath"
@@ -202,7 +222,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         $newChangelogLines += $line
     }
 
-    # Si no habia versiones previas, se aÃ±ade al final
+    # Si no habia versiones previas, se añade al final
     if (-not $inserted) {
         if ($newChangelogLines.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($newChangelogLines[-1])) {
             $newChangelogLines += ""
@@ -253,6 +273,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         # scripts/build_installer.ps1. Requiere Inno Setup 7 instalado.
         if (-not (Test-Path $installerScript)) {
             Write-Error "No se encontro el script $installerScript"
+            Restore-VersionFiles
             exit 1
         }
 
@@ -263,12 +284,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         Write-Host "Compilacion de prueba exitosa." -ForegroundColor Green
     } catch {
         Write-Error "La compilacion fallo. Revirtiendo cambios locales..."
-        Set-Content -Path $csprojPath -Value $csprojContent -Encoding UTF8
-        if (Test-Path $wxsPath) {
-            Set-Content -Path $wxsPath -Value $wxsContent -Encoding UTF8
-        }
-        git checkout -- $changelogPath $unreleasedPath
-        Write-Host "Cambios revertidos correctamente." -ForegroundColor Yellow
+        Restore-VersionFiles
         exit 1
     }
 
@@ -299,7 +315,8 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
 
     $confirm = Read-Host "Esta seguro de querer confirmar, etiquetar y subir a GitHub? (y/n)"
     if ($confirm -ne 'y' -and $confirm -ne 'Y') {
-        Write-Host "Acciones de Git canceladas. Los archivos locales han sido actualizados pero no commiteados ni subidos." -ForegroundColor Yellow
+        Write-Host "Acciones de Git canceladas por el usuario." -ForegroundColor Yellow
+        Restore-VersionFiles
         exit 0
     }
 
