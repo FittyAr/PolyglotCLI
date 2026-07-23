@@ -2,11 +2,11 @@
 @using System.IO
 @using System.Linq
 @using System.Collections.Generic
+@using Cropper.Blazor.Components
+@using Cropper.Blazor.Models
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 @inject PolyglotCLI.AppConfig Config
-@inject IJSRuntime JSRuntime
-@implements IAsyncDisposable
 
 <RadzenCard class="rz-mb-4" Style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);">
     <RadzenRow Gap="1rem">
@@ -212,16 +212,18 @@
                                                 <div style="position: relative; height: calc(92vh - 390px); display: flex; flex-direction: column; margin-top: 8px; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; background: #000;">
                                                     @if (hasPageImage && !string.IsNullOrEmpty(pageImageBase64))
                                                     {
-                                                        <div style="position: absolute; top: 8px; right: 8px; z-index: 10; display: flex; gap: 4px; background: rgba(0,0,0,0.65); padding: 4px; border-radius: 4px;">
-                                                            <RadzenButton Icon="zoom_in" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.ExtraSmall" Click="@ZoomInPage" title="Acercar (rueda del ratón)" Disabled="@(panzoomInstanceId == null)" />
-                                                            <RadzenButton Icon="zoom_out" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.ExtraSmall" Click="@ZoomOutPage" title="Alejar" Disabled="@(panzoomInstanceId == null)" />
-                                                            <RadzenButton Icon="restart_alt" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.ExtraSmall" Click="@ResetPageZoom" title="Restablecer" Disabled="@(panzoomInstanceId == null)" />
+                                                        <div style="display: flex; align-items: center; gap: 4px; padding: 6px 8px; background: rgba(15, 23, 42, 0.85); border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; position: relative; z-index: 10;">
+                                                            <RadzenButton Icon="zoom_in" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall" Click="@ZoomInClick" Title="Acercar" Disabled="@(cropperRef == null)" />
+                                                            <RadzenButton Icon="zoom_out" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall" Click="@ZoomOutClick" Title="Alejar" Disabled="@(cropperRef == null)" />
+                                                            <RadzenButton Icon="restart_alt" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.ExtraSmall" Click="@ResetPageZoom" Title="Restablecer" Disabled="@(cropperRef == null)" />
+                                                            <span style="flex-grow: 1; color: #94a3b8; font-size: 0.75rem; margin-left: 8px;">Arrastra para mover · Rueda para zoom · Doble clic para acercar</span>
                                                         </div>
-                                                        <div style="position: absolute; bottom: 6px; left: 8px; z-index: 10; color: #94a3b8; font-size: 0.7rem; background: rgba(0,0,0,0.55); padding: 2px 6px; border-radius: 4px; pointer-events: none;">
-                                                            Arrastra para mover · Rueda para zoom · Doble clic para acercar
-                                                        </div>
-                                                        <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                                                            <img @ref="panzoomTarget" src="data:image/png;base64,@pageImageBase64" draggable="false" style="display: block; max-width: 100%; max-height: 100%; object-fit: contain; cursor: grab; touch-action: none; user-select: none; -webkit-user-drag: none;" />
+                                                        <div style="flex-grow: 1; min-height: 0; background: #000; position: relative;">
+                                                            <CropperComponent @ref="cropperRef"
+                                                                             Src="@($"data:image/png;base64,{pageImageBase64}")"
+                                                                             Options="cropperOptions"
+                                                                             Class="polyglot-cropper"
+                                                                             OnReadyEvent="OnCropperReady" />
                                                         </div>
                                                     }
                                                     else
@@ -469,15 +471,32 @@
     private DocumentPageData? selectedPageData = null;
     private bool hasPageImage = false;
     private string? pageImageBase64 = null;
+    private int? lastCropperPageNumber = null;
     private bool isReprocessingPage = false;
     private bool isEditingTranslation = true;
 
-    // Pan/zoom del visor de imagen
-    private ElementReference panzoomTarget;
-    private IJSObjectReference? panzoomModule;
-    private string? panzoomInstanceId = null;
-    private int? lastPanzoomPageNumber = null;
-    private bool panzoomModuleReady = false;
+    // Visor de imagen con Cropper.Blazor
+    private CropperComponent? cropperRef = null;
+    private readonly Options cropperOptions = new Options
+    {
+        ViewMode = ViewMode.Vm0,
+        // DragMode es string en Options (se serializa a "crop"/"move"/"none")
+        DragMode = "move",
+        AutoCrop = false,
+        AutoCropArea = 0,
+        Background = false,
+        CropBoxMovable = false,
+        CropBoxResizable = false,
+        Modal = false,
+        Movable = true,
+        Rotatable = false,
+        Scalable = true,
+        ToggleDragModeOnDblclick = false,
+        Zoomable = true,
+        ZoomOnWheel = true,
+        ZoomOnTouch = true,
+        WheelZoomRatio = 0.1m
+    };
 
     // Registro explícito de traducciones editadas durante la sesión actual del diálogo,
     // indexado por PageNumber. Permite saber exactamente qué páginas se modificaron y
@@ -494,112 +513,97 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Cargar el módulo JS solo una vez
-        if (!panzoomModuleReady)
-        {
-            try
-            {
-                panzoomModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/panzoomInterop.js");
-                panzoomModuleReady = true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Panzoom module load error: {ex.Message}");
-                return;
-            }
-        }
-
-        if (panzoomModule == null) return;
-
         int? currentPage = selectedPageData?.PageNumber;
-        bool imgVisible = hasPageImage && !string.IsNullOrEmpty(pageImageBase64);
-
-        if (imgVisible)
+        // Si el cropper esta montado y la pagina cambia, reemplaza la imagen sin
+        // perder el estado de pan/zoom acumulado.
+        if (cropperRef != null
+            && currentPage != lastCropperPageNumber
+            && hasPageImage
+            && !string.IsNullOrEmpty(pageImageBase64))
         {
-            if (panzoomInstanceId == null)
-            {
-                // Primer render con imagen visible: inicializar panzoom.
-                // Esperar al siguiente ciclo para asegurar que el wrapper está en el DOM
-                // y que la imagen base64 haya sido pintada.
-                try
-                {
-                    await Task.Delay(50);
-                    panzoomInstanceId = await panzoomModule.InvokeAsync<string?>("init", panzoomTarget);
-                    lastPanzoomPageNumber = currentPage;
-                    StateHasChanged();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Panzoom init error: {ex.Message}");
-                }
-            }
-            else if (currentPage != lastPanzoomPageNumber)
-            {
-                // Página cambiada: resetear transformaciones para la nueva imagen.
-                try
-                {
-                    await panzoomModule.InvokeVoidAsync("reset", panzoomInstanceId);
-                    lastPanzoomPageNumber = currentPage;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Panzoom reset error: {ex.Message}");
-                }
-            }
-        }
-        else if (panzoomInstanceId != null)
-        {
-            // Sin imagen: liberar la instancia.
             try
             {
-                await panzoomModule.InvokeVoidAsync("dispose", panzoomInstanceId);
+                await cropperRef.ReplaceAsync($"data:image/png;base64,{pageImageBase64}", false);
+                lastCropperPageNumber = currentPage;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Panzoom dispose error: {ex.Message}");
+                Console.WriteLine($"Cropper replace error: {ex.Message}");
             }
-            panzoomInstanceId = null;
-            lastPanzoomPageNumber = null;
         }
     }
 
-    private async Task ZoomInPage()
+    private void OnCropperReady(Cropper.Blazor.Events.JSEventData<Cropper.Blazor.Events.CropReadyEvent.CropReadyEvent> _)
     {
-        if (panzoomModule != null && panzoomInstanceId != null)
-        {
-            try { await panzoomModule.InvokeVoidAsync("zoomIn", panzoomInstanceId); } catch { }
-        }
+        // Tras montarse por primera vez, fija el lastCropperPageNumber para que
+        // OnAfterRenderAsync no intente ReplaceAsync antes de tener un cropperRef.
+        lastCropperPageNumber = selectedPageData?.PageNumber;
     }
 
-    private async Task ZoomOutPage()
+    private Task ZoomInClick()
     {
-        if (panzoomModule != null && panzoomInstanceId != null)
-        {
-            try { await panzoomModule.InvokeVoidAsync("zoomOut", panzoomInstanceId); } catch { }
-        }
+        return InvokeZoom(+1);
     }
 
-    private async Task ResetPageZoom()
+    private Task ZoomOutClick()
     {
-        if (panzoomModule != null && panzoomInstanceId != null)
-        {
-            try { await panzoomModule.InvokeVoidAsync("reset", panzoomInstanceId); } catch { }
-        }
+        return InvokeZoom(-1);
     }
 
-    public async ValueTask DisposeAsync()
+    private Task InvokeZoom(int direction)
     {
-        if (panzoomInstanceId != null && panzoomModule != null)
+        if (cropperRef == null)
         {
-            try { await panzoomModule.InvokeVoidAsync("dispose", panzoomInstanceId); } catch { }
-            panzoomInstanceId = null;
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Visor",
+                Detail = "El visor aún no está inicializado."
+            });
+            return Task.CompletedTask;
         }
-        if (panzoomModule != null)
+        try
         {
-            try { await panzoomModule.DisposeAsync(); } catch { }
-            panzoomModule = null;
-            panzoomModuleReady = false;
+            cropperRef.Zoom(direction >= 0 ? 0.1m : -0.1m);
         }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Pan/Zoom",
+                Detail = ex.Message
+            });
+        }
+        return Task.CompletedTask;
+    }
+
+    private Task ResetPageZoom()
+    {
+        if (cropperRef == null)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Visor",
+                Detail = "El visor aún no está inicializado."
+            });
+            return Task.CompletedTask;
+        }
+        try
+        {
+            cropperRef.Reset();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Pan/Zoom",
+                Detail = ex.Message
+            });
+        }
+        return Task.CompletedTask;
     }
 
     private void LoadJsonDataFiles()

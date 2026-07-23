@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Radzen;
 using PolyglotCLI;
 using PolyglotCLI.web;
+using Cropper.Blazor.Extensions;
 
 namespace PolyglotCLI.Maui
 {
@@ -25,6 +26,7 @@ namespace PolyglotCLI.Maui
 
 			builder.Services.AddMauiBlazorWebView();
 			builder.Services.AddRadzenComponents();
+			builder.Services.AddCropper();
 
 #if DEBUG
 			builder.Services.AddBlazorWebViewDeveloperTools();

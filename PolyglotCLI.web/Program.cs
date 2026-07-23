@@ -1,6 +1,7 @@
 using PolyglotCLI.web.Components;
 using Radzen;
 using PolyglotCLI;
+using Cropper.Blazor.Extensions;
 
 namespace PolyglotCLI.web
 {
@@ -25,9 +26,11 @@ namespace PolyglotCLI.web
                     options.DetailedErrors = true;
                 })
                 .AddHubOptions(options => {
-                    options.MaximumReceiveMessageSize = 1024 * 1024; // 1MB
+                    // Cropper.Blazor envía imágenes base64 sobre SignalR; ampliar el límite por encima del valor por defecto (32KB).
+                    options.MaximumReceiveMessageSize = 32 * 1024 * 1024; // 32MB
                 });
             builder.Services.AddRadzenComponents();
+            builder.Services.AddCropper();
 
             var app = builder.Build();
 
