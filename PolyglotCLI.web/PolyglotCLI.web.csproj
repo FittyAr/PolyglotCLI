@@ -23,6 +23,12 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\manifests\app.ico" Link="wwwroot\app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
 
 

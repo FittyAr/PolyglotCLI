@@ -5,7 +5,7 @@
     <MediaTemplate EmbedCab="yes" />
 
     <!-- Declarar el icono oficial de la aplicacion -->
-    <Icon Id="AppIcon" SourceFile="app.ico" />
+    <Icon Id="AppIcon" SourceFile="..\manifests\app.ico" />
     
     <!-- Configurar el icono de desinstalacion en Add/Remove Programs (Panel de Control) -->
     <Property Id="ARPPRODUCTICON" Value="AppIcon" />
