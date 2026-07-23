@@ -1,5 +1,5 @@
-# extract_changelog.ps1
-# Extrae una sección de versión específica de CHANGELOG.md y la vuelca en stdout.
+﻿# extract_changelog.ps1
+# Extrae una secciÃ³n de versiÃ³n especÃ­fica de CHANGELOG.md y la vuelca en stdout.
 # Uso: .\scripts\extract_changelog.ps1 v1.0.0
 #      .\scripts\extract_changelog.ps1 Unreleased
 
@@ -10,16 +10,16 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-# Ruta relativa al directorio padre del script (raíz del proyecto)
+# Ruta relativa al directorio de docs/CHANGELOG.md
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$targetPath = Join-Path $scriptDir "..\CHANGELOG.md"
+$targetPath = Join-Path $scriptDir "..\docs\CHANGELOG.md"
 
 if (-not (Test-Path $targetPath)) {
     Write-Error "CHANGELOG.md no encontrado en: $targetPath"
     exit 1
 }
 
-# Normalizar la versión y determinar el encabezado
+# Normalizar la versiÃ³n y determinar el encabezado
 if ($Version -ieq "Unreleased") {
     $sectionHeader = "## [Unreleased]"
 } else {
@@ -38,11 +38,11 @@ $sectionLines = @()
 foreach ($line in $lines) {
     if ($line.TrimEnd() -eq $sectionHeader -or $line.TrimStart().StartsWith("$sectionHeader ")) {
         $inSection = $true
-        continue  # Saltar la línea del encabezado
+        continue  # Saltar la lÃ­nea del encabezado
     }
 
     if ($inSection) {
-        # Si encontramos el siguiente encabezado de segundo nivel (##), salimos de la sección
+        # Si encontramos el siguiente encabezado de segundo nivel (##), salimos de la secciÃ³n
         if ($line -match '^## \[') {
             break
         }
@@ -51,11 +51,11 @@ foreach ($line in $lines) {
 }
 
 if ($sectionLines.Count -eq 0) {
-    Write-Error "Sección '$sectionHeader' no encontrada o vacía en CHANGELOG.md"
+    Write-Error "Seccion '$sectionHeader' no encontrada o vacia en CHANGELOG.md"
     exit 1
 }
 
-# Eliminar líneas vacías al principio y al final
+# Eliminar lÃ­neas vacÃ­as al principio y al final
 $firstContent = 0
 $lastContent = $sectionLines.Count - 1
 
@@ -72,3 +72,4 @@ if ($firstContent -le $lastContent) {
 } else {
     Write-Output "Sin cambios registrados."
 }
+
