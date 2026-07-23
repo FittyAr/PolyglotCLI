@@ -43,6 +43,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Improved
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+---
+
+## [v1.1.0] - 2026-07-23
+
+### Added
+
 - Paquete NuGet [Cropper.Blazor 1.5.1](https://github.com/CropperBlazor/Cropper.Blazor) (`Cropper.Blazor`) referenciado desde `PolyglotCLI.web` y `PolyglotCLI.Maui`. Registra `builder.Services.AddCropper()` en ambos `Program.cs` / `MauiProgram.cs` para configurar el cliente JS de interop interno.
 - Historial de Trabajos (Web UI + Desktop MAUI): nuevo botón **Importar trabajo (.zpg)** en la esquina superior derecha de la página `/history`, junto al título, que abre un diálogo con selector de archivo `.zpg`/`.zip` y restaura la carpeta completa del trabajo en `%APPDATA%/PolyglotCLI/jobs/`. Si el `JobId` ya existe localmente el importador lo renombra automáticamente como `{JobId}_imported_{yyyyMMdd_HHmmss}` para evitar sobrescrituras.
 - Historial de Trabajos (Web UI + Desktop MAUI): nuevo botón **Exportar .zpg** (icono `archive`, color warning) por cada fila, que descarga la carpeta completa del trabajo como archivo `.zpg` (Zip Polyglot). Para trabajos en estado `InProgress` muestra un diálogo de confirmación explicando que el paquete será parcial e incluirá una nota `PACKAGE_NOTES.txt`.
