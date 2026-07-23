@@ -316,12 +316,12 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     git add $unreleasedPath
 
     git commit -m "Bump version to v$newVersion"
-    git tag -a "v$newVersion" -m "Release v$newVersion"
+    git tag -f -a "v$newVersion" -m "Release v$newVersion"
 
     Write-Host "Subiendo commits y etiqueta a GitHub..." -ForegroundColor Yellow
     try {
         git push origin $branch
-        git push origin "v$newVersion"
+        git push origin "v$newVersion" --force
         Write-Host "Version v$newVersion publicada y subida con exito en GitHub!" -ForegroundColor Green
     } catch {
         Write-Error "Error al subir cambios a GitHub. Verifique su conexion y permisos."
