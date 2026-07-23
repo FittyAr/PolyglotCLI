@@ -1,5 +1,5 @@
 ﻿# extract_changelog.ps1
-# Extrae una secciÃ³n de versiÃ³n especÃ­fica de CHANGELOG.md y la vuelca en stdout.
+# Extrae una sección de versión específica de CHANGELOG.md y la vuelca en stdout.
 # Uso: .\scripts\extract_changelog.ps1 v1.0.0
 #      .\scripts\extract_changelog.ps1 Unreleased
 
@@ -19,7 +19,7 @@ if (-not (Test-Path $targetPath)) {
     exit 1
 }
 
-# Normalizar la versiÃ³n y determinar el encabezado
+# Normalizar la versión y determinar el encabezado
 if ($Version -ieq "Unreleased") {
     $sectionHeader = "## [Unreleased]"
 } else {
@@ -38,11 +38,11 @@ $sectionLines = @()
 foreach ($line in $lines) {
     if ($line.TrimEnd() -eq $sectionHeader -or $line.TrimStart().StartsWith("$sectionHeader ")) {
         $inSection = $true
-        continue  # Saltar la lÃ­nea del encabezado
+        continue  # Saltar la línea del encabezado
     }
 
     if ($inSection) {
-        # Si encontramos el siguiente encabezado de segundo nivel (##), salimos de la secciÃ³n
+        # Si encontramos el siguiente encabezado de segundo nivel (##), salimos de la sección
         if ($line -match '^## \[') {
             break
         }
@@ -55,7 +55,7 @@ if ($sectionLines.Count -eq 0) {
     exit 1
 }
 
-# Eliminar lÃ­neas vacÃ­as al principio y al final
+# Eliminar líneas vacías al principio y al final
 $firstContent = 0
 $lastContent = $sectionLines.Count - 1
 
