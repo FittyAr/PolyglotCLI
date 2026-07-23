@@ -1,16 +1,20 @@
-param (
+﻿param (
     [switch]$DebugMode = $false,
     [switch]$FromSource = $false,
     [switch]$Uninstall = $false
 )
 
-# Permitir pasar argumentos como texto sin guión (ej. "uninstall" o "debug")
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+
+# Permitir pasar argumentos como texto sin guion (ej. "uninstall" o "debug")
 if ($args -contains "debug") { $DebugMode = $true }
 if ($args -contains "fromsource" -or $args -contains "source") { $FromSource = $true }
 if ($args -contains "uninstall") { $Uninstall = $true }
 
 $ErrorActionPreference = "Stop"
 
+# Obtener directorio del script (scripts/) y la raiz del repositorio
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ([string]::IsNullOrEmpty($scriptDir)) {
     $scriptDir = $PSScriptRoot
@@ -19,20 +23,23 @@ if ([string]::IsNullOrEmpty($scriptDir)) {
     $scriptDir = "."
 }
 
+# La raiz del repositorio es el directorio padre de scripts/
+$repoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
+
 $repo = "FittyAr/PolyglotCLI"
 $appName = "PolyglotCLI"
 $installDir = Join-Path $env:LOCALAPPDATA "Programs\$appName"
 $configDir = Join-Path $env:APPDATA $appName
 $exePath = Join-Path $installDir "$appName.exe"
 
-# Función para verificar si el ASP.NET Core Runtime 10.x está instalado
+# Funcion para verificar si el ASP.NET Core Runtime 10.x esta instalado
 function Test-DotNetRuntimeInstalled {
     if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
         return $false
     }
     
     $runtimes = dotnet --list-runtimes
-    # Buscamos la presencia de Microsoft.AspNetCore.App versión 10.x
+    # Buscamos la presencia de Microsoft.AspNetCore.App version 10.x
     $hasAspNetCore10 = $runtimes | Where-Object { $_ -match "^Microsoft\.AspNetCore\.App\s+10\." }
     
     if ($hasAspNetCore10) {
@@ -41,13 +48,13 @@ function Test-DotNetRuntimeInstalled {
     return $false
 }
 
-# Flujo de desinstalación
+# Flujo de desinstalacion
 if ($Uninstall) {
     Write-Host "==========================================" -ForegroundColor Blue
     Write-Host "   Desinstalador de PolyglotCLI para Windows  " -ForegroundColor Blue
     Write-Host "==========================================" -ForegroundColor Blue
 
-    # 1. Detener procesos en ejecución
+    # 1. Detener procesos en ejecucion
     Write-Host "Deteniendo procesos activos de PolyglotCLI..." -ForegroundColor Yellow
     Stop-Process -Name "PolyglotCLI" -Force -ErrorAction SilentlyContinue
     Stop-Process -Name "PolyglotCLI.web" -Force -ErrorAction SilentlyContinue
@@ -58,7 +65,7 @@ if ($Uninstall) {
     $desktopLnk = Join-Path $env:USERPROFILE "Desktop\PolyglotCLI.lnk"
 
     if (Test-Path $startMenuLnk) {
-        Write-Host "Eliminando acceso directo del Menú Inicio..." -ForegroundColor Yellow
+        Write-Host "Eliminando acceso directo del Menu Inicio..." -ForegroundColor Yellow
         Remove-Item -Path $startMenuLnk -Force -ErrorAction SilentlyContinue
     }
     if (Test-Path $desktopLnk) {
@@ -72,18 +79,18 @@ if ($Uninstall) {
         Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue
     }
 
-    # 4. Preguntar si se eliminan los datos de configuración e historial
+    # 4. Preguntar si se eliminan los datos de configuracion e historial
     if (Test-Path $configDir) {
         Write-Host ""
-        Write-Host "Se encontraron configuraciones, historiales de trabajo y cachés en:" -ForegroundColor Yellow
+        Write-Host "Se encontraron configuraciones, historiales de trabajo y caches en:" -ForegroundColor Yellow
         Write-Host "  $configDir" -ForegroundColor Yellow
-        $deleteConfig = Read-Host "Desea eliminar la configuración y todos los trabajos guardados? [y/N]"
+        $deleteConfig = Read-Host "Desea eliminar la configuracion y todos los trabajos guardados? [y/N]"
         if ($deleteConfig -match "^[yY](es)?$") {
             Write-Host "Eliminando datos de usuario..." -ForegroundColor Yellow
             Remove-Item -Recurse -Force $configDir -ErrorAction SilentlyContinue
             Write-Host "Datos de usuario eliminados." -ForegroundColor Green
         } else {
-            Write-Host "Configuración conservada." -ForegroundColor Green
+            Write-Host "Configuracion conservada." -ForegroundColor Green
         }
     }
 
@@ -98,7 +105,7 @@ if ($Uninstall) {
     }
 
     Write-Host "==========================================" -ForegroundColor Blue
-    Write-Host "Desinstalación de PolyglotCLI completada con éxito!" -ForegroundColor Green
+    Write-Host "Desinstalacion de PolyglotCLI completada con exito!" -ForegroundColor Green
     exit 0
 }
 
@@ -116,17 +123,17 @@ if (-not $runtimeInstalled) {
     # Intentar instalar con Winget
     $installedWithWinget = $false
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-Host "Intentando instalar Microsoft ASP.NET Core Runtime 10.0 vía WinGet..." -ForegroundColor Yellow
+        Write-Host "Intentando instalar Microsoft ASP.NET Core Runtime 10.0 via WinGet..." -ForegroundColor Yellow
         try {
             # Lanzamos winget y esperamos a que termine
             Start-Process -FilePath "winget" -ArgumentList "install --id Microsoft.DotNet.AspNetCore.10 --silent --accept-package-agreements --accept-source-agreements" -Wait -NoNewWindow
             $installedWithWinget = $true
         } catch {
-            Write-Host "La instalación con winget falló o fue denegada." -ForegroundColor Red
+            Write-Host "La instalacion con winget fallo o fue denegada." -ForegroundColor Red
         }
     }
     
-    # Fallback si Winget no está o falló
+    # Fallback si Winget no esta o fallo
     if (-not $installedWithWinget) {
         $dotnetVersion = "10.0.10"
         $installerName = "aspnetcore-runtime-$dotnetVersion-win-x64.exe"
@@ -143,7 +150,7 @@ if (-not $runtimeInstalled) {
             # Ejecutar instalador y esperar
             $proc = Start-Process -FilePath $tempInstallerPath -ArgumentList "/install /quiet /norestart" -Wait -PassThru -NoNewWindow
             if ($proc.ExitCode -ne 0) {
-                Write-Error "El instalador de .NET devolvió el código de salida: $($proc.ExitCode)"
+                Write-Error "El instalador de .NET devolvio el codigo de salida: $($proc.ExitCode)"
             }
             Remove-Item -Path $tempInstallerPath -Force -ErrorAction SilentlyContinue
         } catch {
@@ -157,12 +164,12 @@ if (-not $runtimeInstalled) {
     
     # Validar de nuevo
     if (-not (Test-DotNetRuntimeInstalled)) {
-        Write-Error "No se pudo instalar o detectar ASP.NET Core Runtime 10.x. Por favor, instálelo manualmente desde: https://dotnet.microsoft.com/download/dotnet/10.0"
+        Write-Error "No se pudo instalar o detectar ASP.NET Core Runtime 10.x. Por favor, instalelo manualmente desde: https://dotnet.microsoft.com/download/dotnet/10.0"
         exit 1
     }
     Write-Host "ASP.NET Core Runtime 10.0 instalado correctamente." -ForegroundColor Green
 } else {
-    Write-Host "ASP.NET Core Runtime 10.x ya está instalado." -ForegroundColor Green
+    Write-Host "ASP.NET Core Runtime 10.x ya esta instalado." -ForegroundColor Green
 }
 
 # 2. Compilar desde la fuente o Descargar de GitHub
@@ -172,27 +179,29 @@ New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
 $publishSourceDir = ""
 $shouldBuildFromSource = $DebugMode -or $FromSource
 
+$localCsprojPath = Join-Path $repoRoot "PolyglotCLI.web/PolyglotCLI.web.csproj"
+
 if (-not $shouldBuildFromSource) {
-    Write-Host "Obteniendo información del último release desde GitHub..." -ForegroundColor Yellow
+    Write-Host "Obteniendo informacion del ultimo release desde GitHub..." -ForegroundColor Yellow
     $releasesUrl = "https://api.github.com/repos/$repo/releases/latest"
     try {
         $release = Invoke-RestMethod -Uri $releasesUrl -UseBasicParsing
         $version = $release.tag_name
     } catch {
-        Write-Host "No se pudo obtener información del release en GitHub (puede deberse a que no hay releases publicados o error de red)." -ForegroundColor Yellow
-        $hasLocalSource = Test-Path "PolyglotCLI.web/PolyglotCLI.web.csproj"
+        Write-Host "No se pudo obtener informacion del release en GitHub (puede deberse a que no hay releases publicados o error de red)." -ForegroundColor Yellow
+        $hasLocalSource = Test-Path $localCsprojPath
         $hasDotNetSdk = Get-Command dotnet -ErrorAction SilentlyContinue
         
         if ($hasLocalSource -and $hasDotNetSdk) {
             Write-Host ""
-            $choice = Read-Host "Se detectó código fuente local y el SDK de .NET. Desea compilar e instalar desde las fuentes locales en su lugar? [Y/n]"
+            $choice = Read-Host "Se detecto codigo fuente local y el SDK de .NET. Desea compilar e instalar desde las fuentes locales en su lugar? [Y/n]"
             if ($choice -notmatch "^[nN]$") {
                 $shouldBuildFromSource = $true
             }
         }
         
         if (-not $shouldBuildFromSource) {
-            Write-Error "No se pudo continuar con la instalación: $_"
+            Write-Error "No se pudo continuar con la instalacion: $_"
             Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
             exit 1
         }
@@ -200,7 +209,7 @@ if (-not $shouldBuildFromSource) {
 }
 
 if ($shouldBuildFromSource) {
-    Write-Host "Compilando aplicación desde el código fuente local..." -ForegroundColor Yellow
+    Write-Host "Compilando aplicacion desde el codigo fuente local..." -ForegroundColor Yellow
     
     if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
         Write-Error "El SDK de .NET es necesario para compilar pero no fue hallado en PATH."
@@ -209,14 +218,14 @@ if ($shouldBuildFromSource) {
 
     $publishSourceDir = Join-Path $tempDir "publish"
     try {
-        dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o $publishSourceDir
+        dotnet publish $localCsprojPath -c Release -r win-x64 --self-contained false -o $publishSourceDir
     } catch {
-        Write-Error "Fallo en la publicación de dotnet: $_"
+        Write-Error "Fallo en la publicacion de dotnet: $_"
         Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
         exit 1
     }
 } else {
-    Write-Host "Última versión detectada: $version" -ForegroundColor Green
+    Write-Host "Ultima version detectada: $version" -ForegroundColor Green
     
     $zipName = "PolyglotCLI-$version-win-x64.zip"
     $downloadUrl = "https://github.com/$repo/releases/download/$version/$zipName"
@@ -240,9 +249,9 @@ if ($shouldBuildFromSource) {
         exit 1
     }
     
-    # Determinar carpeta de origen de los archivos extraídos
+    # Determinar carpeta de origen de los archivos extraidos
     $publishSourceDir = $tempDir
-    # Si la extracción creó una carpeta interna, ajustamos la ruta
+    # Si la extraccion creo una carpeta interna, ajustamos la ruta
     $subDir = Join-Path $tempDir "publish_out"
     if (Test-Path $subDir) {
         $publishSourceDir = $subDir
@@ -265,7 +274,7 @@ Copy-Item -Path "$publishSourceDir\*" -Destination $installDir -Force -Recurse
 
 # Copiar prompts si no se copiaron
 if (-not (Test-Path (Join-Path $installDir "prompts"))) {
-    $srcPrompts = Join-Path $scriptDir "prompts"
+    $srcPrompts = Join-Path $repoRoot "prompts"
     if (Test-Path $srcPrompts) {
         Copy-Item -Path $srcPrompts -Destination $installDir -Force -Recurse
     }
@@ -282,7 +291,7 @@ if (-not (Test-Path $configDir)) {
 
 $targetConfigPath = Join-Path $configDir "config.json"
 if (-not (Test-Path $targetConfigPath)) {
-    Write-Host "Inicializando archivo de configuración limpio en $targetConfigPath..." -ForegroundColor Yellow
+    Write-Host "Inicializando archivo de configuracion limpio en $targetConfigPath..." -ForegroundColor Yellow
     if (Test-Path $localConfigTemplatePath) {
         # Copiar plantilla base
         Copy-Item -Path $localConfigTemplatePath -Destination $targetConfigPath -Force
@@ -302,10 +311,10 @@ if (-not (Test-Path $targetConfigPath)) {
             $sanitizedJson = ConvertTo-Json $configObj -Depth 10
             Set-Content -Path $targetConfigPath -Value $sanitizedJson -Encoding UTF8
         } catch {
-            Write-Host "[ADVERTENCIA] Fallo al sanitizar la plantilla de configuración, se mantuvieron valores por defecto." -ForegroundColor Yellow
+            Write-Host "[ADVERTENCIA] Fallo al sanitizar la plantilla de configuracion, se mantuvieron valores por defecto." -ForegroundColor Yellow
         }
     } else {
-        # Crear config básico por defecto si no existe la plantilla
+        # Crear config basico por defecto si no existe la plantilla
         $defaultConfig = @{
             ApiUrl = "http://localhost:1234/v1"
             DefaultModel = "qwen/qwen3.5-9b"
@@ -319,7 +328,7 @@ if (-not (Test-Path $targetConfigPath)) {
         $defaultConfig | ConvertTo-Json -Depth 10 | Set-Content -Path $targetConfigPath -Encoding UTF8
     }
 } else {
-    Write-Host "Configuración existente en $targetConfigPath detectada. Conservando ajustes del usuario." -ForegroundColor Green
+    Write-Host "Configuracion existente en $targetConfigPath detectada. Conservando ajustes del usuario." -ForegroundColor Green
 }
 
 # 6. Crear Accesos Directos
@@ -330,16 +339,16 @@ $desktopLnk = Join-Path $env:USERPROFILE "Desktop\PolyglotCLI.lnk"
 # Script para generar acceso directo via WshShell
 $WshShell = New-Object -ComObject WScript.Shell
 
-# Acceso directo en Menú Inicio
+# Acceso directo en Menu Inicio
 try {
     $Shortcut = $WshShell.CreateShortcut($startMenuLnk)
     $Shortcut.TargetPath = $exePath
     $Shortcut.WorkingDirectory = $installDir
-    $Shortcut.Description = "Herramienta de Traducción Documental Web PolyglotCLI"
+    $Shortcut.Description = "Herramienta de Traduccion Documental Web PolyglotCLI"
     $Shortcut.Save()
-    Write-Host "Acceso directo en Menú Inicio creado con éxito." -ForegroundColor Green
+    Write-Host "Acceso directo en Menu Inicio creado con exito." -ForegroundColor Green
 } catch {
-    Write-Host "[ADVERTENCIA] No se pudo crear el acceso directo en el Menú Inicio." -ForegroundColor Yellow
+    Write-Host "[ADVERTENCIA] No se pudo crear el acceso directo en el Menu Inicio." -ForegroundColor Yellow
 }
 
 # Acceso directo en Escritorio (Preguntar)
@@ -349,9 +358,9 @@ if ($desktopConfirm -match "^[yY](es)?$") {
         $Shortcut = $WshShell.CreateShortcut($desktopLnk)
         $Shortcut.TargetPath = $exePath
         $Shortcut.WorkingDirectory = $installDir
-        $Shortcut.Description = "Herramienta de Traducción Documental Web PolyglotCLI"
+        $Shortcut.Description = "Herramienta de Traduccion Documental Web PolyglotCLI"
         $Shortcut.Save()
-        Write-Host "Acceso directo en Escritorio creado con éxito." -ForegroundColor Green
+        Write-Host "Acceso directo en Escritorio creado con exito." -ForegroundColor Green
     } catch {
         Write-Host "[ADVERTENCIA] No se pudo crear el acceso directo en el Escritorio." -ForegroundColor Yellow
     }
@@ -366,17 +375,18 @@ if ($userPath -split ';' -notcontains $installDir) {
     $env:PATH = "$env:PATH;$installDir"
     Write-Host "PATH de usuario actualizado correctamente." -ForegroundColor Green
 } else {
-    Write-Host "El directorio de instalación ya está en la variable PATH del usuario." -ForegroundColor Green
+    Write-Host "El directorio de instalacion ya esta en la variable PATH del usuario." -ForegroundColor Green
 }
 
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Blue
-Write-Host "       Instalación Completada con Éxito!  " -ForegroundColor Green
+Write-Host "       Instalacion Completada con Exito!  " -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Blue
-Write-Host "Ruta de Instalación: $installDir" -ForegroundColor Cyan
-Write-Host "Ruta de Configuración: $configDir" -ForegroundColor Cyan
+Write-Host "Ruta de Instalacion: $installDir" -ForegroundColor Cyan
+Write-Host "Ruta de Configuracion: $configDir" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Para iniciar la aplicación:" -ForegroundColor Green
+Write-Host "Para iniciar la aplicacion:" -ForegroundColor Green
 Write-Host "  1. Ejecute 'PolyglotCLI' desde PowerShell/CMD." -ForegroundColor Green
-Write-Host "  2. O use el acceso directo del Menú de Inicio o Escritorio." -ForegroundColor Green
+Write-Host "  2. O use el acceso directo del Menu de Inicio o Escritorio." -ForegroundColor Green
 Write-Host ""
+

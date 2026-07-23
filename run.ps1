@@ -28,10 +28,11 @@ function Show-MainMenu {
         Write-Host " 3. Compilar Proyecto (dotnet build)" -ForegroundColor White
         Write-Host " 4. Limpiar Compilaciones (dotnet clean)" -ForegroundColor White
         Write-Host " 5. Versionar y Publicar Release (Git Release Pipeline)" -ForegroundColor Cyan
+        Write-Host " 6. Instalar/Desinstalar Localmente (ejecutar instalador)" -ForegroundColor White
         Write-Host " 0. Salir" -ForegroundColor White
         Write-Host "==========================================" -ForegroundColor Blue
         
-        $opt = Read-Host "Seleccione una opcion [0-5]"
+        $opt = Read-Host "Seleccione una opcion [0-6]"
         
         switch ($opt) {
             "1" {
@@ -57,6 +58,11 @@ function Show-MainMenu {
             "5" {
                 Write-Host "[INFO] Iniciando pipeline de release..." -ForegroundColor Yellow
                 powershell -ExecutionPolicy Bypass -File scripts/bump_version.ps1
+                Read-Host "Presione Enter para continuar..."
+            }
+            "6" {
+                Write-Host "[INFO] Iniciando instalador..." -ForegroundColor Yellow
+                powershell -ExecutionPolicy Bypass -File scripts/install.ps1
                 Read-Host "Presione Enter para continuar..."
             }
             "0" {
