@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\PolyglotCLI.core\PolyglotCLI.core.csproj" />
@@ -9,19 +9,13 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <OutputType>WinExe</OutputType>
-    <UseWindowsForms>true</UseWindowsForms>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <AssemblyName>PolyglotCLI</AssemblyName>
     <Version>1.0.1</Version>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
-  </ItemGroup>
 
   <ItemGroup>
     <Content Include="..\manifests\app.ico" Link="wwwroot\app.ico">

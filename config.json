@@ -1,5 +1,12 @@
 {
+  "Provider": "LmStudio",
+  "OcrProvider": "LmStudio",
+  "TranslationProvider": "LmStudio",
+  "ReviewProvider": "LmStudio",
   "ApiUrl": "http://192.168.0.11:1234/v1",
+  "ApiKey": null,
+  "ProviderApiKeys": {},
+  "ProviderConfigs": {},
   "DefaultModel": "qwen/qwen3.5-9b",
   "DefaultVisionModel": "qwen/qwen2.5-vl-7b",
   "TargetLanguage": "Spanish",
@@ -22,6 +29,10 @@
   "OcrTimeoutSeconds": 1200,
   "OutputFormats": "md",
   "SaveMarkdown": true,
+  "ModuleExtractionEnabled": true,
+  "ModuleTranslationEnabled": true,
+  "ModuleReviewEnabled": true,
+  "ModuleConversionEnabled": true,
   "DefaultOutputFormat": null,
   "SupportedOutputFormats": [
     "html",
