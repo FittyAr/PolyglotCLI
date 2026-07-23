@@ -24,4 +24,5 @@ local-dotnet/
 
 # Staging and publish folders
 publish_out/
+publish_maui/
 msix_staging/

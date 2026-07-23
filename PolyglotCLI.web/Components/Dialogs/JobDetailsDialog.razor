@@ -144,11 +144,26 @@
 
         <RadzenTabsItem Text="Verificador de Páginas " Icon="find_in_page">
             <RadzenRow class="rz-mt-3">
-                <RadzenColumn Size="3">
+                <RadzenColumn Size="2">
                     <RadzenCard style="height: calc(92vh - 220px); background: rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 12px;">
-                        <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold;">1. Selecciona Documento</RadzenText>
-                        <RadzenDropDown Data="@jsonDataFiles" TValue="string" Value="@selectedJsonFile" Change="@((args) => OnSelectJsonFile((string)args))" Placeholder="Selecciona archivo JSON..." class="rz-w-100" />
-                        
+                        <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold;">1. Documentos</RadzenText>
+                        @if (jsonDataFiles == null || jsonDataFiles.Count == 0)
+                        {
+                            <div style="padding: 6px; color: #b0bec5; font-size: 0.85rem;">No hay documentos JSON disponibles.</div>
+                        }
+                        else
+                        {
+                            <RadzenListBox Data="@jsonDataFiles" TValue="JsonFileEntry" Value="@selectedJsonEntry" Change="@((args) => OnSelectJsonFile((JsonFileEntry)args))" style="width: 100%; background: transparent; border: 1px solid rgba(255,255,255,0.08);">
+                                <Template Context="doc">
+                                    <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        <RadzenIcon Icon="description" Style="font-size: 1rem; color: #6366f1; min-width: 16px;" />
+                                        <span title="@doc.DisplayName" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1;">@doc.DisplayName</span>
+                                        <span style="color: #b0bec5; font-size: 0.75rem;">@doc.PageCount</span>
+                                    </div>
+                                </Template>
+                            </RadzenListBox>
+                        }
+
                         @if (pageDataList != null && pageDataList.Count > 0)
                         {
                             <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold; margin-top: 8px;">2. Selecciona Página</RadzenText>
@@ -156,7 +171,11 @@
                                 <Template Context="p">
                                     <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
                                         <span>Pág / Chunk @p.PageNumber</span>
-                                        <div style="display: flex; gap: 4px;">
+                                        <div style="display: flex; gap: 4px; align-items: center;">
+                                            @if (pendingTranslationEdits.ContainsKey(p.PageNumber))
+                                            {
+                                                <RadzenIcon Icon="edit" Style="color: #f59e0b; font-size: 0.85rem;" title="Editada en esta sesión" />
+                                            }
                                             <RadzenIcon Icon="@(p.IsOcrSuccessful ? "check_circle" : "error")" Style="@(p.IsOcrSuccessful ? "color: #10b981; font-size: 1rem;" : "color: #ef4444; font-size: 1rem;")" />
                                             <RadzenIcon Icon="@(p.IsTranslationSuccessful ? "check_circle" : "error")" Style="@(p.IsTranslationSuccessful ? "color: #10b981; font-size: 1rem;" : "color: #ef4444; font-size: 1rem;")" />
                                         </div>
@@ -166,13 +185,19 @@
                         }
                     </RadzenCard>
                 </RadzenColumn>
-                <RadzenColumn Size="9">
+                <RadzenColumn Size="10">
                     <RadzenCard style="height: calc(92vh - 220px); background: rgba(0,0,0,0.15); display: flex; flex-direction: column;">
                         @if (selectedPageData != null)
                         {
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                                 <RadzenText TextStyle="TextStyle.Subtitle1" style="font-weight: bold; margin: 0;">
                                     Visualizando Página @selectedPageData.PageNumber de @(pageDataList?.Count ?? 0)
+                                    @if (pendingTranslationEdits.Count > 0)
+                                    {
+                                        <span style="color: #f59e0b; font-size: 0.85rem; font-weight: normal; margin-left: 8px;">
+                                            · @pendingTranslationEdits.Count página(s) editada(s) en esta sesión
+                                        </span>
+                                    }
                                 </RadzenText>
                                 <RadzenButton Text="Re-procesar esta página" Icon="autorenew" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" Click="@(() => ReprocessPage())" IsBusy="@isReprocessingPage" BusyText="Procesando..." />
                             </div>
@@ -197,11 +222,6 @@
                                                     }
                                                 </div>
                                             </RadzenTabsItem>
-                                            <RadzenTabsItem Text="Texto Extraído (OCR)" Icon="description">
-                                                <div style="height: calc(92vh - 390px); display: flex; flex-direction: column; margin-top: 8px;">
-                                                    <pre style="flex-grow: 1; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #94a3b8; white-space: pre-wrap; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; height: 100%; overflow-y: auto;">@selectedPageData.OriginalText</pre>
-                                                </div>
-                                            </RadzenTabsItem>
                                         </Tabs>
                                     </RadzenTabs>
                                 </RadzenColumn>
@@ -210,7 +230,35 @@
                                         <Tabs>
                                             <RadzenTabsItem Text="Traducción" Icon="translate">
                                                 <div style="height: calc(92vh - 390px); display: flex; flex-direction: column; margin-top: 8px;">
-                                                    <RadzenTextArea @bind-Value="selectedPageData.TranslatedText" style="flex-grow: 1; font-family: monospace; font-size: 0.9rem; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); padding: 12px; border-radius: 4px; resize: none; height: 100%;" Change="@OnTranslationEdited" />
+                                                    <div style="display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 8px;">
+                                                        <RadzenButton Icon="@(isEditingTranslation ? "visibility" : "edit")"
+                                                                      Text="@(isEditingTranslation ? "Vista previa" : "Editar")"
+                                                                      ButtonStyle="ButtonStyle.Light"
+                                                                      Size="ButtonSize.ExtraSmall"
+                                                                      Click="@(() => isEditingTranslation = !isEditingTranslation)" />
+                                                    </div>
+                                                    @if (isEditingTranslation)
+                                                    {
+                                                        <RadzenTextArea @bind-Value="selectedPageData.TranslatedText" style="flex-grow: 1; font-family: monospace; font-size: 0.9rem; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); padding: 12px; border-radius: 4px; resize: none; height: 100%;" Change="@OnTranslationEdited" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <div style="flex-grow: 1; overflow-y: auto; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 12px;">
+                                                            @if (!string.IsNullOrWhiteSpace(selectedPageData.TranslatedText))
+                                                            {
+                                                                <RadzenMarkdown Text="@GetMarkdownForPreview(selectedPageData.TranslatedText)" />
+                                                            }
+                                                            else
+                                                            {
+                                                                <div style="color: #b0bec5; font-size: 0.9rem;">Sin contenido para previsualizar.</div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </RadzenTabsItem>
+                                            <RadzenTabsItem Text="Texto Extraído (OCR)" Icon="description">
+                                                <div style="height: calc(92vh - 390px); display: flex; flex-direction: column; margin-top: 8px;">
+                                                    <pre style="flex-grow: 1; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #94a3b8; white-space: pre-wrap; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; height: 100%; overflow-y: auto;">@selectedPageData.OriginalText</pre>
                                                 </div>
                                             </RadzenTabsItem>
                                             <RadzenTabsItem Text="Pensamiento (Reasoning)" Icon="psychology">
@@ -397,13 +445,27 @@
     private string? selectedLogFileName = null;
 
     // Verificador de páginas variables
-    private List<string> jsonDataFiles = new List<string>();
-    private string? selectedJsonFile = null;
+    private class JsonFileEntry
+    {
+        public string JsonFileName { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public int PageCount { get; set; }
+    }
+
+    private List<JsonFileEntry> jsonDataFiles = new List<JsonFileEntry>();
+    private JsonFileEntry? selectedJsonEntry = null;
+    private string? selectedJsonFile => selectedJsonEntry?.JsonFileName;
     private List<DocumentPageData> pageDataList = new List<DocumentPageData>();
     private DocumentPageData? selectedPageData = null;
     private bool hasPageImage = false;
     private string? pageImageBase64 = null;
     private bool isReprocessingPage = false;
+    private bool isEditingTranslation = true;
+
+    // Registro explícito de traducciones editadas durante la sesión actual del diálogo,
+    // indexado por PageNumber. Permite saber exactamente qué páginas se modificaron y
+    // preservarlas frente a recargas del JSON (p. ej. reprocesar página).
+    private Dictionary<int, string> pendingTranslationEdits = new Dictionary<int, string>();
 
     protected override void OnInitialized()
     {
@@ -420,26 +482,60 @@
             string dataPath = Path.Combine(jobDir, "data");
             if (Directory.Exists(dataPath))
             {
-                jsonDataFiles = Directory.GetFiles(dataPath, "*_data.json")
-                    .Select(Path.GetFileName)
-                    .Where(n => n != null)
-                    .Select(n => n!)
-                    .ToList();
+                var files = Directory.GetFiles(dataPath, "*_data.json");
+                jsonDataFiles = new List<JsonFileEntry>();
+                foreach (var filePath in files)
+                {
+                    string jsonFileName = Path.GetFileName(filePath);
+                    string normalized = jsonFileName.Replace("_data.json", "", StringComparison.OrdinalIgnoreCase);
+
+                    JobFileManifest? matchedManifest = Job?.Files?.FirstOrDefault(f =>
+                        string.Equals(Path.GetFileNameWithoutExtension(f.SourceFilePath), normalized, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(f.NormalizedFileName, normalized, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(Path.GetFileNameWithoutExtension(f.OriginalFileName), normalized, StringComparison.OrdinalIgnoreCase)
+                    );
+
+                    string display = matchedManifest != null && !string.IsNullOrEmpty(matchedManifest.OriginalFileName)
+                        ? matchedManifest.OriginalFileName
+                        : normalized;
+
+                    int pageCount = 0;
+                    try
+                    {
+                        string jsonStr = File.ReadAllText(filePath);
+                        var pages = System.Text.Json.JsonSerializer.Deserialize<List<DocumentPageData>>(jsonStr);
+                        pageCount = pages?.Count ?? 0;
+                    }
+                    catch { }
+
+                    jsonDataFiles.Add(new JsonFileEntry
+                    {
+                        JsonFileName = jsonFileName,
+                        DisplayName = display,
+                        PageCount = pageCount
+                    });
+                }
             }
         }
         catch {}
     }
 
-    private void OnSelectJsonFile(string file)
+    private void OnSelectJsonFile(JsonFileEntry entry)
     {
-        selectedJsonFile = file;
+        selectedJsonEntry = entry;
         selectedPageData = null;
         pageImageBase64 = null;
         hasPageImage = false;
-        
+        isEditingTranslation = true;
+        // Cambiar de documento reinicia el registro de edits pendientes; los edits del
+        // documento anterior ya quedaron persistidos en su JSON al dispararse Change.
+        pendingTranslationEdits.Clear();
+
+        if (entry == null) return;
+
         try
         {
-            string filePath = Path.Combine(jobDir, "data", file);
+            string filePath = Path.Combine(jobDir, "data", entry.JsonFileName);
             if (File.Exists(filePath))
             {
                 string jsonStr = File.ReadAllText(filePath);
@@ -456,11 +552,24 @@
         }
     }
 
+    private string GetMarkdownForPreview(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        return text.Replace("&nbsp;", " ");
+    }
+
     private void OnSelectPage(DocumentPageData p)
     {
         selectedPageData = p;
         pageImageBase64 = null;
         hasPageImage = false;
+
+        // Si hay un edit pendiente de esta sesión para la página recién seleccionada,
+        // se aplica sobre el modelo para que el TextArea muestre la versión modificada.
+        if (selectedPageData != null && pendingTranslationEdits.TryGetValue(p.PageNumber, out var pendingText))
+        {
+            selectedPageData.TranslatedText = pendingText;
+        }
 
         if (selectedPageData == null || string.IsNullOrEmpty(selectedJsonFile)) return;
 
@@ -482,20 +591,25 @@
 
     private async Task OnTranslationEdited(string newText)
     {
-        if (selectedPageData == null || string.IsNullOrEmpty(selectedJsonFile)) return;
+        if (selectedPageData == null || selectedJsonEntry == null) return;
 
         try
         {
-            string filePath = Path.Combine(jobDir, "data", selectedJsonFile);
+            string filePath = Path.Combine(jobDir, "data", selectedJsonEntry.JsonFileName);
             if (File.Exists(filePath))
             {
+                // Registra el edit en el diccionario de cambios pendientes de esta sesión.
+                pendingTranslationEdits[selectedPageData.PageNumber] = newText;
+                // Refleja el edit también en el modelo en memoria para que la UI sea coherente.
                 selectedPageData.TranslatedText = newText;
-                
+
+                // Serializa el documento completo fusionando los edits pendientes sobre pageDataList,
+                // de modo que cualquier página modificada en esta sesión quede persistida.
                 var states = pageDataList.Select(d => new PageProcessState
                 {
                     PageNumber = d.PageNumber,
                     OcrText = d.OriginalText,
-                    TranslatedText = d.TranslatedText,
+                    TranslatedText = pendingTranslationEdits.TryGetValue(d.PageNumber, out var edited) ? edited : d.TranslatedText,
                     ReviewedText = d.ReviewedText,
                     OcrFailed = !d.IsOcrSuccessful,
                     TranslationFailed = !d.IsTranslationSuccessful,
@@ -503,16 +617,33 @@
                     TranslationErrorMessage = d.TranslationErrorMessage,
                     ThoughtText = d.ThoughtText
                 }).ToList();
-                
+
                 JobManifestService.SavePageStatesToJson(states, filePath);
-                
-                string sourceFileName = selectedJsonFile.Replace("_data.json", "");
+
+                string sourceFileName = selectedJsonEntry.JsonFileName.Replace("_data.json", "");
                 var fileManifest = Job.Files.Find(f => Path.GetFileNameWithoutExtension(f.SourceFilePath).Equals(sourceFileName, StringComparison.OrdinalIgnoreCase));
                 if (fileManifest != null)
                 {
                     string absoluteOutputDir = Path.GetFullPath(Config.OutputDirectory);
                     string outputPath = Path.Combine(absoluteOutputDir, $"{sourceFileName}_{Config.TargetLanguage}.md");
-                    MarkdownWriter.ExportToMarkdown(outputPath, sourceFileName, Config.TargetLanguage, pageDataList, false);
+
+                    // Reconstruye la lista final con los edits aplicados para el markdown y copia.
+                    var mergedForExport = pageDataList.Select(d => new DocumentPageData
+                    {
+                        PageNumber = d.PageNumber,
+                        OriginalText = d.OriginalText,
+                        TranslatedText = pendingTranslationEdits.TryGetValue(d.PageNumber, out var edited) ? edited : d.TranslatedText,
+                        ReviewedText = d.ReviewedText,
+                        IsOcrSuccessful = d.IsOcrSuccessful,
+                        IsTranslationSuccessful = d.IsTranslationSuccessful,
+                        OcrErrorMessage = d.OcrErrorMessage,
+                        TranslationErrorMessage = d.TranslationErrorMessage,
+                        UsedTemperature = d.UsedTemperature,
+                        RetryCount = d.RetryCount,
+                        ThoughtText = d.ThoughtText
+                    }).ToList();
+
+                    MarkdownWriter.ExportToMarkdown(outputPath, sourceFileName, Config.TargetLanguage, mergedForExport, false);
 
                     string outputsDir = Path.Combine(jobDir, "outputs");
                     if (!Directory.Exists(outputsDir)) Directory.CreateDirectory(outputsDir);
@@ -559,7 +690,7 @@
             if (success)
             {
                 NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Reprocesamiento", Detail = $"Página {selectedPageData.PageNumber} procesada con éxito." });
-                OnSelectJsonFile(selectedJsonFile);
+                OnSelectJsonFile(selectedJsonEntry!);
             }
             else
             {

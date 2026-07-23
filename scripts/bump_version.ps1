@@ -1,4 +1,4 @@
-﻿# scripts/bump_version.ps1
+# scripts/bump_version.ps1
 # Incrementa la version en el .csproj y Package.wxs, actualiza el CHANGELOG.md, crea el commit/tag y hace push a GitHub.
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -247,6 +247,9 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     try {
         # Publicar web app para poblar publish_out antes de compilar Wix (previene warnings WIX8600/8601)
         dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o publish_out | Out-Null
+        
+        # Publicar MAUI app para poblar publish_maui antes de compilar Wix
+        dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -o publish_maui | Out-Null
         
         # Compilar el instalador de WiX (si existe)
         if (Test-Path "PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj") {

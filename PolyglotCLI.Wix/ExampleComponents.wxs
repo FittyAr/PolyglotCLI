@@ -1,12 +1,12 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
-    <!-- Archivos del Servidor Web (PolyglotCLI.web) -->
-    <ComponentGroup Id="ServerComponents" Directory="INSTALLFOLDER">
+    <!-- Archivos del Servidor Web (PolyglotCLI.web) instalados en Server/ -->
+    <ComponentGroup Id="ServerComponents" Directory="ServerFolder">
       <Files Include="..\publish_out\**" />
     </ComponentGroup>
 
-    <!-- Archivos de la Aplicacion de Escritorio (PolyglotCLI.Maui) -->
-    <ComponentGroup Id="DesktopComponents" Directory="INSTALLFOLDER">
+    <!-- Archivos de la Aplicacion de Escritorio (PolyglotCLI.Maui) instalados en Desktop/ -->
+    <ComponentGroup Id="DesktopComponents" Directory="DesktopFolder_App">
       <Files Include="..\publish_maui\**" />
     </ComponentGroup>
   </Fragment>
