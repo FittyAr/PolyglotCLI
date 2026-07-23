@@ -36,7 +36,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 
 AllowNoIcons=yes
-LicenseFile=license.txt
+LicenseFile=..\LICENSE
 
 ; Icono del instalador .exe generado
 SetupIconFile=..\assets\icons\app.ico
