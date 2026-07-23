@@ -1,14 +1,27 @@
-﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Id="FittyAr.PolyglotCLI" Name="PolyglotCLI" Manufacturer="FittyAr" Version="1.0.0">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Id="FittyAr.PolyglotCLI" Name="PolyglotCLI" Manufacturer="FittyAr" Version="1.0.0" UpgradeCode="3c1ef7e1-897d-411a-bc07-bc2cd4ad9d6f">
     <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />
     <MediaTemplate EmbedCab="yes" />
 
-    <Feature Id="Main">
+    <!-- Declarar el icono oficial de la aplicacion -->
+    <Icon Id="AppIcon" SourceFile="app.ico" />
+    
+    <!-- Configurar el icono de desinstalacion en Add/Remove Programs (Panel de Control) -->
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <!-- Habilitar la interfaz grafica estandar interactiva de WiX (FeatureTree) -->
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <!-- Feature principal con la Web App y el acceso directo del Menu Inicio -->
+    <Feature Id="Main" Title="PolyglotCLI App" Level="1" Description="Instala todos los archivos binarios de la aplicacion y crea el acceso directo en el Menu Inicio." AllowAdvertise="no" InstallDefault="local">
       <ComponentGroupRef Id="ExampleComponents" />
       <ComponentGroupRef Id="ShortcutComponents" />
     </Feature>
+
+    <!-- Feature opcional para el acceso directo del Escritorio -->
+    <Feature Id="DesktopShortcutFeature" Title="Acceso directo en el Escritorio" Level="1" Description="Crea un acceso directo de PolyglotCLI en el Escritorio." AllowAdvertise="no" InstallDefault="local">
+      <ComponentGroupRef Id="DesktopShortcutComponents" />
+    </Feature>
   </Package>
 </Wix>
-
-
-

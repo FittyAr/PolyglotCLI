@@ -1,19 +1,37 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
-    <!-- Directorio para el acceso directo en el Menú Inicio -->
+    <!-- Directorio para el acceso directo en el Menu Inicio -->
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ApplicationProgramsFolder" Name="PolyglotCLI" />
     </StandardDirectory>
 
+    <!-- Directorio para el acceso directo en el Escritorio -->
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- Componente para el Menu de Inicio -->
     <ComponentGroup Id="ShortcutComponents" Directory="ApplicationProgramsFolder">
       <Component Id="ApplicationShortcut" Guid="*">
         <Shortcut Id="ApplicationStartMenuShortcut"
                   Name="PolyglotCLI"
-                  Description="Herramienta de Traducción Documental Web PolyglotCLI"
+                  Description="Herramienta de Traduccion Documental Web PolyglotCLI"
                   Target="[INSTALLFOLDER]PolyglotCLI.exe"
-                  WorkingDirectory="INSTALLFOLDER" />
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
         <RemoveFolder Id="CleanupShortcut" Directory="ApplicationProgramsFolder" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\FittyAr\PolyglotCLI" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Componente para el Escritorio -->
+    <ComponentGroup Id="DesktopShortcutComponents" Directory="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut Id="ApplicationDesktopShortcut"
+                  Name="PolyglotCLI"
+                  Description="Herramienta de Traduccion Documental Web PolyglotCLI"
+                  Target="[INSTALLFOLDER]PolyglotCLI.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU" Key="Software\FittyAr\PolyglotCLI" Name="desktopShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </ComponentGroup>
   </Fragment>
