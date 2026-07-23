@@ -7,6 +7,113 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.1.0] - 2026-07-23
+
+### Added
+
+### Improved
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+---
+
+## [v1.1.0] - 2026-07-23
+
+### Added
+
+### Improved
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+---
+
+## [v1.1.0] - 2026-07-23
+
+### Added
+
+### Improved
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+---
+
+## [v1.1.0] - 2026-07-23
+
+### Added
+
+### Improved
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+---
+
+## [v1.1.0] - 2026-07-23
+
+### Added
+
+### Improved
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+---
+
+## [v1.1.0] - 2026-07-23
+
+### Added
+
+### Improved
+
+### Changed
+
+- Reverted the `PolyglotCLI.web` project to a pure web server configuration.
+- Migrated native desktop execution to the `PolyglotCLI.Maui` project using Blazor Hybrid.
+- Moved `ApplicationMode` execution state to `PolyglotCLI.core` for clean sharing between projects.
+- Conditionally hide the layout footer when running in desktop mode, keeping it visible only in web mode.
+- Split the app execution command in run.ps1 into separate Desktop and Web options.
+- Updated MSIX packaging to use the MAUI desktop application instead of the web server.
+- Updated MSI installer to include both Server and Desktop applications as selectable features with independent shortcuts.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed window initialization crash of the WebView2 components by configuring the application thread mode.
+- Resolved MSB3277 WindowsBase reference mismatch warning by enabling WPF framework references in the web project.
+
+---
+
 ## [v1.0.1] - 2026-07-23
 
 ### Added
