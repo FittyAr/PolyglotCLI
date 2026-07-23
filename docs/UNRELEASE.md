@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurada la aplicación en `PolyglotCLI.Wix` y `AppxManifest.xml` para empaquetar y utilizar el icono oficial `app.ico` (generado a partir de la imagen corporativa `favicon.png`) en el ejecutable, los accesos directos de Inicio/Escritorio y el Panel de Control.
 - Centralizado el icono de la aplicación en [app.ico](file:///d:/GitHub/PolyglotCLI/manifests/app.ico), eliminando las copias redundantes y configurando MSBuild y WiX para referenciar la fuente de verdad única en tiempo de compilación.
 - Renombrados y migrados los activos de pantalla de bienvenida del manifiesto MSIX a la nomenclatura estándar de escala de Windows (`SplashScreen.scale-100.png` a `scale-400.png`) para el mapeo DPI dinámico automático en tiempo de ejecución.
+- Reescrito el script de instalación [install.ps1](file:///d:/GitHub/PolyglotCLI/scripts/install.ps1) para compilar localmente y ejecutar de forma interactiva el instalador MSI nativo (`PolyglotCLI.Wix.msi`) mediante `msiexec`, eliminando las descargas de archivos ZIP y permitiendo probar localmente el flujo de instalación de WiX idéntico a como se haría desde GitHub Actions.
 
 ### Deprecated
 
