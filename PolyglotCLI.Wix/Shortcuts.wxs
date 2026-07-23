@@ -35,7 +35,7 @@
                   Target="[DesktopFolder_App]desktopapp\PolyglotCLI.Maui.exe"
                   WorkingDirectory="DesktopFolder_App"
                   Icon="AppIcon" />
-        <RemoveFolder Id="CleanupServerShortcut" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <RemoveFolder Id="CleanupDesktopAppShortcut" Directory="ApplicationProgramsFolder" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\FittyAr\PolyglotCLI" Name="desktopAppInstalled" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </ComponentGroup>
