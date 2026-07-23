@@ -276,13 +276,21 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         $branch = "main"
     }
 
+    # Capturar el estado pendiente antes de stagear (modificaciones + archivos sin seguimiento)
+    # para mostrar al usuario exactamente qué entrara en el commit.
+    $pendingStatus = git status --porcelain
+
     Write-Host ""
     Write-Host "Resumen de acciones a ejecutar en Git:" -ForegroundColor Yellow
-    Write-Host "  - Stage y commit de los archivos modificados:"
-    Write-Host "      $csprojPath"
-    if (Test-Path $wxsPath) { Write-Host "      $wxsPath" }
-    Write-Host "      $changelogPath"
-    Write-Host "      $unreleasedPath"
+    Write-Host "  - Stage de TODOS los archivos pendientes (git add -A, respetando .gitignore):" -ForegroundColor Yellow
+    if ([string]::IsNullOrWhiteSpace($pendingStatus)) {
+        Write-Host "      (no hay cambios locales pendientes; solo entraran los archivos de version)" -ForegroundColor DarkGray
+    } else {
+        foreach ($line in $pendingStatus -split "`n") {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            Write-Host "      $line"
+        }
+    }
     Write-Host "  - Crear etiqueta Git v$newVersion"
     Write-Host "  - Push de commits y etiquetas a origin ($branch)"
     Write-Host ""
@@ -293,8 +301,14 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         exit 0
     }
 
-    # Git commit, tag y push
-    Write-Host "Agregando archivos a Git..." -ForegroundColor Yellow
+    # Git add: Stagear todos los cambios pendientes (modificaciones, archivos nuevos
+    # y borrados) respetando el .gitignore. Es equivalente a `git add --all`.
+    Write-Host "Agregando todos los archivos pendientes a Git..." -ForegroundColor Yellow
+    git add -A
+
+    # Si git add -A no encontro nada nuevo (solo se modificaron los archivos de
+    # version que de todos modos el commit capturara), nos aseguramos de que esos
+    # esten explícitamente en el stage.
     git add $csprojPath
     if (Test-Path $wxsPath) { git add $wxsPath }
     git add $changelogPath
