@@ -22,3 +22,6 @@ output/
 # Local .NET SDK
 local-dotnet/
 
+# Staging and publish folders
+publish_out/
+msix_staging/

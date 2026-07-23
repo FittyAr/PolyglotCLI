@@ -1,9 +1,12 @@
 ﻿# scripts/bump_version.ps1
-# Incrementa la versiÃ³n en el .csproj y Package.wxs, actualiza el CHANGELOG.md, crea el commit/tag y hace push a GitHub.
+# Incrementa la version en el .csproj y Package.wxs, actualiza el CHANGELOG.md, crea el commit/tag y hace push a GitHub.
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 
 $ErrorActionPreference = "Stop"
 
-# Asegurar que estamos en el directorio raÃ­z del proyecto
+# Asegurar que estamos en el directorio raiz del proyecto
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ($scriptDir) {
     Set-Location $scriptDir
@@ -15,7 +18,7 @@ $wxsPath = "PolyglotCLI.Wix/Package.wxs"
 $changelogPath = "docs/CHANGELOG.md"
 $unreleasedPath = "docs/UNRELEASE.md"
 
-# FunciÃ³n para verificar cambios locales sin confirmar
+# Funcion para verificar cambios locales sin confirmar
 function Test-GitPendingChanges {
     $status = git status --porcelain
     if ($status) {
@@ -23,21 +26,21 @@ function Test-GitPendingChanges {
         Write-Host $status
         $choice = Read-Host "Desea continuar de todos modos? (y/n)"
         if ($choice -ne 'y' -and $choice -ne 'Y') {
-            Write-Host "OperaciÃ³n cancelada."
+            Write-Host "Operacion cancelada."
             return $false
         }
     }
     return $true
 }
 
-# FunciÃ³n para verificar permisos de push en origin
+# Funcion para verificar permisos de push en origin
 function Test-GitPushPermissions {
     $branch = git branch --show-current
     if ([string]::IsNullOrWhiteSpace($branch)) {
         $branch = "main"
     }
     
-    Write-Host "Verificando autenticaciÃ³n de Git y permisos de push para origin ($branch)..." -ForegroundColor Yellow
+    Write-Host "Verificando autenticacion de Git y permisos de push para origin ($branch)..." -ForegroundColor Yellow
     $env:GIT_TERMINAL_PROMPT = "0"
     $oldEAP = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
@@ -47,11 +50,11 @@ function Test-GitPushPermissions {
     Remove-Item env:GIT_TERMINAL_PROMPT -ErrorAction SilentlyContinue
 
     if ($exitCode -ne 0) {
-        Write-Error "La autenticaciÃ³n de Git fallÃ³ o no tiene permisos de push a origin."
-        Write-Host "Por favor, asegÃºrese de estar autenticado en GitHub (ej. usando 'gh auth login')." -ForegroundColor Yellow
+        Write-Error "La autenticacion de Git fallo o no tiene permisos de push a origin."
+        Write-Host "Por favor, asegurese de estar autenticado en GitHub (ej. usando 'gh auth login')." -ForegroundColor Yellow
         return $false
     }
-    Write-Host "AutenticaciÃ³n de Git validada con Ã©xito." -ForegroundColor Green
+    Write-Host "Autenticacion de Git validada con exito." -ForegroundColor Green
     return $true
 }
 
@@ -63,18 +66,18 @@ Write-Host "==========================================" -ForegroundColor Cyan
 if (-not (Test-GitPendingChanges)) { exit 0 }
 if (-not (Test-GitPushPermissions)) { exit 1 }
 
-# 2. Cargar versiÃ³n actual del .csproj
+# 2. Cargar version actual del .csproj
 if (-not (Test-Path $csprojPath)) {
-    Write-Error "No se encontrÃ³ $csprojPath"
+    Write-Error "No se encontro $csprojPath"
     exit 1
 }
 
 $csprojContent = Get-Content -Raw -Path $csprojPath
 if ($csprojContent -match '<Version>([^<]+)</Version>') {
     $currentVersion = $Matches[1]
-    Write-Host "VersiÃ³n actual en csproj: $currentVersion" -ForegroundColor Cyan
+    Write-Host "Version actual en csproj: $currentVersion" -ForegroundColor Cyan
 
-    # Sugerir versiÃ³n incremental (patch)
+    # Sugerir version incremental (patch)
     $parts = $currentVersion -split '\.'
     if ($parts.Count -eq 3) {
         $nextPatch = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)"
@@ -82,27 +85,27 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         $nextPatch = $currentVersion
     }
 
-    $newVersion = Read-Host "Introduzca la nueva versiÃ³n [$nextPatch]"
+    $newVersion = Read-Host "Introduzca la nueva version [$nextPatch]"
     if ([string]::IsNullOrWhiteSpace($newVersion)) {
         $newVersion = $nextPatch
     }
 
     if ($newVersion -notmatch '^\d+\.\d+\.\d+$') {
-        Write-Error "Formato de versiÃ³n no vÃ¡lido. Debe ser del tipo X.Y.Z (ej. 1.0.1)"
+        Write-Error "Formato de version no valido. Debe ser del tipo X.Y.Z (ej. 1.0.1)"
         exit 1
     }
 
     # 3. Leer y procesar docs/UNRELEASE.md y docs/CHANGELOG.md
     if (-not (Test-Path $unreleasedPath)) {
-        Write-Error "No se encontrÃ³ el archivo $unreleasedPath"
+        Write-Error "No se encontro el archivo $unreleasedPath"
         exit 1
     }
     if (-not (Test-Path $changelogPath)) {
-        # Crear archivo vacÃ­o si no existe
+        # Crear archivo vacio si no existe
         New-Item -ItemType File -Path $changelogPath -Force | Out-Null
     }
 
-    Write-Host "Procesando notas de la versiÃ³n en docs/UNRELEASE.md..." -ForegroundColor Yellow
+    Write-Host "Procesando notas de la version en docs/UNRELEASE.md..." -ForegroundColor Yellow
     $unreleasedLines = Get-Content -Path $unreleasedPath -Encoding UTF8
     $unreleasedIndex = -1
     for ($i = 0; $i -lt $unreleasedLines.Count; $i++) {
@@ -113,7 +116,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     }
 
     if ($unreleasedIndex -eq -1) {
-        Write-Error "No se encontrÃ³ la secciÃ³n '## [Unreleased]' en $unreleasedPath"
+        Write-Error "No se encontro la seccion '## [Unreleased]' en $unreleasedPath"
         exit 1
     }
 
@@ -123,7 +126,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         $sectionContent = $unreleasedLines[($unreleasedIndex + 1)..($unreleasedLines.Count - 1)]
     }
 
-    # Limpiar lÃ­neas vacÃ­as iniciales y finales
+    # Limpiar lineas vacias iniciales y finales
     $first = 0
     $last = $sectionContent.Count - 1
     while ($first -le $last -and [string]::IsNullOrWhiteSpace($sectionContent[$first])) { $first++ }
@@ -136,14 +139,14 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
 
     if ($trimmedContent.Count -eq 0) {
         Write-Host "[ADVERTENCIA] No hay cambios detallados bajo '## [Unreleased]' en $unreleasedPath." -ForegroundColor Yellow
-        $continueEmpty = Read-Host "Desea continuar con el release vacÃ­o? (y/n)"
+        $continueEmpty = Read-Host "Desea continuar con el release vacio? (y/n)"
         if ($continueEmpty -ne 'y' -and $continueEmpty -ne 'Y') {
-            Write-Host "OperaciÃ³n abortada."
+            Write-Host "Operacion abortada."
             exit 0
         }
     }
 
-    # Crear bloque de nueva versiÃ³n con la fecha actual
+    # Crear bloque de nueva version con la fecha actual
     $today = Get-Date -Format "yyyy-MM-dd"
     $newVersionBlock = @(
         "## [v$newVersion] - $today",
@@ -176,7 +179,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         $newChangelogLines += ""
     }
 
-    # Insertar el nuevo bloque de versiÃ³n antes del primer bloque de versiÃ³n existente (## [v...)
+    # Insertar el nuevo bloque de version antes del primer bloque de version existente (## [v...)
     foreach ($line in $changelogLines) {
         if (-not $inserted -and $line -match '^## \[v\d+\.') {
             $newChangelogLines += $newVersionBlock
@@ -188,7 +191,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         $newChangelogLines += $line
     }
 
-    # Si no habÃ­a versiones previas, se aÃ±ade al final
+    # Si no habia versiones previas, se aÃ±ade al final
     if (-not $inserted) {
         if ($newChangelogLines.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($newChangelogLines[-1])) {
             $newChangelogLines += ""
@@ -197,12 +200,12 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     }
 
     # 4. Modificar archivos de proyecto localmente (Csproj y Wix)
-    Write-Host "Modificando la versiÃ³n del proyecto en $csprojPath..." -ForegroundColor Yellow
+    Write-Host "Modificando la version del proyecto en $csprojPath..." -ForegroundColor Yellow
     $newCsprojContent = $csprojContent -replace '<Version>[^<]+</Version>', "<Version>$newVersion</Version>"
     Set-Content -Path $csprojPath -Value $newCsprojContent -Encoding UTF8
 
     if (Test-Path $wxsPath) {
-        Write-Host "Modificando la versiÃ³n de Wix en $wxsPath..." -ForegroundColor Yellow
+        Write-Host "Modificando la version de Wix en $wxsPath..." -ForegroundColor Yellow
         $wxsContent = Get-Content -Raw -Path $wxsPath
         $newWxsContent = $wxsContent -replace 'Version="[^"]+"', "Version=`"$newVersion`""
         Set-Content -Path $wxsPath -Value $newWxsContent -Encoding UTF8
@@ -213,7 +216,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllLines((Resolve-Path $changelogPath).Path, $newChangelogLines, $utf8NoBom)
 
-    # Restablecer docs/UNRELEASE.md a la plantilla vacÃ­a
+    # Restablecer docs/UNRELEASE.md a la plantilla vacia
     Write-Host "Restableciendo $unreleasedPath..." -ForegroundColor Yellow
     $template = @(
         "# Changelog",
@@ -239,21 +242,22 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     )
     [System.IO.File]::WriteAllLines((Resolve-Path $unreleasedPath).Path, $template, $utf8NoBom)
 
-    # 5. CompilaciÃ³n de prueba local
-    Write-Host "Ejecutando dotnet build de validaciÃ³n..." -ForegroundColor Yellow
+    # 5. Compilacion de prueba local
+    Write-Host "Ejecutando dotnet publish y build de validacion..." -ForegroundColor Yellow
     try {
-        # Primero compilar web app
-        dotnet build $csprojPath -c Release
-        # Luego compilar el instalador de WiX (si existe)
+        # Publicar web app para poblar publish_out antes de compilar Wix (previene warnings WIX8600/8601)
+        dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o publish_out | Out-Null
+        
+        # Compilar el instalador de WiX (si existe)
         if (Test-Path "PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj") {
             dotnet build PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj -c Release
         }
-        Write-Host "CompilaciÃ³n de prueba exitosa." -ForegroundColor Green
+        Write-Host "Compilacion de prueba exitosa." -ForegroundColor Green
     } catch {
-        Write-Error "La compilaciÃ³n fallÃ³. Revirtiendo cambios locales..."
+        Write-Error "La compilacion fallo. Revirtiendo cambios locales..."
         # Revertir csproj
         Set-Content -Path $csprojPath -Value $csprojContent -Encoding UTF8
-        # Revertir wxs si existÃ­a
+        # Revertir wxs si existia
         if (Test-Path $wxsPath) {
             Set-Content -Path $wxsPath -Value $wxsContent -Encoding UTF8
         }
@@ -263,7 +267,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         exit 1
     }
 
-    # 6. ConfirmaciÃ³n de Git
+    # 6. Confirmacion de Git
     $branch = git branch --show-current
     if ([string]::IsNullOrWhiteSpace($branch)) {
         $branch = "main"
@@ -280,7 +284,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     Write-Host "  - Push de commits y etiquetas a origin ($branch)"
     Write-Host ""
 
-    $confirm = Read-Host "EstÃ¡ seguro de querer confirmar, etiquetar y subir a GitHub? (y/n)"
+    $confirm = Read-Host "Esta seguro de querer confirmar, etiquetar y subir a GitHub? (y/n)"
     if ($confirm -ne 'y' -and $confirm -ne 'Y') {
         Write-Host "Acciones de Git canceladas. Los archivos locales han sido actualizados pero no commiteados ni subidos." -ForegroundColor Yellow
         exit 0
@@ -300,9 +304,9 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     try {
         git push origin $branch
         git push origin "v$newVersion"
-        Write-Host "VersiÃ³n v$newVersion publicada y subida con Ã©xito en GitHub!" -ForegroundColor Green
+        Write-Host "Version v$newVersion publicada y subida con exito en GitHub!" -ForegroundColor Green
     } catch {
-        Write-Error "Error al subir cambios a GitHub. Verifique su conexiÃ³n y permisos."
+        Write-Error "Error al subir cambios a GitHub. Verifique su conexion y permisos."
         Write-Host "Nota: El commit y la etiqueta se crearon localmente. Puede subirlos manualmente usando:" -ForegroundColor Yellow
         Write-Host "  git push origin $branch" -ForegroundColor Yellow
         Write-Host "  git push origin v$newVersion" -ForegroundColor Yellow
@@ -311,5 +315,4 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     Write-Error "No se pudo encontrar la etiqueta <Version> en $csprojPath"
     exit 1
 }
-
 

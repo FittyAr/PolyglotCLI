@@ -2,10 +2,11 @@
 # Script de control de desarrollo para PolyglotCLI.
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 
 $ErrorActionPreference = "Stop"
 
-# Asegurar que estamos en el directorio raÃ­z del proyecto
+# Asegurar que estamos en el directorio raiz del proyecto
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ([string]::IsNullOrEmpty($scriptDir)) {
     $scriptDir = $PSScriptRoot
@@ -15,7 +16,7 @@ if ([string]::IsNullOrEmpty($scriptDir)) {
 }
 Set-Location $scriptDir
 
-# Flujo del menÃº principal del script
+# Flujo del menu principal del script
 function Show-MainMenu {
     while ($true) {
         Clear-Host
@@ -30,7 +31,7 @@ function Show-MainMenu {
         Write-Host " 0. Salir" -ForegroundColor White
         Write-Host "==========================================" -ForegroundColor Blue
         
-        $opt = Read-Host "Seleccione una opciÃ³n [0-5]"
+        $opt = Read-Host "Seleccione una opcion [0-5]"
         
         switch ($opt) {
             "1" {
@@ -44,12 +45,12 @@ function Show-MainMenu {
                 Read-Host "Presione Enter para continuar..."
             }
             "3" {
-                Write-Host "[INFO] Compilando soluciÃ³n..." -ForegroundColor Yellow
+                Write-Host "[INFO] Compilando solucion..." -ForegroundColor Yellow
                 dotnet build
                 Read-Host "Presione Enter para continuar..."
             }
             "4" {
-                Write-Host "[INFO] Limpiando artefactos de compilaciÃ³n..." -ForegroundColor Yellow
+                Write-Host "[INFO] Limpiando artefactos de compilacion..." -ForegroundColor Yellow
                 dotnet clean
                 Read-Host "Presione Enter para continuar..."
             }
@@ -63,14 +64,13 @@ function Show-MainMenu {
                 return
             }
             default {
-                Write-Host "[ADVERTENCIA] OpciÃ³n no vÃ¡lida." -ForegroundColor Yellow
+                Write-Host "[ADVERTENCIA] Opcion no valida." -ForegroundColor Yellow
                 Start-Sleep -Seconds 1
             }
         }
     }
 }
 
-# Ejecutar el menÃº principal
+# Ejecutar el menu principal
 Show-MainMenu
-
 
