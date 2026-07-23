@@ -21,6 +21,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Corregida la compilación del instalador en CI/CD instalando Inno Setup en el runner de GitHub Actions y mejorando la localización dinámica de `ISCC.exe` vía `PATH` y carpetas estándar de Inno Setup 6/7.
+
+---
+
+## [v1.1.0] - 2026-07-23
+
+### Added
+
+### Improved
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
 ---
 
 ## [v1.1.0] - 2026-07-23
