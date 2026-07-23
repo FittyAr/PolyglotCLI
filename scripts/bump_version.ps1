@@ -1,29 +1,3 @@
-# scripts/bump_version.ps1
-# Incrementa la version en el .csproj y Package.wxs, actualiza el CHANGELOG.md, crea el commit/tag y hace push a GitHub.
-
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-[Console]::InputEncoding = [System.Text.Encoding]::UTF8
-
-$ErrorActionPreference = "Stop"
-
-# Asegurar que estamos en el directorio raiz del proyecto
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-if (-not $scriptDir) {
-    $scriptDir = $PSScriptRoot
-}
-if (-not $scriptDir) {
-    $scriptDir = "."
-}
-Set-Location $scriptDir
-Set-Location ".."
-
-$csprojPath = "PolyglotCLI.web/PolyglotCLI.web.csproj"
-$wxsPath = "PolyglotCLI.Wix/Package.wxs"
-$changelogPath = "docs/CHANGELOG.md"
-$unreleasedPath = "docs/UNRELEASE.md"
-$installerScript = Join-Path $scriptDir "build_installer.ps1"
-
-# Helper: prefiere PowerShell 7 (pwsh) y cae a Windows PowerShell 5.1 si no esta.
 function Get-PowerShellExe {
     $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
     if ($pwshCmd) { return "pwsh" }
@@ -211,17 +185,10 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         $newChangelogLines += $newVersionBlock
     }
 
-    # 4. Modificar archivos de proyecto localmente (Csproj y Wix)
+    # 4. Modificar archivos de proyecto localmente (Csproj)
     Write-Host "Modificando la version del proyecto en $csprojPath..." -ForegroundColor Yellow
     $newCsprojContent = $csprojContent -replace '<Version>[^<]+</Version>', "<Version>$newVersion</Version>"
     Set-Content -Path $csprojPath -Value $newCsprojContent -Encoding UTF8
-
-    if (Test-Path $wxsPath) {
-        Write-Host "Modificando la version de Wix en $wxsPath..." -ForegroundColor Yellow
-        $wxsContent = Get-Content -Raw -Path $wxsPath
-        $newWxsContent = $wxsContent -replace 'Version="[^"]+"', "Version=`"$newVersion`""
-        Set-Content -Path $wxsPath -Value $newWxsContent -Encoding UTF8
-    }
 
     # Escribir docs/CHANGELOG.md actualizado
     Write-Host "Actualizando $changelogPath..." -ForegroundColor Yellow
