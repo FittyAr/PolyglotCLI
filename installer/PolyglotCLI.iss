@@ -154,21 +154,21 @@ Name: "{group}\PolyglotCLI - Desktop"; \
     Components: desktop
 
 ; --- Escritorio (siempre, filtrados por componente y por tarea desktopicon) ---
-Name: "{commondesktop}\PolyglotCLI - Servidor Web"; \
+Name: "{commondesktop}\PolyglotCLI - Server"; \
     Filename: "{app}\Server\serverapp\PolyglotCLI.exe"; \
     WorkingDir: "{app}\Server\serverapp"; \
     IconFilename: "{app}\app.ico"; \
     Comment: "Inicia el servidor web PolyglotCLI"; \
     Tasks: desktopicon; Components: server
 
-Name: "{commondesktop}\PolyglotCLI - Abrir en el navegador"; \
+Name: "{commondesktop}\PolyglotCLI - Web"; \
     Filename: "{cmd}"; \
     Parameters: "/C start """" http://localhost:5000"; \
     IconFilename: "{app}\app.ico"; \
     Comment: "Abre el panel web de PolyglotCLI en el navegador"; \
     Tasks: desktopicon; Components: server
 
-Name: "{commondesktop}\PolyglotCLI - Escritorio nativo"; \
+Name: "{commondesktop}\PolyglotCLI - Desktop"; \
     Filename: "{app}\Desktop\desktopapp\PolyglotCLI.Maui.exe"; \
     WorkingDir: "{app}\Desktop\desktopapp"; \
     IconFilename: "{app}\app.ico"; \
