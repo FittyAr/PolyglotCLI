@@ -1,6 +1,6 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-  <Package Id="FittyAr.PolyglotCLI" Name="PolyglotCLI" Manufacturer="FittyAr" Version="1.0.0" UpgradeCode="3c1ef7e1-897d-411a-bc07-bc2cd4ad9d6f">
+  <Package Id="FittyAr.PolyglotCLI" Name="PolyglotCLI" Manufacturer="FittyAr" Version="1.0.1" UpgradeCode="3c1ef7e1-897d-411a-bc07-bc2cd4ad9d6f">
     <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />
     <MediaTemplate EmbedCab="yes" />
 
@@ -28,3 +28,4 @@
     </Feature>
   </Package>
 </Wix>
+
