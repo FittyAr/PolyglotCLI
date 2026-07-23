@@ -25,17 +25,12 @@ export function init(element, options) {
 
     const opts = Object.assign({
         maxZoom: 10,
-        minZoom: 0.1,
+        minZoom: 0.2,
         bounds: false,
         boundsPadding: 0.5,
-        zoomDoubleClickSpeed: 1,
+        zoomDoubleClickSpeed: 1.5,
         smoothScroll: false,
-        zoomSpeed: 0.25,
-        beforeWheel: (e) => {
-            // Permitir zoom también con Ctrl+Wheel más fino (trackpad con pinch).
-            if (!e.ctrlKey) e.preventDefault();
-            return true;
-        }
+        zoomSpeed: 0.25
     }, options || {});
 
     try {

@@ -1,11 +1,21 @@
-# Anulación de ICE03 e ICE60 en el instalador WiX de MAUI
+# Anulación de ICE03/ICE60 y colisión WIX0091 en el instalador WiX de MAUI
 
 ## Contexto
 
 Al ejecutar el pipeline de release (`scripts/bump_version.ps1`, opción **6** del menú
 de `run.ps1`) sobre el MSI generado por `PolyglotCLI.Wix`, la compilación de WiX 7
-(SDK `WixToolset.Sdk/7.0.0`) falla con errores `WIX0204` y advertencias `WIX1076`
-provenientes del harvest del directorio `publish_maui/`:
+(SDK `WixToolset.Sdk/7.0.0`) produce **dos familias de errores** distintos:
+
+| Familia | Error | Origen | Solución aplicada |
+| --- | --- | --- | --- |
+| **A. Validación ICE** | `WIX0204` (error) y `WIX1076` (warning) con prefijo `ICE03:` y `ICE60:` | Inspección del campo `Translation` de VS_VERSIONINFO de DLLs WindowsAppSDK/MAUI | `<SuppressIces>ICE03;ICE60</SuppressIces>` en el `.wixproj` |
+| **B. Colisión de IDs** | `WIX0091` ("Duplicate File `<id>`") + `WIX0092` (location) | Dos `<Files>` hermanos en el mismo `.wxs` generan el mismo `directoryId` en el harvester de WiX 4 | Separación en dos `<Fragment>` distintos y atributo `Directory="..."` explícito en cada `<Files>` |
+
+---
+
+## Familia A — Validación ICE03 / ICE60
+
+### Reproducción del error
 
 ```
 ExampleComponents.wxs(10): warning WIX1076: ICE03: String overflow (greater than length permitted in column); Table: File, Column: Language, ...
@@ -13,45 +23,24 @@ ExampleComponents.wxs(10): error   WIX0204: ICE03: Invalid Language Id; Table: F
 ExampleComponents.wxs(10): warning WIX1076: ICE60: The file ... is not a Font, and its version is not a companion file reference. It should have a language specified in the Language column.
 ```
 
-Para destrabar el release, en `PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj` se añadió:
+### Causa raíz
 
-```xml
-<SuppressIces>ICE03;ICE60</SuppressIces>
-```
-
-Esta propiedad es **MSBuild-recognized** por el SDK de WiX 4 y mapea internamente al
-flag `-sval ICE03,ICE60` del binario `wix.exe`. Omite los chequeos
-**ICE03** (*Invalid Language Id*) e **ICE60** (*Font/File Language*) del validador
-de Windows Installer.
-
-> **Importante**: `SuppressIces` solo suprime los mensajes de validación ICE durante
-> el paso `WindowsInstallerValidation` (`wix.targets`). No toca la generación del
-> MSI en sí: los archivos problemáticos **siguen instalándose** en el sistema
-> destino. El instalador es funcionalmente correcto.
-
----
-
-## ¿Por qué pasan estos errores?
-
-El harvest de `<Files Include="..\publish_maui\**" />` (en
-`ExampleComponents.wxs:10`) recorre todos los archivos publicados por
-`dotnet publish` de `PolyglotCLI.Maui` y los inserta en la tabla `File` del MSI.
-Por cada archivo PE (`.exe`/`.dll`), WiX inspecciona los recursos
-**VersionInfo** (VS_VERSIONINFO) para derivar automáticamente las columnas:
+El harvest de `<Files Include="..\publish_maui\**" />` recorre todos los archivos
+publicados por `dotnet publish` de `PolyglotCLI.Maui` y los inserta en la tabla
+`File` del MSI. Por cada archivo PE (`.exe`/`.dll`), WiX inspecciona los recursos
+**VersionInfo** (`VS_VERSIONINFO`) para derivar automáticamente las columnas:
 
 - `Version`
 - `Language` (columna `Language` de la tabla `File`)
 - `FileSize`
 
-### El problema concreto
-
 Varios DLLs y ejecutables que produce `Microsoft.WindowsAppSDK`, `Microsoft.Maui`,
 `WinUI3` y el propio runtime de .NET 10 traen el campo `Translation` del bloque
 `StringFileInfo` con valores que MSI rechaza:
 
-| Comportamiento esperado (PE correcto)        | Comportamiento observado en DLLs de WindowsAppSDK/MAUI                                                                                                                                                              |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Translation` codifica `(langID, codepage)` en **dos WORD** (`LOWORD` = `0x0409` = 1033, `HIWORD` = `0x04E4` = 1252). | `Translation` aparece como cadena cruda, vacía, con caracteres no imprimibles, o con un `langID` desconocido para MSI (fuera del rango de `LCID` soportado o con un offset de bits inesperado). |
+| Comportamiento esperado (PE correcto)                                | Comportamiento observado en DLLs de WindowsAppSDK/MAUI                                                                                                                                                              |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Translation` codifica `(langID, codepage)` en **dos WORD** (`LOWORD` = `0x0409` = 1033, `HIWORD` = `0x04E4` = 1252). | `Translation` aparece como cadena cruda, vacía, con caracteres no imprimibles, o con un `langID` desconocido para MSI (fuera del rango de `LCID` soportado o con un offset de bits inesperado).                    |
 
 Cuando WiX lee un valor de `Translation` no válido, lo deja pasar a la columna
 `Language` sin normalizarlo. Luego:
@@ -64,11 +53,10 @@ Cuando WiX lee un valor de `Translation` no válido, lo deja pasar a la columna
   archivo tiene una `Version` válida (porque viene de un PE real) pero le falta
   la `Language` válida.
 
-Todo el bloque se manifiesta en archivos autogenerados por el MSBuild del SDK de
-.NET (carpeta `runtimes/`, `Microsoft.WindowsAppSDK*.dll`, `Microsoft.UI.Xaml*.dll`,
-`Microsoft.Maui.Controls*.dll`, etc.), **no** en archivos de nuestro propio
-proyecto `PolyglotCLI.Maui/`. La regla no discrimina por origen: harvest incluirlos
-o no incluirlos dispara igual.
+Todo el bloque se manifiesta en archivos autogenerados por el MSBuild del SDK
+de .NET (carpeta `runtimes/`, `Microsoft.WindowsAppSDK*.dll`,
+`Microsoft.UI.Xaml*.dll`, `Microsoft.Maui.Controls*.dll`, etc.), **no** en
+archivos de nuestro propio proyecto `PolyglotCLI.Maui/`.
 
 ### Por qué `..\publish_out\**` (Web) NO falla
 
@@ -77,14 +65,12 @@ o no incluirlos dispara igual.
 - `PolyglotCLI.exe` (apphost sin VS_VERSIONINFO avanzada)
 - Ensamblados .NET con `Translation` correcto (asignado por Roslyn/MSBuild)
 - Assets estáticos (`.json`, `.html`, `.css`, `.wasm`, etc. — no son PE, no
-  llegan a la columna `Language`).
+  llegan a la columna `Language`)
 
 El `Translation` que pone el toolchain oficial de .NET es estable y reconocible
 para ICE03, por eso `ServerComponents` no reporta errores.
 
----
-
-## Estado actual: la anulación y por qué es solo un *workaround*
+### Workaround aplicado
 
 ```xml
 <!-- PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj -->
@@ -94,6 +80,18 @@ para ICE03, por eso `ServerComponents` no reporta errores.
 </PropertyGroup>
 ```
 
+`<SuppressIces>` es la propiedad MSBuild-recognized por el SDK de WiX 4 (visto
+en `wix.targets` de `wixtoolset/wix`); mapea al flag `-sval ICE03,ICE60` del
+binario `wix.exe`. Omite los chequeos **ICE03** (*Invalid Language Id*) e
+**ICE60** (*Font/File Language*) del validador de WindowsInstaller.
+
+> **Importante**: `SuppressIces` solo suprime los mensajes ICE durante el paso
+> `WindowsInstallerValidation`. No toca la generación del MSI: los archivos
+> problemáticos **siguen instalándose** en el sistema destino. El instalador es
+> funcionalmente correcto.
+
+### Tabla de impacto del workaround ICE03/ICE60
+
 | Aspecto                    | Estado con la anulación                                                                                                                      |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | MSI se compila              | Sí (WIX0204 desaparece, WIX1076 no se eleva a error)                                                                                          |
@@ -102,24 +100,112 @@ para ICE03, por eso `ServerComponents` no reporta errores.
 | Garantía de Microsoft       | El paquete podría fallar el **Windows Logo Kit** si en el futuro se intenta certificar. ICE03 es requerido por las [logo policies modernas](https://learn.microsoft.com/en-us/windows/win32/msi/required-ice-rules). |
 | Compatibilidad a largo plazo | Riesgo bajo hoy (MSI solo distribuye localmente desde GitHub Releases), pero **no es una solución correcta ni defendible indefinidamente**. |
 
-**Recomendación**: tratar esta anulación como **deuda técnica**, dejar este
-documento enlazado en `CHANGELOG.md`/`UNRELEASE.md` cuando aplique, y planificar
-una solución definitiva antes de cualquier certificación / publicación de
-**Microsoft Store**.
+---
+
+## Familia B — Colisión WIX0091 / WIX0092 (Duplicate File)
+
+### Reproducción del error
+
+En CI (`D:\a\PolyglotCLI\PolyglotCLI\...`) aparecen cientos de:
+
+```
+ExampleComponents.wxs(5):  error WIX0091: Duplicate File with identifier 'flsSCumTWdkon40h.v_4WBvDXeIt_g' found.
+ExampleComponents.wxs(10): error WIX0092: Location of symbol related to previous error.
+```
+
+Donde `fls…` es el prefijo de auto-id característico del harvester `<Files>` de
+WiX 4.
+
+### Causa raíz (analizada en `wixtoolset/wix` main branch)
+
+En `HarvestFilesAndPayloadsCommand.cs`, cada archivo cosechado se inserta con:
+
+```csharp
+var name = Path.GetFileName(file);
+var id = this.ParseHelper.CreateIdentifier("fls", directoryId, name);
+```
+
+`Common.GenerateIdentifier` produce:
+
+```
+id = base64(SHA1("fls" + "|" + directoryId + "|" + name))
+```
+
+| Componente  | Valor presente                                                                     |
+| ----------- | ---------------------------------------------------------------------------------- |
+| `directoryId` | Resuelve **al mismo padre común** de ambos `<Files>` (en la práctica, `INSTALLFOLDER`) cuando hay dos `<Files>` hermanos en un mismo `<Fragment>`, en lugar de respetar `Directory="ServerFolder"` y `Directory="DesktopFolder_App"`. |
+| `name`       | `Path.GetFileName(file)` — solo el nombre del archivo.                              |
+| Disco path   | **No entra** en el hash. Por eso `publish_out\appsettings.json` y `publish_maui\appsettings.json` colisionan si `directoryId` coincide.      |
+
+El `HashSet<string> harvestedFiles` interno del harvester deduplica por **ruta
+absoluta**, así que dos archivos con nombres idénticos en `publish_out` y
+`publish_maui` pasan ambos, escriben a la misma `directoryId` y el linker
+(`ProcessConflictingSymbolsCommand`, código `LinkerErrors.DuplicateSymbol = 91`)
+emite **`WIX0091`** para cada colisión.
+
+### Workaround aplicado (en `ExampleComponents.wxs`)
+
+```xml
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <ComponentGroup Id="ServerComponents" Directory="ServerFolder">
+      <Files Include="..\publish_out\**" Directory="ServerFolder" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="DesktopComponents" Directory="DesktopFolder_App">
+      <Files Include="..\publish_maui\**" Directory="DesktopFolder_App" />
+    </ComponentGroup>
+  </Fragment>
+</Wix>
+```
+
+**Cambios:**
+
+1. **Separación en dos `<Fragment>` distintos.** Cada harvest queda en su propia
+   sección de compilación con su propio ámbito de `directoryId`.
+2. **`Directory="…"` explícito en cada `<Files>`.** Forzamos a WiX a usar el
+   subdirectorio declarado como raíz del harvest, en lugar de que se resuelva
+   implícitamente al `INSTALLFOLDER`.
+
+Esto NO cambia las rutas de instalación — los archivos siguen copiándose
+exactamente en `INSTALLFOLDER/Server/...` y `INSTALLFOLDER/Desktop/...`,
+manteniendo intactos los `Target="[ServerFolder]PolyglotCLI.exe"` y
+`WorkingDirectory="ServerFolder"` de `Shortcuts.wxs`.
+
+### Nota: por qué local no exhibía Familia B pero CI sí
+
+- Los tests locales pueden haber repetido ejecuciones que dejaban
+  `harvestedFiles` poblado y deduplicaban accidentalmente.
+- En CI la pipeline hace `actions/checkout` en una ruta con sufijo
+  `D:\a\PolyglotCLI\PolyglotCLI\` (carpeta anidada), lo que cambia los
+  absolutos y provoca que el harvester recorra ambos `publish_*` produciendo
+  los duplicados.
+
+Con el workaround aplicado, ambos entornos deberían comportarse igual.
 
 ---
 
-## Alternativas para eliminar la anulación
+## Estado actual (resumen)
 
-A continuación, las opciones evaluadas para resolver el problema de raíz y poder
-borrar `<SuppressIces>ICE03;ICE60</SuppressIces>` del `.wixproj`. Están
+| Archivo | Cambio | Efecto |
+| --- | --- | --- |
+| `PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj` | Añadido `<SuppressIces>ICE03;ICE60</SuppressIces>` | Silencia `WIX0204`/`WIX1076` de validación ICE. **Workaround**, no fix. |
+| `PolyglotCLI.Wix/ExampleComponents.wxs` | Dos `<Fragment>` separados y atributo `Directory=""` explícito por `<Files>` | Resuelve `WIX0091` de cosecha. **Fix estructural correcto**. |
+
+Ambos deben permanecer hasta que la deuda técnica del workaround ICE sea
+pagada. La Familia B ya está resuelta en su origen.
+
+---
+
+## Alternativas para eliminar también la anulación de ICE
+
+A continuación, las opciones evaluadas para resolver el problema **de raíz** y
+poder borrar `<SuppressIces>ICE03;ICE60</SuppressIces>` del `.wixproj`. Están
 ordenadas de **menos a más invasivas**.
 
 ### Opción A — Excluir los DLLs problemáticos con `<Exclude>`
-
-**Idea**: dejar de harvestear los DLLs concretos que fallen ICE03, sabiendo que
-ellos se redistribuirán por otras vías (Bootstrapper, Bundle, o
-`WindowsAppRuntime` instalado por el usuario).
 
 ```xml
 <ComponentGroup Id="DesktopComponents" Directory="DesktopFolder_App">
@@ -132,22 +218,15 @@ ellos se redistribuirán por otras vías (Bootstrapper, Bundle, o
 </ComponentGroup>
 ```
 
-| Pros                                                                                                    | Contras                                                                                                                                          |
-| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Cero dependencias externas nuevas. Cero cambios en el código C# o MAUI.                                | **Quita archivos del instalador**. El usuario debe instalar WindowsAppRuntime manualmente o que el instalador MSI dispare un bootstrapper.   |
-| Cambio localizado: solo `ExampleComponents.wxs`.                                                          | Si MAUI/WindowsAppSDK sube una versión y aparecen nuevos DLLs conflictivos, hay que actualizar los patrones.                                    |
-|                                                                                                         | Solo válido si la aplicación **puede correr sin esos DLLs embebidos** o si se complementa con un prerrequisito.                                  |
+| Pros | Contras |
+| --- | --- |
+| Cero dependencias externas nuevas. Sin tocar código C# ni MAUI. | Quita archivos del instalador. El usuario debe tener `WindowsAppRuntime` preinstalado o el MSI debe disparar un bootstrapper. |
+| Cambio localizado: solo `ExampleComponents.wxs`. | Si MAUI/WindowsAppSDK sube versión y aparecen nuevos DLLs problemáticos, hay que actualizar patrones. |
 
-**Veredicto**: útil si la app ya asume un WindowsAppRuntime preinstalado por la
-política de deployment. No resuelve el problema de fondo.
-
----
+**Veredicto**: útil si la app asume `WindowsAppRuntime` como prerrequisito. No
+resuelve el problema de fondo.
 
 ### Opción B — Declarar cada archivo manualmente con `DefaultLanguage="0"`
-
-**Idea**: renunciar al harvest `<Files>` y declarar uno por uno los archivos que
-necesitamos, asignándoles `DefaultLanguage="0"` (language-neutral, válido para
-MSI) en cada `<File>`.
 
 ```xml
 <ComponentGroup Id="DesktopComponents" Directory="DesktopFolder_App">
@@ -164,155 +243,125 @@ MSI) en cada `<File>`.
 </ComponentGroup>
 ```
 
-| Pros                                                                                                                                    | Contras                                                                                                                                                                   |
-| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Solución **correcta** a nivel MSI: cada `File` tiene un `Language` válido y la versión detectada, sin tocar el PE.                        | **Extremadamente verboso y frágil**: cualquier `dotnet publish` que cambie la lista de archivos del paquete MAUI rompe la build.                                        |
-| Mantiene el versionado PE (WiX auto-rellena `DefaultVersion` desde PE.VersionInfo).                                                     | Hay que sincronizar manualmente el manifiesto con `publish_maui/`. No escala.                                                                                              |
-|                                                                                                                                         | Pierde la cobertura automática del harvest, así que el siguiente paquete nuevo (p.ej. `CommunityToolkit.Maui.dll` añadido por un NuGet) se olvida hasta que alguien lo note. |
+| Pros | Contras |
+| --- | --- |
+| Solución **correcta** a nivel MSI: `Language="0"` válido en cada `File`. | Extremadamente verboso y frágil ante cualquier `dotnet publish` que cambie la lista de archivos. |
+| Mantiene el versionado PE (`DefaultVersion` auto-rellenado por WiX). | Hay que sincronizar manualmente el `.wxs` con `publish_maui/`. No escala. |
 
-**Veredicto**: solo defendible si se genera el `.wxs` desde un script (HeatWave,
-script PowerShell sobre `Get-ChildItem`). Es la opción "más limpia" solo si se
-automatiza la generación. No recomendada manualmente.
+**Veredicto**: solo defendible si el `.wxs` se genera automáticamente
+(HeatWave o `Get-ChildItem` en PowerShell). No recomendado manualmente.
 
----
+### Opción C — Parchear `Translation` de los PE problemáticos en pre-build
 
-### Opción C — Parchear el `Translation` de los PE problemáticos en pre-build
+Añadir un paso en `bump_version.ps1` (y un step equivalente en
+`release.yml`) que recorra `publish_maui/**` y reescriba el bloque
+`VS_VERSIONINFO.Translation` de cada DLL conflictivo a `(0x0409, 0x04E4)`.
 
-**Idea**: agregar un paso en `bump_version.ps1` (y un step equivalente en
-`release.yml`) que, **antes** del `dotnet build` de WiX, recorra
-`publish_maui/**` y arregle a mano el `Translation` de cada DLL conflictivo para
-que contenga `(0x0409, 0x04E4)` (English/US, Windows-1252 — el valor que ICE03
-acepta y que coincide con un MSI neutro).
+Herramientas: `System.Reflection.PortableExecutable.PEReader` /
+`MetadataReader` en PowerShell o un `MSBuild` task en C#.
 
-Herramientas típicas:
+| Pros | Contras |
+| --- | --- |
+| Solución **correcta** a nivel binario. | Implementación delicada: modificar recursos PE rompe firmas Authenticode. |
+| El harvest queda intacto. | Acoplado al layout interno de VS_VERSIONINFO de WindowsAppSDK. Si cambia, hay que mantener el parche. |
 
-- PowerShell + lectura/escritura de PE (`System.Reflection.PortableExecutable.PEReader` / `MetadataReader`) — viable pero laborioso.
-- `msbuild` task que use `System.Reflection.Metadata` para reescribir
-  `VS_VERSIONINFO`.
-- Un wrapper que use `dotnet publish /p:VersionLanguage=en-US` o similar (donde
-  el SDK lo soporte) para forzar el campo correcto al compilar el .NET.
+**Veredicto**: la opción técnicamente más correcta a largo plazo, pero con
+coste alto de mantenimiento. Solo viable si planeas mantener y firmar
+digitalmente el MSI.
 
-| Pros                                                                                                                          | Contras                                                                                                                                            |
-| ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Solución **correcta** a nivel binario: se respeta VS_VERSIONINFO, ICE03 pasa con el LANGID real (1033 = en-US, language-neutral). | Implementación delicada (escribir recursos PE mal es trivial; el archivo deja de firmar, perderíamos Authenticode al modificar el PE).               |
-| El harvest queda intacto: `Files Include="..\publish_maui\**"` sigue funcionando sin tocar el `.wxs`.                          | Depende de la estabilidad del layout de recursos PE de Microsoft.WindowsAppSDK. Si cambia en una versión futura, hay que mantener el parche.        |
-|                                                                                                                               | Coste de mantener un parcheador en PowerShell/C# dentro del repo, además de su versión Go/Linux en `release.yml` si la pipeline migra a cross-OS.   |
+### Opción D — Migrar a un Bundle `.exe` (Burn) con `MsiPackage` + DLLs por separado
 
-**Veredicto**: la opción **técnicamente más correcta** a largo plazo, pero con
-coste de mantenimiento alto. **Solo viable si planeas mantener y firmar digitalmente
-el MSI**.
+`ExampleComponents.wxs` quedaría igual (sigue emitiendo un MSI), pero se
+envuelve en un `Bundle .exe` donde los DLLs problemáticos se distribuyen como
+`<ExePackage>` o `<MspPackage>` independientes, fuera del MSI.
 
----
+| Pros | Contras |
+| --- | --- |
+| Elimina 100 % la dependencia de las ICEs para los DLLs problemáticos. | Cambio estructural: MSI dentro de un `.exe` bundle. `install.ps1` debe adaptarse. |
+| Firma Authenticode una sola vez (el bundle). | Curva de aprendizaje del esquema `Bundle` de WiX. |
 
-### Opción D — Migrar a un Bundle `.exe` (Burn) con `MsiPackage` + `<MsiProperty>` por archivo problemático
+**Veredicto**: la migración **arquitectónicamente más sólida** si más adelante
+se quieren prerrequisitos (.NET runtime, WinAppSDK) o multi-idioma.
 
-**Idea**: dejar de generar un único MSI monolítico y generar un **bundle
-`.exe`** con WiX Burn (`<Bundle>...<Chain>...</Chain></Bundle>`). Dentro del
-chain se puede envolver el MSI en un `<MsiPackage>` y, para los DLLs
-problemáticos, distribuirlos como `<ExePackage>` o como `<MspPackage>` que sí
-permiten reglas de harvest distintas.
+### Opción E — Cambiar de MSI a MSIX como canal principal
 
-```xml
-<Bundle Name="PolyglotCLI.Setup" Version="$(var.Version)" Manufacturer="FittyAr">
-  <Chain>
-    <MsiPackage SourceFile="PolyglotCLI.Wix.msi">
-      <MsiProperty Name="POLYGLOT_INSTALL_MODE" Value="Full" />
-    </MsiPackage>
-  </Chain>
-</Bundle>
-```
+Ya se emite MSIX (`manifests/msix/`). Promoverlo a canal principal y dejar MSI
+solo para casos legacy.
 
-| Pros                                                                                                                                            | Contras                                                                                                                                                       |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Elimina **al 100 %** la dependencia de las ICEs para los archivos problemáticos al cambiar su modalidad de despliegue.                          | Cambio estructural: pasamos de un `.msi` a un `.exe` bundle. El flujo de `install.ps1` (`msiexec /i`) hay que adaptarlo a `bundle.exe /quiet /install`.   |
-| Permite firmar Authenticode una sola vez (el bundle), en vez de firmar el MSI y sus DLLs individualmente.                                       | Burn es una herramienta potente pero con su propia curva (`.wxs` específico del esquema Burn, no del esquema Package).                                        |
-| Compatible con Microsoft Store vía **MSIX** complementario (sigue siendo un producto válido).                                                  |                                                                                                                                                                |
+| Pros | Contras |
+| --- | --- |
+| MSIX **no usa** la tabla `File.Language` (lo declara una sola vez en `AppxManifest.xml`). | Requiere Partner Center, certificados, packaging firmado con `signtool`, flujo App Installer. |
+| Cero ICE03/ICE60 para los DLLs de WindowsAppSDK. | Cambia el modelo de actualización (paquetes App Installer en vez de in-place MSI upgrade). |
+| | Si se elimina MSI, `scripts/install.ps1` cambia. |
 
-**Veredicto**: la migración **arquitectónicamente más sólida**, pero requiere
-reformular `PolyglotCLI.Wix`. Útil si en un futuro se quiere soportar múltiples
-idiomas (cada MSI por cultura) o instalar prerrequisitos (.NET runtime, WinAppSDK).
+**Veredicto**: la **mejor solución definitiva** si se apunta a Microsoft Store o
+se quiere simplificar actualizaciones.
 
----
+### Opción F — Atributo `Subdirectory` en `<Files>` (alternativa para WIX0091)
 
-### Opción E — Cambiar de MSI a MSIX (no requiere ICE03 sobre los `File`)
+Como salvaguarda extra al fix actual de Familia B (separar en dos
+`<Fragment>`), se podría usar `Subdirectory="WB"` / `"MB"` para forzar
+`directoryId` distinto. **No aplicado** porque cambiaría rutas de instalación
+(`ServerFolder/WB/...` en lugar de `ServerFolder/...`) y rompería los
+`Target="[ServerFolder]PolyglotCLI.exe"` de `Shortcuts.wxs`.
 
-**Idea**: ya emitimos MSIX como paquete complementario (`manifests/msix/`).
-Promoverlo a **distribución principal** y dejar el MSI como opcional.
-
-| Pros                                                                                                                                          | Contras                                                                                                                                                                                                       |
-| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MSIX no usa la columna `Language` de la tabla `File`**. El LANGID se declara una sola vez para todo el paquete vía `Identity.ResourceLanguage` en `AppxManifest.xml`. | Publicar para Store requiere cuenta de Microsoft Partner Center, certificados, revisión de Microsoft, packaging firmado con `signtool`. Cambia el modelo de soporte al usuario.                         |
-| Zero ICEs ICE03/ICE60 en `polyglotcli.msix`. Los DLLs de WindowsAppSDK quedan como dependencia de framework (`PackageDependency Name="Microsoft.WindowsAppRuntime.1.5"`) automáticamente gestionada.    | Cambia el flujo de actualización: ya no es un MSI in-place upgrade, sino que las nuevas versiones son paquetes App Installer (`.appinstaller`). |
-|                                                                                                                                                 | Si bajamos MSI, perdemos la instalación "clásica" usada por los scripts actuales (`scripts/install.ps1`).                                                                                                       |
-
-**Veredicto**: la **mejor solución definitiva**. Si en algún momento el proyecto
-quiere distribuir vía Microsoft Store o simplificar actualizaciones,
-**emigrar a MSIX como canal principal** y dejar MSI solo para casos
-legacy/enterprise es la decisión correcta. Hasta entonces, esta opción **no
-resuelve** el problema: seguimos necesitando MSI para los usuarios que
-descargan desde GitHub Releases.
+Solo considerar si la Familia B reaparece tras aplicar el fix de Fragmentos.
 
 ---
 
 ## Matriz resumen
 
-| Solución                                  | Corrige la causa | Coste de implementación                | Coste de mantenimiento | Mantiene `.msi` | Recomendada para                                    |
-| ----------------------------------------- | ---------------- | ------------------------------------- | ---------------------- | --------------- | ---------------------------------------------------- |
-| **A** — `<Exclude>` de DLLs problemáticos | Parcialmente     | Bajo (un archivo)                     | Medio (nuevos DLLs)    | Sí              | Deployment donde WindowsAppRuntime es prerrequisito  |
-| **B** — `<File>` manuales + `DefaultLanguage="0"` | Sí      | Alto (automatización)                 | Alto (regenerar lista) | Sí              | Builds con lista de assets estable y HeatWave         |
-| **C** — Parchear `VS_VERSIONINFO` en pre-build | Sí         | Alto (script + versionado .NET)       | Alto (firmas, PE)      | Sí              | Proyectos con Authenticode y equipo senior             |
-| **D** — Bundle Burn `<MsiPackage>`        | Sí              | Muy alto (nuevo `.wxs` Bundle)        | Bajo                    | Sí              | Distribución empresarial con prerrequisitos            |
-| **E** — Migrar a MSIX como canal principal| Sí              | Muy alto (Partner Center, packaging)  | Bajo                    | No              | Distribución moderna vía Store/App Installer          |
+| Solución                       | Corrige Familia A (ICE) | Corrige Familia B (WIX0091) | Coste impl.        | Coste mantto.    | Mantiene `.msi` |
+| ------------------------------ | :---------------------: | :-------------------------: | ------------------ | ---------------- | :-------------: |
+| **A** — `<Exclude>` DLLs       | Parcial                 | No                          | Bajo (1 archivo)   | Medio            | Sí              |
+| **B** — `<File>` manuales      | Sí                      | Sí                          | Alto (auto)        | Alto             | Sí              |
+| **C** — Parchear VS_VERSIONINFO| Sí                      | No                          | Alto (script PE)   | Alto             | Sí              |
+| **D** — Bundle Burn            | Sí                      | Sí                          | Muy alto           | Bajo             | Sí              |
+| **E** — MSIX como canal        | Sí                      | Sí                          | Muy alto           | Bajo             | No              |
+| **F** — `Subdirectory`         | No                      | Sí                          | Bajo + Shortcuts   | Bajo             | Sí              |
+
+Estado actual: **B resuelto de raíz**, **A en workaround**.
 
 ---
 
 ## Recomendación inmediata
 
-Para la versión **v1.1.0** actual y hasta que dispongamos de tiempo para una
-solución real:
+Para la versión **v1.1.0** actual:
 
 1. **Mantener** `<SuppressIces>ICE03;ICE60</SuppressIces>` en
    `PolyglotCLI.Wix.wixproj`. Es lo mínimo invasivo y deja el MSI funcional.
-2. **Registrar esta deuda técnica** en `docs/CHANGELOG.md` y/o `docs/UNRELEASE.md`
-   bajo `### Changed` y `### Known Issues` para que quede explícito.
-3. **Planificar** la migración a **Opción C** (parche de `VS_VERSIONINFO`) o
-   **Opción D/E** (Bundle Burn o MSIX) en una release futura.
+2. **Mantener** el split en dos `<Fragment>` + `Directory="..."` en
+   `ExampleComponents.wxs`. Corrige Familia B sin cambiar rutas de instalación.
+3. **Registrar la deuda técnica** de Familia A en `docs/CHANGELOG.md` bajo
+   `### Known Issues` para que quede explícito al lector del release.
 
-Una vez que cualquiera de las cinco opciones esté implementada y validada con
-un build local + `wix build -val` (sin suppress) generando 0 errores ICE03/ICE60,
-se debe eliminar `<SuppressIces>` del `.wixproj` y actualizar este documento.
+A medio/largo plazo, planificar la **Opción C** (parche de `VS_VERSIONINFO`) o
+**Opción E** (MSIX) para retirar `<SuppressIces>`.
+
+Una vez resuelto Familia A con cualquiera de las opciones A–E, se debe eliminar
+`<SuppressIces>` del `.wixproj` y actualizar este documento.
 
 ---
 
 ## Comprobaciones rápidas
 
-Para confirmar manualmente que la anulación es la causa del
-"silencio" de los ICE:
-
 ```powershell
-# Build SIN supresion (debe fallar con WIX0204)
+# Build SIN supresion (debe fallar con WIX0204 si Familia A reaparece)
 dotnet build PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj -c Release `
     -p:SuppressIces= -p:TreatWarningsAsErrors=false
 
 # Build CON supresion (debe pasar)
 dotnet build PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj -c Release
 
-# Inspeccionar la Language column de un PE problematico:
-$sig = @{
-  Namespace = 'System.Reflection.Metadata'
-  Path      = 'C:\Program Files\dotnet\pack\Microsoft.WindowsAppSDK\*\runtimes\win10-x64\native\Microsoft.WindowsAppSDK.dll'
-}
+# Inspeccionar el VS_VERSIONINFO.Translation de un PE problematico
+# (requiere System.Reflection.Metadata):
 Add-Type -AssemblyName System.Reflection.Metadata
-$bytes = [IO.File]::ReadAllBytes($sig.Path)
-$ms = New-Object IO.MemoryStream (,$bytes)
-$peReader = New-Object System.Reflection.PortableExecutable.PEReader($ms)
-# ... inspeccionar el recurso VS_VERSIONINFO -> Translation
-```
+$bytes  = [IO.File]::ReadAllBytes("publish_maui\Microsoft.WindowsAppSDK.dll")
+$ms     = New-Object IO.MemoryStream (,$bytes)
+$pe     = New-Object System.Reflection.PortableExecutable.PEReader($ms)
+# ... leer el recurso VS_VERSIONINFO -> Translation
 
-Para cualquier opción resuelta (B–E), ejecutar la build con:
-
-```powershell
+# Validar que NO hay colisiones de File Id en CI
 dotnet build PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj -c Release -p:TreatWarningsAsErrors=true
+# Esperado: 0 errores WIX0091, 0 advertencias WIX1076, 0 errores WIX0204.
 ```
-
-y exigir `0` errores de tipo `WIX0204` y `0` advertencias `WIX1076`.
