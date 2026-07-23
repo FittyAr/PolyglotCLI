@@ -23,6 +23,43 @@ namespace PolyglotCLI
             return Path.Combine(AppContext.BaseDirectory, "jobs");
         }
 
+        public static void CopyOutputsToJobDirectory(string jobId, string sourceFilePath, string targetLanguage, AppConfig config)
+        {
+            try
+            {
+                string jobDir = Path.Combine(GetJobsDirectory(), jobId);
+                string outputsDir = Path.Combine(jobDir, "outputs");
+                if (!Directory.Exists(outputsDir))
+                {
+                    Directory.CreateDirectory(outputsDir);
+                }
+
+                string absoluteOutputDir = Path.GetFullPath(config.OutputDirectory);
+                string fileNameWithoutExt = Path.GetFileNameWithoutExtension(sourceFilePath);
+
+                if (Directory.Exists(absoluteOutputDir))
+                {
+                    var files = Directory.GetFiles(absoluteOutputDir);
+                    int copiedCount = 0;
+                    foreach (var file in files)
+                    {
+                        string name = Path.GetFileName(file);
+                        if (name.StartsWith(fileNameWithoutExt, StringComparison.OrdinalIgnoreCase))
+                        {
+                            string destFile = Path.Combine(outputsDir, name);
+                            File.Copy(file, destFile, true);
+                            copiedCount++;
+                        }
+                    }
+                    AppLogger.Info($"Job {jobId}: Copied {copiedCount} output files for '{fileNameWithoutExt}' to job outputs folder.");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn($"Failed to copy output files to job directory: {ex.Message}");
+            }
+        }
+
         public static async Task<int> ExecuteAsync(CommandLineOptions options, AppConfig config, System.Threading.CancellationToken cancellationToken = default)
         {
             ActiveCancellationToken = cancellationToken;
@@ -815,30 +852,10 @@ namespace PolyglotCLI
                         }
                     }
 
-                    // Save copies of markdown files to job directory (under outputs/ subdirectory)
+                    // Save copies of all output files to job directory (under outputs/ subdirectory)
                     if (!string.IsNullOrEmpty(CurrentJobDirectory))
                     {
-                        try
-                        {
-                            string outputsDir = Path.Combine(CurrentJobDirectory, "outputs");
-                            if (!Directory.Exists(outputsDir))
-                            {
-                                Directory.CreateDirectory(outputsDir);
-                            }
-
-                            if (File.Exists(outputPath))
-                            {
-                                File.Copy(outputPath, Path.Combine(outputsDir, Path.GetFileName(outputPath)), true);
-                            }
-                            if (File.Exists(originalOutputPath))
-                            {
-                                File.Copy(originalOutputPath, Path.Combine(outputsDir, Path.GetFileName(originalOutputPath)), true);
-                            }
-                        }
-                        catch (Exception copyEx)
-                        {
-                            AppLogger.Warn($"Failed to copy final Markdown files to job directory: {copyEx.Message}");
-                        }
+                        CopyOutputsToJobDirectory(timestamp, filePath, options.TargetLanguage, config);
                     }
 
                     // Clean up markdown files if not requested
@@ -1109,12 +1126,6 @@ namespace PolyglotCLI
                 MarkdownWriter.ExportToMarkdown(outputPath, fileNameWithoutExt, config.TargetLanguage, savedData, false);
             }
 
-            // Copiar al directorio del trabajo
-            string outputsDir = Path.Combine(jobDir, "outputs");
-            if (!Directory.Exists(outputsDir)) Directory.CreateDirectory(outputsDir);
-            if (File.Exists(outputPath)) File.Copy(outputPath, Path.Combine(outputsDir, Path.GetFileName(outputPath)), true);
-            if (File.Exists(originalOutputPath)) File.Copy(originalOutputPath, Path.Combine(outputsDir, Path.GetFileName(originalOutputPath)), true);
-
             // 9. Re-ejecutar conversión
             if (!string.IsNullOrEmpty(config.DefaultOutputFormat) && config.ModuleConversionEnabled)
             {
@@ -1135,6 +1146,9 @@ namespace PolyglotCLI
                     JobManifestService.UpdateFileConversion(manifest, manifestPath, sourceFilePath, false);
                 }
             }
+
+            // Copiar al directorio del trabajo todos los archivos generados
+            CopyOutputsToJobDirectory(jobId, sourceFilePath, config.TargetLanguage, config);
 
             // Guardar manifiesto
             manifest.Save(manifestPath);

@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Creado el proyecto de pruebas unitarias `PolyglotCLI.test` utilizando xUnit para validar la lógica de negocio principal de la aplicación (`TextChunker`, `DocumentExtractorFactory` y `AppConfig`).
+
+### Improved
+- **Optimización de Interfaz en Detalles del Trabajo**:
+  - Reducido el ancho del panel lateral de "Páginas Renderizadas (PNG)" en la pestaña de imágenes extraídas para maximizar el espacio del visor.
+  - Configurado el visor de imágenes extraídas para escalar las páginas al 100% de su ancho disponible, permitiendo scroll vertical y mejorando sustancialmente la legibilidad de planos o diagramas.
+  - Ajustada la altura del visor de archivos de texto y la consola de logs en la pestaña de bitácoras para aprovechar al máximo el espacio vertical del cuadro contenedor.
+
+### Fixed
+- **Copia de Formatos de Conversión**: Corregido el flujo del orquestador y la exportación manual para copiar todos los formatos generados (DOCX, PDF, HTML, ODT, etc.) al subdirectorio `outputs` de cada trabajo, asegurando que se visualicen correctamente en la pestaña de archivos generados.
 - **Verificador de Páginas en Pestañas**: Se ha rediseñado la interfaz del verificador de páginas dividiendo ambos paneles en pestañas. El panel izquierdo ahora permite comparar la imagen original de la página con el texto plano extraído (OCR) completamente limpio (sin trazas de razonamiento), mientras que el panel derecho separa la edición de la traducción de las trazas de pensamiento.
 - **Visor de Trazas de Pensamiento (Reasoning)**: Soporte para procesar, extraer y persistir los bloques `<think>...</think>` que envían los modelos de razonamiento (tanto en la fase de extracción OCR como en la de traducción) en el JSON del trabajo. Los usuarios pueden visualizar cómodamente qué pensó el modelo en cada página de forma opcional a través de una pestaña dedicada en el verificador de páginas.
 - **Script de Migración de Trazas**: Se desarrolló y ejecutó un script automatizado para migrar todas las trazas de razonamiento existentes de los trabajos anteriores (por ejemplo, el trabajo `20260722_143935`), extrayendo el `<think>` tanto de las traducciones como de los textos OCR originales al campo `ThoughtText` para mantener la consistencia.

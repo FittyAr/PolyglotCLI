@@ -142,135 +142,7 @@
             </RadzenDataGrid>
         </RadzenTabsItem>
 
-        <RadzenTabsItem Text="Archivos Generados (.md / .docx)" Icon="folder_open">
-            <RadzenRow class="rz-mt-3">
-                <RadzenColumn Size="4">
-                    <RadzenCard style="height: calc(92vh - 220px); overflow-y: auto; background: rgba(0,0,0,0.15);">
-                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Archivos en el Directorio de Salida</RadzenText>
-                        @if (outputFiles.Count == 0)
-                        {
-                            <div style="padding: 10px; color: #b0bec5; font-size: 0.9rem;">No se encontraron archivos en la carpeta de salida del trabajo.</div>
-                        }
-                        else
-                        {
-                            <RadzenListBox Data="@outputFiles" TValue="string" style="width: 100%; height: calc(92vh - 310px); background: transparent; border: none;" Change="@((args) => SelectOutputFile((string)args))">
-                                <Template Context="path">
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <RadzenIcon Icon="@(path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ? "article" : "description")" Style="font-size: 1.2rem; color: #6366f1;" />
-                                        <span>@Path.GetFileName(path)</span>
-                                    </div>
-                                </Template>
-                            </RadzenListBox>
-                        }
-                    </RadzenCard>
-                </RadzenColumn>
-                <RadzenColumn Size="8">
-                    <RadzenCard style="height: calc(92vh - 220px); display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
-                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">
-                            Previsualización: @(selectedOutputFileName ?? "Selecciona un archivo")
-                        </RadzenText>
-                        @if (selectedOutputFileContent != null)
-                        {
-                            <div class="virtual-console flex-grow-1" style="height: calc(92vh - 310px); overflow-y: auto; white-space: pre-wrap; background-color: #030712; color: #cbd5e1; font-family: monospace; padding: 12px; border-radius: 6px;">@selectedOutputFileContent</div>
-                        }
-                        else
-                        {
-                            <div style="display: flex; align-items: center; justify-content: center; height: calc(92vh - 330px); color: #b0bec5;">
-                                Selecciona un archivo de texto/markdown de la lista para ver su contenido.
-                            </div>
-                        }
-                    </RadzenCard>
-                </RadzenColumn>
-            </RadzenRow>
-        </RadzenTabsItem>
-
-        <RadzenTabsItem Text="Imágenes Extraídas (PDF)" Icon="image">
-            <RadzenRow class="rz-mt-3">
-                <RadzenColumn Size="4">
-                    <RadzenCard style="height: calc(92vh - 220px); overflow-y: auto; background: rgba(0,0,0,0.15);">
-                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Páginas Renderizadas (PNG)</RadzenText>
-                        @if (tempImages.Count == 0)
-                        {
-                            <div style="padding: 10px; color: #b0bec5; font-size: 0.9rem;">No se encontraron imágenes extraídas en este trabajo (solo documentos con OCR tienen imágenes temporales).</div>
-                        }
-                        else
-                        {
-                            <RadzenListBox Data="@tempImages" TValue="string" style="width: 100%; height: calc(92vh - 310px); background: transparent; border: none;" Change="@((args) => SelectImage((string)args))">
-                                <Template Context="path">
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <RadzenIcon Icon="image" Style="font-size: 1.2rem; color: #10b981;" />
-                                        <span>@Path.GetFileName(path)</span>
-                                    </div>
-                                </Template>
-                            </RadzenListBox>
-                        }
-                    </RadzenCard>
-                </RadzenColumn>
-                <RadzenColumn Size="8">
-                    <RadzenCard style="height: calc(92vh - 220px); display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.15);">
-                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; width: 100%;">
-                            Visor: @(selectedImageName ?? "Selecciona una página")
-                        </RadzenText>
-                        @if (selectedImageBase64 != null)
-                        {
-                            <div style="height: calc(92vh - 310px); width: 100%; overflow: auto; text-align: center; border: 1px solid rgba(255,255,255,0.05); padding: 8px; border-radius: 4px; background: #000; display: flex; justify-content: center; align-items: center;">
-                                <img src="data:image/png;base64,@selectedImageBase64" style="max-width: 100%; max-height: calc(92vh - 330px); object-fit: contain;" />
-                            </div>
-                        }
-                        else
-                        {
-                            <div style="display: flex; align-items: center; justify-content: center; height: calc(92vh - 330px); color: #b0bec5;">
-                                Selecciona una página de la lista para visualizar la imagen renderizada del PDF.
-                            </div>
-                        }
-                    </RadzenCard>
-                </RadzenColumn>
-            </RadzenRow>
-        </RadzenTabsItem>
-
-        <RadzenTabsItem Text="Bitácora de Logs" Icon="article">
-            <RadzenRow class="rz-mt-3">
-                <RadzenColumn Size="4">
-                    <RadzenCard style="height: calc(92vh - 220px); overflow-y: auto; background: rgba(0,0,0,0.15);">
-                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Archivos de Bitácora</RadzenText>
-                        @if (logFiles.Count == 0)
-                        {
-                            <div style="padding: 10px; color: #b0bec5; font-size: 0.9rem;">No se encontraron archivos de log en este trabajo.</div>
-                        }
-                        else
-                        {
-                            <RadzenListBox Data="@logFiles" TValue="string" style="width: 100%; height: calc(92vh - 310px); background: transparent; border: none;" Change="@((args) => SelectLogFile((string)args))">
-                                <Template Context="path">
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <RadzenIcon Icon="receipt_long" Style="font-size: 1.2rem; color: #f59e0b;" />
-                                        <span>@Path.GetFileName(path)</span>
-                                    </div>
-                                </Template>
-                            </RadzenListBox>
-                        }
-                    </RadzenCard>
-                </RadzenColumn>
-                <RadzenColumn Size="8">
-                    <RadzenCard style="height: calc(92vh - 220px); display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
-                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">
-                            Contenido: @(selectedLogFileName ?? "Selecciona un log")
-                        </RadzenText>
-                        @if (selectedLogFileContent != null)
-                        {
-                            <div class="virtual-console flex-grow-1" style="height: calc(92vh - 310px); overflow-y: auto; white-space: pre-wrap; background-color: #030712; color: #f59e0b; font-family: monospace; padding: 12px; border-radius: 6px;">@selectedLogFileContent</div>
-                        }
-                        else
-                        {
-                            <div style="display: flex; align-items: center; justify-content: center; height: calc(92vh - 330px); color: #b0bec5;">
-                                Selecciona una bitácora para previsualizar los eventos registrados en el backend.
-                            </div>
-                        }
-                    </RadzenCard>
-                </RadzenColumn>
-            </RadzenRow>
-        </RadzenTabsItem>
-
-        <RadzenTabsItem Text="Verificador de Páginas (JSON)" Icon="find_in_page">
+        <RadzenTabsItem Text="Verificador de Páginas " Icon="find_in_page">
             <RadzenRow class="rz-mt-3">
                 <RadzenColumn Size="3">
                     <RadzenCard style="height: calc(92vh - 220px); background: rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 12px;">
@@ -365,6 +237,134 @@
                             <div style="display: flex; align-items: center; justify-content: center; height: calc(92vh - 310px); color: #b0bec5; flex-direction: column; gap: 8px;">
                                 <RadzenIcon Icon="find_in_page" Style="font-size: 3rem; color: #6366f1;" />
                                 <span>Selecciona un documento y una página del panel izquierdo para comenzar el análisis visual.</span>
+                            </div>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Archivos Generados (.md / .docx)" Icon="folder_open">
+            <RadzenRow class="rz-mt-3">
+                <RadzenColumn Size="4">
+                    <RadzenCard style="height: calc(92vh - 220px); overflow-y: auto; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Archivos en el Directorio de Salida</RadzenText>
+                        @if (outputFiles.Count == 0)
+                        {
+                            <div style="padding: 10px; color: #b0bec5; font-size: 0.9rem;">No se encontraron archivos en la carpeta de salida del trabajo.</div>
+                        }
+                        else
+                        {
+                            <RadzenListBox Data="@outputFiles" TValue="string" style="width: 100%; height: calc(92vh - 310px); background: transparent; border: none;" Change="@((args) => SelectOutputFile((string)args))">
+                                <Template Context="path">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <RadzenIcon Icon="@(path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ? "article" : "description")" Style="font-size: 1.2rem; color: #6366f1;" />
+                                        <span>@Path.GetFileName(path)</span>
+                                    </div>
+                                </Template>
+                            </RadzenListBox>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="8">
+                    <RadzenCard style="height: calc(92vh - 220px); display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">
+                            Previsualización: @(selectedOutputFileName ?? "Selecciona un archivo")
+                        </RadzenText>
+                        @if (selectedOutputFileContent != null)
+                        {
+                            <div class="virtual-console flex-grow-1" style="height: calc(92vh - 270px); overflow-y: auto; white-space: pre-wrap; background-color: #030712; color: #cbd5e1; font-family: monospace; padding: 12px; border-radius: 6px;">@selectedOutputFileContent</div>
+                        }
+                        else
+                        {
+                            <div style="display: flex; align-items: center; justify-content: center; height: calc(92vh - 270px); color: #b0bec5;">
+                                Selecciona un archivo de texto/markdown de la lista para ver su contenido.
+                            </div>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Imágenes Extraídas (PDF)" Icon="image">
+            <RadzenRow class="rz-mt-3">
+                <RadzenColumn Size="2">
+                    <RadzenCard style="height: calc(92vh - 220px); overflow-y: auto; background: rgba(0,0,0,0.15); padding: 8px;">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; font-size: 0.9rem;">Páginas (PNG)</RadzenText>
+                        @if (tempImages.Count == 0)
+                        {
+                            <div style="padding: 10px; color: #b0bec5; font-size: 0.8rem;">No se encontraron imágenes.</div>
+                        }
+                        else
+                        {
+                            <RadzenListBox Data="@tempImages" TValue="string" style="width: 100%; height: calc(92vh - 310px); background: transparent; border: none; font-size: 0.8rem;" Change="@((args) => SelectImage((string)args))">
+                                <Template Context="path">
+                                    <div style="display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        <RadzenIcon Icon="image" Style="font-size: 1rem; color: #10b981; min-width: 16px;" />
+                                        <span title="@Path.GetFileName(path)">@Path.GetFileName(path)</span>
+                                    </div>
+                                </Template>
+                            </RadzenListBox>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="10">
+                    <RadzenCard style="height: calc(92vh - 220px); display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; width: 100%;">
+                            Visor: @(selectedImageName ?? "Selecciona una página")
+                        </RadzenText>
+                        @if (selectedImageBase64 != null)
+                        {
+                            <div style="height: calc(92vh - 310px); width: 100%; overflow: auto; border: 1px solid rgba(255,255,255,0.05); padding: 8px; border-radius: 4px; background: #000; display: block; text-align: center;">
+                                <img src="data:image/png;base64,@selectedImageBase64" style="width: 100%; height: auto; display: block; margin: 0 auto;" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div style="display: flex; align-items: center; justify-content: center; height: calc(92vh - 330px); color: #b0bec5;">
+                                Selecciona una página de la lista para visualizar la imagen renderizada del PDF.
+                            </div>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenTabsItem>
+
+        <RadzenTabsItem Text="Bitácora de Logs" Icon="article">
+            <RadzenRow class="rz-mt-3">
+                <RadzenColumn Size="4">
+                    <RadzenCard style="height: calc(92vh - 220px); overflow-y: auto; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">Archivos de Bitácora</RadzenText>
+                        @if (logFiles.Count == 0)
+                        {
+                            <div style="padding: 10px; color: #b0bec5; font-size: 0.9rem;">No se encontraron archivos de log en este trabajo.</div>
+                        }
+                        else
+                        {
+                            <RadzenListBox Data="@logFiles" TValue="string" style="width: 100%; height: calc(92vh - 310px); background: transparent; border: none;" Change="@((args) => SelectLogFile((string)args))">
+                                <Template Context="path">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <RadzenIcon Icon="receipt_long" Style="font-size: 1.2rem; color: #f59e0b;" />
+                                        <span>@Path.GetFileName(path)</span>
+                                    </div>
+                                </Template>
+                            </RadzenListBox>
+                        }
+                    </RadzenCard>
+                </RadzenColumn>
+                <RadzenColumn Size="8">
+                    <RadzenCard style="height: calc(92vh - 220px); display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
+                        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold;">
+                            Contenido: @(selectedLogFileName ?? "Selecciona un log")
+                        </RadzenText>
+                        @if (selectedLogFileContent != null)
+                        {
+                            <div class="virtual-console flex-grow-1" style="height: calc(92vh - 270px); overflow-y: auto; white-space: pre-wrap; background-color: #030712; color: #f59e0b; font-family: monospace; padding: 12px; border-radius: 6px;">@selectedLogFileContent</div>
+                        }
+                        else
+                        {
+                            <div style="display: flex; align-items: center; justify-content: center; height: calc(92vh - 270px); color: #b0bec5;">
+                                Selecciona una bitácora para previsualizar los eventos registrados en el backend.
                             </div>
                         }
                     </RadzenCard>
