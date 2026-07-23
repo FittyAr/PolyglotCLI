@@ -20,6 +20,12 @@
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <Nullable>enable</Nullable>
 
+        <!-- Icono Win32 embebido en PolyglotCLI.Maui.exe.
+             Es la fuente de verdad para los iconos de los accesos directos
+             (Escritorio y Menu Inicio) y para el icono del desinstalador en
+             Panel de control (vía Inno Setup UninstallDisplayIcon). -->
+        <ApplicationIcon>..\assets\icons\app.ico</ApplicationIcon>
+
         <!-- Enable XAML source generation for faster build times and improved performance.
              This generates C# code from XAML at compile time instead of runtime inflation.
              To disable, remove this line.

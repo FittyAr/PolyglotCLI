@@ -21,11 +21,22 @@
   #define APP_VERSION    "1.1.0"
 #endif
 
+; Espacio minimo requerido (KB) para la pantalla "Seleccione la carpeta de
+; destino". Las directivas [Files] usan Components:, por lo que Inno Setup
+; NO las contabiliza automaticamente en ExtraDiskSpaceRequired. El valor
+; se calcula en tiempo de build desde los artefactos publicados por
+; scripts/build_installer.ps1 y se inyecta via /DEXTRA_SPACE_KB=N al
+; invocar ISCC. El valor por defecto cubre la instalacion completa (server
+; + desktop ~510 MB) y solo se usa cuando ISCC se ejecuta directamente.
+#ifndef EXTRA_SPACE_KB
+  #define EXTRA_SPACE_KB "532480"
+#endif
+
 [Setup]
 AppId={#MyAppId}
 AppName={#MyAppName}
 AppVersion={#APP_VERSION}
-AppVerName={#MyAppName} {#APP_VERSION}
+AppVerName={#MyAppName}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
@@ -64,6 +75,16 @@ PrivilegesRequiredOverridesAllowed=dialog
 
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+
+; Icono del desinstalador tal y como aparece en "Programas y caracteristicas".
+; Apuntamos al propio ejecutable del escritorio (que lleva app.ico embebido
+; gracias a <ApplicationIcon> en PolyglotCLI.Maui.csproj) para mantener una
+; unica fuente de verdad del icono corporativo.
+UninstallDisplayIcon={app}\Desktop\desktopapp\PolyglotCLI.Maui.exe
+
+; Espacio minimo requerido en la pantalla de seleccion de carpeta. Ver el
+; comentario sobre EXTRA_SPACE_KB al inicio del script.
+ExtraDiskSpaceRequired={#EXTRA_SPACE_KB}
 
 ; Nombre del archivo de salida: PolyglotCLI-<version>-x64-setup.exe
 OutputBaseFilename=PolyglotCLI-{#APP_VERSION}-x64-setup
@@ -154,21 +175,29 @@ Name: "{commondesktop}\PolyglotCLI - Escritorio nativo"; \
 [UninstallDelete]
 Type: filesandordirs; Name: "{group}"
 
-[Run]
-; Ofrecer abrir el panel web en el navegador al finalizar la instalacion
-; (solo si el componente server fue seleccionado). Por defecto desmarcado
-; para no lanzar procesos automaticamente.
-Filename: "{cmd}"; \
-    Parameters: "/C start """" http://localhost:5000"; \
-    Description: "Abrir PolyglotCLI en el navegador al finalizar"; \
-    Components: server; \
-    Flags: nowait postinstall skipifsilent runascurrentuser unchecked
-
 ; Nota: las validaciones de los artefactos publicados (artifacts/publish_out y
 ; artifacts/publish_maui) viven en scripts/build_installer.ps1, NO aqui.
 ; El instalador final empaqueta los archivos en su interior y los usuarios
 ; finales (descargados desde GitHub Releases o winget) no necesitan tener esas
 ; carpetas en su equipo.
+
+; Nota: se ha eliminado la seccion [Run] deliberadamente. No se ofrece
+; lanzar el servidor web ni abrir el navegador al finalizar la instalacion.
+
+[Registry]
+; Sobrescribe los valores del Uninstall registrados por Inno Setup para que
+; en "Programas y caracteristicas" de Windows:
+;   - La columna "Nombre" muestre SOLO "PolyglotCLI" (sin la version, que ya
+;     tiene su propia columna "Version").
+;   - La columna "Version" muestre exactamente "{APP_VERSION}".
+; Esto evita la concatenacion "Nombre Version" que aparece en algunas vistas
+; localizadas (p.ej. Windows en espanol) cuando se usa AppVerName con espacios.
+; Las claves se eliminan automaticamente al desinstalar (uninsdeletevalue).
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1"; ValueType: string; ValueName: "DisplayName";     ValueData: "{#MyAppName}";        Flags: uninsdeletevalue
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1"; ValueType: string; ValueName: "DisplayVersion";  ValueData: "{#APP_VERSION}";      Flags: uninsdeletevalue
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1"; ValueType: string; ValueName: "Publisher";       ValueData: "{#MyAppPublisher}";   Flags: uninsdeletevalue
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1"; ValueType: string; ValueName: "HelpLink";        ValueData: "{#MyAppURL}";         Flags: uninsdeletevalue
+
 [Code]
 // Garantiza que el usuario seleccione al menos un componente antes de
 // pasar de la pagina de seleccion. Sin esta validacion es posible

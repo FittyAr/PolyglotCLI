@@ -12,6 +12,20 @@ namespace PolyglotCLI.Maui
 	{
 		public static MauiApp CreateMauiApp()
 		{
+#if WINDOWS
+			try
+			{
+				string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+				string userDataFolder = System.IO.Path.Combine(localAppData, "PolyglotCLI", "WebView2");
+				if (!System.IO.Directory.Exists(userDataFolder))
+				{
+					System.IO.Directory.CreateDirectory(userDataFolder);
+				}
+				Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", userDataFolder);
+			}
+			catch { }
+#endif
+
 			var builder = MauiApp.CreateBuilder();
 			builder
 				.UseMauiApp<App>()

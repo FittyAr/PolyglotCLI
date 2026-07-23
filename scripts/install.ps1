@@ -42,7 +42,7 @@ if (-not (Test-Path $buildInstallerScript)) {
 }
 
 function Resolve-InstallerPath {
-    $candidates = Get-ChildItem -Path "installer/dist" -Filter "PolyglotCLI-*-x64-setup.exe" -ErrorAction SilentlyContinue
+    $candidates = Get-ChildItem -Path "artifacts/dist" -Filter "PolyglotCLI-*-x64-setup.exe" -ErrorAction SilentlyContinue
     return $candidates | Select-Object -First 1
 }
 
@@ -90,7 +90,7 @@ if ($LASTEXITCODE -ne 0) {
 # 2. Buscar el instalador generado
 $installer = Resolve-InstallerPath
 if (-not $installer) {
-    Write-Error "No se encontro el archivo PolyglotCLI-*-x64-setup.exe en installer/dist/."
+    Write-Error "No se encontro el archivo PolyglotCLI-*-x64-setup.exe en artifacts/dist/."
     exit 1
 }
 

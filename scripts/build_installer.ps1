@@ -100,7 +100,19 @@ if (-not (Test-Path "artifacts/publish_maui")) {
     exit 1
 }
 
-& $iscc /DAPP_VERSION=$Version /Q installer/PolyglotCLI.iss
+# Calcular el tamano total (KB) de los artefactos publicados para informar a
+# Inno Setup del espacio minimo necesario en la pantalla de seleccion de
+# carpeta de destino. Las directivas [Files] usan Components:, por lo que
+# Inno Setup NO las contabiliza automaticamente en ExtraDiskSpaceRequired.
+$extraSpaceKB = 0
+foreach ($dir in @("artifacts/publish_out", "artifacts/publish_maui")) {
+    $sum = (Get-ChildItem -LiteralPath $dir -Recurse -File -ErrorAction SilentlyContinue |
+            Measure-Object -Property Length -Sum).Sum
+    if ($sum) { $extraSpaceKB += [math]::Ceiling($sum / 1024) }
+}
+Write-Host ("  Espacio total publicado: {0:N0} MB ({1:N0} KB)" -f ($extraSpaceKB / 1024), $extraSpaceKB) -ForegroundColor Cyan
+
+& $iscc /DAPP_VERSION=$Version /DEXTRA_SPACE_KB=$extraSpaceKB /Q installer/PolyglotCLI.iss
 if ($LASTEXITCODE -ne 0) {
     Write-Error "ISCC fallo con codigo $LASTEXITCODE."
     exit 1

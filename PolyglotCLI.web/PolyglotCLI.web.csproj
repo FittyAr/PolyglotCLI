@@ -16,6 +16,10 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <AssemblyName>PolyglotCLI</AssemblyName>
     <Version>1.1.0</Version>
+    <!-- Icono Win32 embebido en PolyglotCLI.exe (apphost del servidor web).
+         Es la fuente de verdad para los iconos de los accesos directos
+         (Escritorio y Menu Inicio). -->
+    <ApplicationIcon>..\assets\icons\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

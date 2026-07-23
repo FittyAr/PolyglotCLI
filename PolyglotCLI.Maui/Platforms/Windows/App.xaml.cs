@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -16,6 +16,21 @@ namespace PolyglotCLI.Maui.WinUI
 		/// </summary>
 		public App()
 		{
+			try
+			{
+				string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+				string userDataFolder = System.IO.Path.Combine(localAppData, "PolyglotCLI", "WebView2");
+				if (!System.IO.Directory.Exists(userDataFolder))
+				{
+					System.IO.Directory.CreateDirectory(userDataFolder);
+				}
+				Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", userDataFolder);
+			}
+			catch
+			{
+				// Ignore if path creation fails, fallback to default
+			}
+
 			this.InitializeComponent();
 		}
 
