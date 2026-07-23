@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved `ApplicationMode` execution state to `PolyglotCLI.core` for clean sharing between projects.
 - Conditionally hide the layout footer when running in desktop mode, keeping it visible only in web mode.
 - Split the app execution command in run.ps1 into separate Desktop and Web options.
+- Updated MSIX packaging to use the MAUI desktop application instead of the web server.
+- Updated MSI installer to include both Server and Desktop applications as selectable features with independent shortcuts.
 
 ### Deprecated
 

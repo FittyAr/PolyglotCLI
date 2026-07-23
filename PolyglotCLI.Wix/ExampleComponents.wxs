@@ -1,8 +1,13 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
-    <ComponentGroup Id="ExampleComponents" Directory="INSTALLFOLDER">
-      <!-- Cosechar de forma recursiva todos los archivos de la salida de publicación -->
+    <!-- Archivos del Servidor Web (PolyglotCLI.web) -->
+    <ComponentGroup Id="ServerComponents" Directory="INSTALLFOLDER">
       <Files Include="..\publish_out\**" />
+    </ComponentGroup>
+
+    <!-- Archivos de la Aplicacion de Escritorio (PolyglotCLI.Maui) -->
+    <ComponentGroup Id="DesktopComponents" Directory="INSTALLFOLDER">
+      <Files Include="..\publish_maui\**" />
     </ComponentGroup>
   </Fragment>
 </Wix>

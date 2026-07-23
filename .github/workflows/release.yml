@@ -22,34 +22,50 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Build and Publish PolyglotCLI
+      - name: Install MAUI Workload
+        run: dotnet workload install maui-windows
+
+      - name: Build and Publish Server (Web)
         run: |
           dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o publish_out
+
+      - name: Build and Publish Desktop (MAUI)
+        run: |
+          dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -o publish_maui
 
       - name: Prepare Assets & Sanitize Configuration
         shell: pwsh
         run: |
-          # 1. Copiar prompts
-          Copy-Item -Path prompts -Destination publish_out/prompts -Recurse -Force
-          
-          # 2. Copiar y sanitizar config.json para evitar filtrar secretos del desarrollador
-          $configPath = "publish_out/config.json"
-          if (Test-Path $configPath) {
-              try {
-                  $cfg = Get-Content -Raw -Path $configPath | ConvertFrom-Json
-                  $cfg.ApiKey = ""
-                  if ($cfg.ProviderApiKeys) {
-                      $cfg.ProviderApiKeys = New-Object PSObject
+          # Funcion para copiar prompts y sanitizar config.json en un directorio de salida
+          function Prepare-Output {
+              param([string]$OutputDir)
+              
+              # 1. Copiar prompts
+              Copy-Item -Path prompts -Destination "$OutputDir/prompts" -Recurse -Force
+              
+              # 2. Copiar y sanitizar config.json
+              $configPath = "$OutputDir/config.json"
+              if (Test-Path $configPath) {
+                  try {
+                      $cfg = Get-Content -Raw -Path $configPath | ConvertFrom-Json
+                      $cfg.ApiKey = ""
+                      if ($cfg.ProviderApiKeys) {
+                          $cfg.ProviderApiKeys = New-Object PSObject
+                      }
+                      $cfg.ApiUrl = "http://localhost:1234/v1"
+                      
+                      $sanitized = ConvertTo-Json $cfg -Depth 10
+                      Set-Content -Path $configPath -Value $sanitized -Encoding UTF8
+                      Write-Host "config.json sanitizado en $OutputDir"
+                  } catch {
+                      Write-Host "Fallo al sanitizar config.json en ${OutputDir}: $_"
                   }
-                  $cfg.ApiUrl = "http://localhost:1234/v1"
-                  
-                  $sanitized = ConvertTo-Json $cfg -Depth 10
-                  Set-Content -Path $configPath -Value $sanitized -Encoding UTF8
-                  Write-Host "config.json sanitizado con éxito."
-              } catch {
-                  Write-Host "Fallo al sanitizar config.json: $_"
               }
           }
+          
+          Prepare-Output -OutputDir "publish_out"
+          Prepare-Output -OutputDir "publish_maui"
+
       - name: Build MSIX Package
         shell: pwsh
         run: |
@@ -63,7 +79,8 @@ jobs:
           $staging = "msix_staging"
           New-Item -ItemType Directory -Path $staging -Force | Out-Null
           
-          Copy-Item -Path publish_out\* -Destination $staging -Recurse -Force
+          # Usar la salida de MAUI para el paquete MSIX
+          Copy-Item -Path publish_maui\* -Destination $staging -Recurse -Force
           Copy-Item -Path manifests/msix/Assets -Destination "$staging/Assets" -Recurse -Force
           Copy-Item -Path manifests/msix/AppxManifest.xml -Destination $staging -Force
           
