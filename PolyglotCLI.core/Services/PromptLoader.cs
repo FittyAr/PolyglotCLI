@@ -21,28 +21,47 @@ namespace PolyglotCLI
                 return explicitPath;
             }
 
-            // 1. Try AppContext.BaseDirectory / prompts
-            string baseDirPrompts = Path.Combine(AppContext.BaseDirectory, "prompts");
-            if (Directory.Exists(baseDirPrompts) && File.Exists(Path.Combine(baseDirPrompts, "translation_prompt.md")))
+            // Lista de candidatos en orden de prioridad. El primero que exista y contenga
+            // los archivos de prompt se considera la ubicación canónica.
+            string[] candidateRelativePaths = new[]
             {
-                return baseDirPrompts;
+                "assets/prompts",
+                "prompts"
+            };
+
+            // 1. Try AppContext.BaseDirectory / <candidate>
+            foreach (var rel in candidateRelativePaths)
+            {
+                string baseDirPrompts = Path.Combine(AppContext.BaseDirectory, rel);
+                if (Directory.Exists(baseDirPrompts) && File.Exists(Path.Combine(baseDirPrompts, "translation_prompt.md")))
+                {
+                    return baseDirPrompts;
+                }
             }
 
-            // 2. Try CurrentDirectory / prompts
-            string currentDirPrompts = Path.Combine(Directory.GetCurrentDirectory(), "prompts");
-            if (Directory.Exists(currentDirPrompts) && File.Exists(Path.Combine(currentDirPrompts, "translation_prompt.md")))
+            // 2. Try CurrentDirectory / <candidate>
+            string currentDirFallback = string.Empty;
+            foreach (var rel in candidateRelativePaths)
             {
-                return currentDirPrompts;
+                string currentDirPrompts = Path.Combine(Directory.GetCurrentDirectory(), rel);
+                if (Directory.Exists(currentDirPrompts) && File.Exists(Path.Combine(currentDirPrompts, "translation_prompt.md")))
+                {
+                    return currentDirPrompts;
+                }
+                if (string.IsNullOrEmpty(currentDirFallback)) { currentDirFallback = currentDirPrompts; }
             }
 
-            // 3. Walk up parent directories to find the project root prompts/
+            // 3. Walk up parent directories to find the project root assets/prompts/ (o prompts/)
             var searchDir = new DirectoryInfo(Directory.GetCurrentDirectory());
             while (searchDir != null)
             {
-                string candidate = Path.Combine(searchDir.FullName, "prompts");
-                if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "translation_prompt.md")))
+                foreach (var rel in candidateRelativePaths)
                 {
-                    return candidate;
+                    string candidate = Path.Combine(searchDir.FullName, rel);
+                    if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "translation_prompt.md")))
+                    {
+                        return candidate;
+                    }
                 }
                 searchDir = searchDir.Parent;
             }
@@ -50,15 +69,18 @@ namespace PolyglotCLI
             var baseSearchDir = new DirectoryInfo(AppContext.BaseDirectory);
             while (baseSearchDir != null)
             {
-                string candidate = Path.Combine(baseSearchDir.FullName, "prompts");
-                if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "translation_prompt.md")))
+                foreach (var rel in candidateRelativePaths)
                 {
-                    return candidate;
+                    string candidate = Path.Combine(baseSearchDir.FullName, rel);
+                    if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "translation_prompt.md")))
+                    {
+                        return candidate;
+                    }
                 }
                 baseSearchDir = baseSearchDir.Parent;
             }
 
-            return currentDirPrompts;
+            return currentDirFallback;
         }
 
         public string LoadOcrPrompt()

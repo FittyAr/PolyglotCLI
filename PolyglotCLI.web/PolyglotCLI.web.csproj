@@ -19,7 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="..\manifests\app.ico" Link="wwwroot\app.ico">
+    <Content Include="..\assets\icons\app.ico" Link="wwwroot\app.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

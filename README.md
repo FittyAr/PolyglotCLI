@@ -15,7 +15,7 @@ Translations are processed incrementally (page-by-page) and appended immediately
   - `image`: Renders document pages as images and performs OCR using vision models.
 - **Incremental File Generation**: Appends translated content in real-time, preventing large memory footprints.
 - **Centralized Configuration**: Settings managed via `config.json` with multi-provider credentials support.
-- **External Markdown Prompts**: System prompts for OCR, translation, and reviews are loaded dynamically from the `prompts` folder.
+- **External Markdown Prompts**: System prompts for OCR, translation, and reviews are loaded dynamically from the `assets/prompts` folder.
 
 ---
 

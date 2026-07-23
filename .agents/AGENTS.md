@@ -15,7 +15,7 @@ This document establishes the architecture, design principles, and guidelines fo
 * **Rule:** No magic numbers, default file paths, key names, user-facing strings, or configurations may be hardcoded in the core application logic.
 * **Implementation:** 
   * App configurations must be loaded and saved via the `AppConfig` class from `config.json`.
-  * System/user prompts for the LLM processing (OCR, translation, review, prompt optimization) must be loaded dynamically from the `prompts` directory via the `PromptLoader` service.
+  * System/user prompts for the LLM processing (OCR, translation, review, prompt optimization) must be loaded dynamically from the `assets/prompts/` directory via the `PromptLoader` service.
 
 ### Extensibility (Open/Closed Principle)
 * **Rule:** Support for new file formats or translation clients must be added by implementing interfaces (e.g., `IDocumentExtractor`) and registering them in the factory (`DocumentExtractorFactory`), without modifying the existing execution loops.
@@ -65,12 +65,29 @@ PolyglotCLI/
 │   │   ├── Pages/              # Pages: Home, History, Config
 │   │   └── Layout/             # Main layout & side navigation
 │   └── wwwroot/                # Static assets (CSS, JS)
-├── prompts/                    # External prompt files
-│   ├── ocr_prompt.md           # Prompt for OCR parsing
-│   ├── translation_prompt.md   # Prompt for Translation
-│   ├── review_prompt.md        # Prompt for translation review/validation
-│   ├── prompt_helper.md        # Prompt for prompt helper/diagnostics
-│   └── prompt_improver_prompt.md # Prompt for improving custom prompts
+├── PolyglotCLI.Maui/           # .NET MAUI Desktop app (shares UI with web)
+├── PolyglotCLI.test/           # Unit tests
+├── assets/                     # Static resources shared across all projects
+│   ├── prompts/                # External prompt files (Markdown)
+│   │   ├── ocr_prompt.md
+│   │   ├── translation_prompt.md
+│   │   ├── review_prompt.md
+│   │   ├── prompt_helper.md
+│   │   └── prompt_improver_prompt.md
+│   ├── icons/                  # Application icons (.ico, .svg)
+│   └── msix/                   # MSIX packaging assets (AppxManifest.xml, Assets/)
+├── installer/                  # Native installer configuration
+│   ├── PolyglotCLI.iss         # Inno Setup 7 installer script
+│   ├── license.txt             # MIT license shown by the installer
+│   └── dist/                   # Output folder for the compiled .exe (gitignored)
+├── scripts/                    # PowerShell automation scripts
+│   ├── build_installer.ps1     # Publish + compile Inno Setup installer
+│   ├── install.ps1             # Local install / uninstall helper
+│   ├── bump_version.ps1        # Version bump + release pipeline
+│   └── extract_changelog.ps1   # Extract a CHANGELOG.md section
+├── artifacts/                  # Build/publish output (gitignored)
+│   ├── publish_out/            # Published PolyglotCLI.web artifacts
+│   └── publish_maui/           # Published PolyglotCLI.Maui artifacts
 └── docs/                       # Diagrams and documentation
 ```
 

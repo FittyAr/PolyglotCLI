@@ -22,7 +22,6 @@ output/
 # Local .NET SDK
 local-dotnet/
 
-# Staging and publish folders
-publish_out/
-publish_maui/
-msix_staging/
+# Build artifacts, publish output and installer staging
+artifacts/
+installer/dist/
