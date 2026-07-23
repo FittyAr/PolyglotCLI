@@ -12,6 +12,9 @@
 
     <!-- Habilitar la interfaz grafica estandar interactiva de WiX (FeatureTree) -->
     <ui:WixUI Id="WixUI_FeatureTree" />
+    <WixVariable Id="WixUILicenseRtf" Value="..\manifests\license.rtf" />
+    <WixVariable Id="WixUIDialogBmp" Value="..\manifests\installer_dialog.png" />
+    <WixVariable Id="WixUIBannerBmp" Value="..\manifests\installer_banner.png" />
 
     <!-- Feature principal con la Web App y el acceso directo del Menu Inicio -->
     <Feature Id="Main" Title="PolyglotCLI App" Level="1" Description="Instala todos los archivos binarios de la aplicacion y crea el acceso directo en el Menu Inicio." AllowAdvertise="no" InstallDefault="local">
