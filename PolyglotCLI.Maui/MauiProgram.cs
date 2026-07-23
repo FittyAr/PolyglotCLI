@@ -1,8 +1,10 @@
 using Microsoft.Extensions.Logging;
 using Radzen;
 using PolyglotCLI;
+using PolyglotCLI.Maui.Services;
 using PolyglotCLI.web;
 using Cropper.Blazor.Extensions;
+using CommunityToolkit.Maui;
 
 namespace PolyglotCLI.Maui
 {
@@ -13,6 +15,7 @@ namespace PolyglotCLI.Maui
 			var builder = MauiApp.CreateBuilder();
 			builder
 				.UseMauiApp<App>()
+				.UseMauiCommunityToolkit()
 				.ConfigureFonts(fonts =>
 				{
 					fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -27,6 +30,9 @@ namespace PolyglotCLI.Maui
 			builder.Services.AddMauiBlazorWebView();
 			builder.Services.AddRadzenComponents();
 			builder.Services.AddCropper();
+
+			// Servicio de empaquetado de trabajos específico de MAUI (file pickers nativos)
+			builder.Services.AddSingleton<IJobPackageHost, MauiJobPackageHost>();
 
 #if DEBUG
 			builder.Services.AddBlazorWebViewDeveloperTools();

@@ -1,0 +1,175 @@
+@inject DialogService DialogService
+@inject HttpClient Http
+
+<RadzenStack Gap="1rem">
+    <RadzenText TextStyle="TextStyle.Body1">
+        Selecciona un archivo <b>.zpg</b> (ZIP Polyglot) exportado previamente de PolyglotCLI para restaurar el trabajo en este equipo.
+    </RadzenText>
+
+    <div>
+        <InputFile OnChange="OnFileSelected" accept=".zpg,.zip" disabled="@busy" />
+    </div>
+
+    @if (!string.IsNullOrEmpty(selectedFileName))
+    {
+        <RadzenText TextStyle="TextStyle.Caption">
+            Archivo seleccionado: <b>@selectedFileName</b> (@(selectedFileSizeLabel))
+        </RadzenText>
+    }
+
+    @if (busy)
+    {
+        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true" Variant="Variant.Flat" Shade="Shade.Default">
+            @errorMessage
+        </RadzenAlert>
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+        <RadzenButton Text="Importar" Icon="cloud_upload"
+                      ButtonStyle="ButtonStyle.Primary"
+                      Disabled="@(busy || selectedFile == null)"
+                      Click="@UploadSelectedFile" />
+        <RadzenButton Text="Cerrar" Icon="close"
+                      ButtonStyle="ButtonStyle.Light"
+                      Disabled="@busy"
+                      Click="@(() => DialogService.Close())" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter]
+    public string ApiUrl { get; set; } = "api/jobs/import";
+
+    IBrowserFile? selectedFile;
+    string? selectedFileName;
+    string selectedFileSizeLabel = string.Empty;
+    bool busy;
+    string? errorMessage;
+    string? dialogClosed; // cierre idempotente
+
+    long maxImportBytes = 2L * 1024 * 1024 * 1024; // 2 GB
+
+    void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        errorMessage = null;
+        var file = e.File;
+        if (file == null)
+        {
+            selectedFile = null;
+            selectedFileName = null;
+            selectedFileSizeLabel = string.Empty;
+            return;
+        }
+
+        if (file.Size > maxImportBytes)
+        {
+            errorMessage = $"El archivo es demasiado grande (máximo permitido: {maxImportBytes / (1024 * 1024)} MB).";
+            selectedFile = null;
+            selectedFileName = null;
+            selectedFileSizeLabel = string.Empty;
+            return;
+        }
+
+        selectedFile = file;
+        selectedFileName = file.Name;
+        selectedFileSizeLabel = FormatBytes(file.Size);
+    }
+
+    async Task UploadSelectedFile()
+    {
+        if (selectedFile == null) return;
+        busy = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            await using var fileStream = selectedFile.OpenReadStream(maxAllowedSize: maxImportBytes);
+            using var streamContent = new StreamContent(fileStream);
+            streamContent.Headers.ContentType =
+                new System.Net.Http.Headers.MediaTypeHeaderValue(
+                    selectedFile.ContentType ?? "application/octet-stream");
+            content.Add(streamContent, "file", selectedFile.Name);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, ApiUrl) { Content = content };
+            using var response = await Http.SendAsync(request);
+
+            string body = string.Empty;
+            try { body = await response.Content.ReadAsStringAsync(); } catch { }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = TryExtractError(body) ?? $"Error del servidor: HTTP {(int)response.StatusCode}.";
+                return;
+            }
+
+            string? newJobId = TryExtractJobId(body);
+            CloseSafely(newJobId);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error durante la importación: {ex.Message}";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    void CloseSafely(string? payload)
+    {
+        if (!string.IsNullOrEmpty(dialogClosed)) return;
+        dialogClosed = payload ?? string.Empty;
+        DialogService.Close(payload);
+    }
+
+    static string? TryExtractError(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("error", out var err) && err.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                return err.GetString();
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    static string? TryExtractJobId(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("jobId", out var id) && id.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                return id.GetString();
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    static string FormatBytes(long bytes)
+    {
+        string[] units = { "B", "KB", "MB", "GB" };
+        double size = bytes;
+        int u = 0;
+        while (size >= 1024 && u < units.Length - 1)
+        {
+            size /= 1024;
+            u++;
+        }
+        return $"{size:0.##} {units[u]}";
+    }
+}

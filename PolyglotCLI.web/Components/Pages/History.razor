@@ -4,10 +4,16 @@
 @inject PolyglotCLI.AppConfig Config
 @inject NavigationManager NavigationManager
 @inject DialogService DialogService
+@inject IJobPackageHost JobPackageHost
 
 <PageTitle>Historial de Trabajos - PolyglotCLI</PageTitle>
 
-<RadzenText TextStyle="TextStyle.H4" class="rz-mb-4">Historial de Trabajos</RadzenText>
+<RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H4">Historial de Trabajos</RadzenText>
+    <RadzenButton Icon="upload_file" Text="Importar trabajo (.zpg)" ButtonStyle="ButtonStyle.Light"
+                  title="Importar un trabajo desde un archivo .zpg"
+                  Click="@(() => OpenImportDialog())" />
+</RadzenStack>
 
 <RadzenDataGrid Data="@manifests" TItem="JobManifest" AllowFiltering="true" FilterMode="FilterMode.Simple" AllowPaging="true" PageSize="10" AllowSorting="true" class="rz-mb-4">
     <Columns>
@@ -19,25 +25,28 @@
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="JobManifest" Property="CreatedAt" Title="Fecha" FormatString="{0:d/M/yyyy HH:mm}" Width="150px" />
         <RadzenDataGridColumn TItem="JobManifest" Property="ModelName" Title="Modelo" Width="150px" />
-        <RadzenDataGridColumn TItem="JobManifest" Title="Acciones" Width="290px" Filterable="false" Sortable="false">
+        <RadzenDataGridColumn TItem="JobManifest" Title="Acciones" Width="380px" Filterable="false" Sortable="false">
             <Template Context="job">
-                <RadzenButton Icon="list" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" class="rz-mr-1" title="Ver Detalles del Trabajo" 
+                <RadzenButton Icon="list" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" class="rz-mr-1" title="Ver Detalles del Trabajo"
                                Click="@(() => ViewJobDetails(job))" />
-                
-                <RadzenButton Icon="save_alt" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" class="rz-mr-1" title="Exportar y Convertir Documentos" 
+
+                <RadzenButton Icon="save_alt" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" class="rz-mr-1" title="Exportar y Convertir Documentos"
                                Click="@(() => ExportJob(job))" />
-                
-                <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" class="rz-mr-1" title="Reanudar Trabajo" 
-                              Disabled="@(job.Status == "Completed")" Click="@(() => ResumeJob(job))" />
-                
+
+                <RadzenButton Icon="archive" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" class="rz-mr-1" title="Exportar trabajo completo como .zpg (Zip Polyglot)"
+                               Disabled="@(IsImportInProgress)" Click="@(() => DownloadJobPackage(job))" />
+
+                <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" class="rz-mr-1" title="Reanudar Trabajo"
+                              Disabled="@(job.Status == "Completed" || IsImportInProgress)" Click="@(() => ResumeJob(job))" />
+
                 @if(job.Status == "Failed" || job.Status == "InProgress")
                 {
-                    <RadzenButton Icon="psychology" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" class="rz-mr-1" title="Análisis de Errores IA" 
-                                  Click="@(() => AnalyzeErrors(job))" />
+                    <RadzenButton Icon="psychology" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" class="rz-mr-1" title="Análisis de Errores IA"
+                                  Disabled="@(IsImportInProgress)" Click="@(() => AnalyzeErrors(job))" />
                 }
 
-                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" class="rz-mr-1" title="Borrar Trabajo" 
-                              Click="@(() => DeleteJob(job))" />
+                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" class="rz-mr-1" title="Borrar Trabajo"
+                              Disabled="@(IsImportInProgress)" Click="@(() => DeleteJob(job))" />
             </Template>
         </RadzenDataGridColumn>
     </Columns>
@@ -56,6 +65,7 @@
     List<JobManifest> manifests = new List<JobManifest>();
     JobManifest? selectedManifest = null;
     string? analysisResult = null;
+    bool IsImportInProgress = false;
 
     protected override void OnInitialized()
     {
@@ -88,7 +98,7 @@
         analysisResult = "Analizando errores con IA... por favor espera.";
         StateHasChanged();
 
-        try 
+        try
         {
             string combinedErrors = JobManifestService.BuildErrorSummary(job);
 
@@ -97,12 +107,12 @@
                 analysisResult = "No se encontraron mensajes de error registrados en el manifiesto.";
                 return;
             }
-            
+
             var recommendation = await PromptHelperService.AnalyzeErrorsAsync(
-                combinedErrors, 
-                Config.ApiUrl, 
-                Config.DefaultModel ?? "", 
-                Config.TranslationTimeoutSeconds, 
+                combinedErrors,
+                Config.ApiUrl,
+                Config.DefaultModel ?? "",
+                Config.TranslationTimeoutSeconds,
                 Config.Temperature
             );
             analysisResult = recommendation;
@@ -125,8 +135,8 @@
     async Task DeleteJob(JobManifest job)
     {
         bool? confirm = await DialogService.Confirm(
-            $"¿Estás seguro de que deseas eliminar el trabajo '{job.JobId}' y toda su carpeta de datos del disco?", 
-            "Confirmar Eliminación", 
+            $"¿Estás seguro de que deseas eliminar el trabajo '{job.JobId}' y toda su carpeta de datos del disco?",
+            "Confirmar Eliminación",
             new ConfirmOptions { OkButtonText = "Eliminar", CancelButtonText = "Cancelar" });
 
         if (confirm == true)
@@ -154,7 +164,7 @@
         {
             string jobDir = Path.Combine(TranslationOrchestrator.GetJobsDirectory(), job.JobId);
             var (count, errors) = JobExportService.ExportJobToMarkdown(jobDir, Config);
-            
+
             if (errors.Count > 0)
             {
                 await DialogService.Alert($"Se exportaron {count} archivos pero hubo errores:\n" + string.Join("\n", errors), "Exportación con Errores");
@@ -170,7 +180,7 @@
             // Realizar la conversión a los formatos configurados (por ejemplo DOCX) para cada archivo Markdown exportado
             string dataDir = Path.Combine(jobDir, "data");
             var files = Directory.GetFiles(dataDir, "*_data.json");
-            
+
             int convertedCount = 0;
             foreach (var file in files)
             {
@@ -196,6 +206,49 @@
         catch (Exception ex)
         {
             await DialogService.Alert($"Error durante la exportación/conversión: {ex.Message}", "Error");
+        }
+    }
+
+    async Task DownloadJobPackage(JobManifest job)
+    {
+        try
+        {
+            string status = await JobPackageHost.ExportJobPackageAsync(job);
+            if (!string.IsNullOrEmpty(status) && !status.Contains("Descarga iniciada"))
+            {
+                // Mensaje visible cuando el usuario cancela o cuando MAUI devuelve la ruta
+                await DialogService.Alert(status, "Exportación de trabajo");
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.Alert($"Error al exportar el trabajo: {ex.Message}", "Error");
+        }
+    }
+
+    async Task OpenImportDialog()
+    {
+        if (IsImportInProgress) return;
+        try
+        {
+            IsImportInProgress = true;
+            StateHasChanged();
+            string? newJobId = await JobPackageHost.ImportJobPackageAsync();
+            if (!string.IsNullOrEmpty(newJobId))
+            {
+                LoadManifests();
+                StateHasChanged();
+                await DialogService.Alert($"Trabajo importado correctamente como '{newJobId}'. Aparecerá en la lista.", "Importación exitosa");
+            }
+        }
+        catch (Exception ex)
+        {
+            await DialogService.Alert($"Error durante la importación: {ex.Message}", "Error");
+        }
+        finally
+        {
+            IsImportInProgress = false;
+            StateHasChanged();
         }
     }
 }
