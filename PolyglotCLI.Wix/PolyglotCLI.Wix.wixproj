@@ -1,9 +1,0 @@
-<Project Sdk="WixToolset.Sdk/7.0.0">
-  <PropertyGroup>
-    <AcceptEula>wix7</AcceptEula>
-    <SuppressIces>ICE03;ICE60</SuppressIces>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
-  </ItemGroup>
-</Project>

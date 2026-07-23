@@ -1,0 +1,98 @@
+# scripts/build_installer.ps1
+# Wrapper que invoca ISCC (Inno Setup 7) para compilar el instalador .exe de PolyglotCLI.
+# Reemplaza la generacion del MSI que antes producia el proyecto WiX.
+
+param (
+    [Parameter(Mandatory = $false)]
+    [string]$Version = "",
+
+    [Parameter(Mandatory = $false)]
+    [switch]$NoPublish
+)
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+
+$ErrorActionPreference = "Stop"
+
+# Ir a la raiz del repositorio
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ([string]::IsNullOrEmpty($scriptDir)) {
+    $scriptDir = $PSScriptRoot
+}
+$repoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
+Set-Location $repoRoot
+
+# 1. Publicar las apps si no se indico lo contrario
+if (-not $NoPublish) {
+    Write-Host "[1/3] Publicando PolyglotCLI.web -> artifacts\publish_out..." -ForegroundColor Yellow
+    dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o artifacts\publish_out | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Fallo la publicacion de PolyglotCLI.web."
+        exit 1
+    }
+
+    Write-Host "[2/3] Publicando PolyglotCLI.Maui -> artifacts\publish_maui..." -ForegroundColor Yellow
+    dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -o artifacts\publish_maui | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Fallo la publicacion de PolyglotCLI.Maui."
+        exit 1
+    }
+} else {
+    Write-Host "[1,2/3] Publicacion omitida (-NoPublish)." -ForegroundColor DarkYellow
+}
+
+# 2. Localizar ISCC (Inno Setup 7)
+$isccCandidates = @(
+    (Join-Path $env:ProgramFiles "Inno Setup 7\ISCC.exe"),
+    (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 7\ISCC.exe"),
+    "C:\Program Files\Inno Setup 7\ISCC.exe",
+    "C:\Program Files (x86)\Inno Setup 7\ISCC.exe"
+)
+$iscc = $null
+foreach ($candidate in $isccCandidates) {
+    if ($candidate -and (Test-Path $candidate)) {
+        $iscc = $candidate
+        break
+    }
+}
+
+if (-not $iscc) {
+    Write-Error "No se encontro ISCC.exe (Inno Setup 7). Instale Inno Setup 7 desde https://jrsoftware.org/isinfo.php"
+    exit 1
+}
+
+# 3. Determinar la version a usar
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $csproj = "PolyglotCLI.web/PolyglotCLI.web.csproj"
+    $csprojContent = Get-Content -Raw -Path $csproj
+    if ($csprojContent -match '<Version>([^<]+)</Version>') {
+        $Version = $Matches[1]
+        Write-Host "Version leida del .csproj: $Version" -ForegroundColor Cyan
+    } else {
+        Write-Error "No se encontro la etiqueta <Version> en $csproj y no se especifico -Version."
+        exit 1
+    }
+}
+
+if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+    Write-Error "Formato de version no valido (debe ser X.Y.Z): $Version"
+    exit 1
+}
+
+# 4. Compilar el .iss con ISCC
+Write-Host "[3/3] Compilando instalador con ISCC (version $Version)..." -ForegroundColor Yellow
+& $iscc /DAPP_VERSION=$Version /Q installer/PolyglotCLI.iss
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "ISCC fallo con codigo $LASTEXITCODE."
+    exit 1
+}
+
+$installerPath = Resolve-Path "installer/dist/PolyglotCLI-$Version-x64-setup.exe" -ErrorAction SilentlyContinue
+if ($installerPath) {
+    Write-Host "Instalador generado: $($installerPath.Path)" -ForegroundColor Green
+} else {
+    Write-Host "Instalador generado en installer/dist/." -ForegroundColor Green
+}
+
+exit 0

@@ -8,15 +8,27 @@ $ErrorActionPreference = "Stop"
 
 # Asegurar que estamos en el directorio raiz del proyecto
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-if ($scriptDir) {
-    Set-Location $scriptDir
-    Set-Location ..
+if (-not $scriptDir) {
+    $scriptDir = $PSScriptRoot
 }
+if (-not $scriptDir) {
+    $scriptDir = "."
+}
+Set-Location $scriptDir
+Set-Location ".."
 
 $csprojPath = "PolyglotCLI.web/PolyglotCLI.web.csproj"
 $wxsPath = "PolyglotCLI.Wix/Package.wxs"
 $changelogPath = "docs/CHANGELOG.md"
 $unreleasedPath = "docs/UNRELEASE.md"
+$installerScript = Join-Path $scriptDir "build_installer.ps1"
+
+# Helper: prefiere PowerShell 7 (pwsh) y cae a Windows PowerShell 5.1 si no esta.
+function Get-PowerShellExe {
+    $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwshCmd) { return "pwsh" }
+    return "powershell"
+}
 
 # Funcion para verificar cambios locales sin confirmar
 function Test-GitPendingChanges {
@@ -242,29 +254,27 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     )
     [System.IO.File]::WriteAllLines((Resolve-Path $unreleasedPath).Path, $template, $utf8NoBom)
 
-    # 5. Compilacion de prueba local
-    Write-Host "Ejecutando dotnet publish y build de validacion..." -ForegroundColor Yellow
+    # 5. Compilacion de prueba local + generacion del instalador Inno Setup
+    Write-Host "Ejecutando dotnet publish y compilacion del instalador (Inno Setup)..." -ForegroundColor Yellow
     try {
-        # Publicar web app para poblar publish_out antes de compilar Wix (previene warnings WIX8600/8601)
-        dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o publish_out | Out-Null
-        
-        # Publicar MAUI app para poblar publish_maui antes de compilar Wix
-        dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -o publish_maui | Out-Null
-        
-        # Compilar el instalador de WiX (si existe)
-        if (Test-Path "PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj") {
-            dotnet build PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj -c Release
+        # Publicar web app + MAUI app + compilar el instalador reutilizando
+        # scripts/build_installer.ps1. Requiere Inno Setup 7 instalado.
+        if (-not (Test-Path $installerScript)) {
+            Write-Error "No se encontro el script $installerScript"
+            exit 1
+        }
+
+        & (Get-PowerShellExe) -NoLogo -NoProfile -File $installerScript -Version $newVersion
+        if ($LASTEXITCODE -ne 0) {
+            throw "build_installer.ps1 devolvio codigo de salida $LASTEXITCODE"
         }
         Write-Host "Compilacion de prueba exitosa." -ForegroundColor Green
     } catch {
         Write-Error "La compilacion fallo. Revirtiendo cambios locales..."
-        # Revertir csproj
         Set-Content -Path $csprojPath -Value $csprojContent -Encoding UTF8
-        # Revertir wxs si existia
         if (Test-Path $wxsPath) {
             Set-Content -Path $wxsPath -Value $wxsContent -Encoding UTF8
         }
-        # Revertir changelog y unreleased de git
         git checkout -- $changelogPath $unreleasedPath
         Write-Host "Cambios revertidos correctamente." -ForegroundColor Yellow
         exit 1

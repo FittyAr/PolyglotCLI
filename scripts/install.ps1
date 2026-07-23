@@ -1,5 +1,7 @@
 ﻿# scripts/install.ps1
-# Compila la Web App, genera el instalador MSI con WiX localmente y lo ejecuta para simular la instalacion de GitHub Actions.
+# Compila la Web App + MAUI Desktop, genera el instalador .exe con Inno Setup 7
+# y lo ejecuta para simular la instalacion de GitHub Actions.
+# Equivale al antiguo scripts/install.ps1 que trabajaba con WiX MSI.
 
 param (
     [switch]$Uninstall = $false
@@ -13,6 +15,13 @@ if ($args -contains "uninstall") { $Uninstall = $true }
 
 $ErrorActionPreference = "Stop"
 
+# Helper: prefiere PowerShell 7 (pwsh) y cae a Windows PowerShell 5.1 (powershell) si no esta.
+function Get-PowerShellExe {
+    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwsh) { return "pwsh" }
+    return "powershell"
+}
+
 # Obtener directorio del script (scripts/) y la raiz del repositorio
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ([string]::IsNullOrEmpty($scriptDir)) {
@@ -22,82 +31,79 @@ if ([string]::IsNullOrEmpty($scriptDir)) {
     $scriptDir = "."
 }
 
-# La raiz del repositorio es el directorio padre de scripts/
 $repoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
 Set-Location $repoRoot
 
-$csprojPath = "PolyglotCLI.web/PolyglotCLI.web.csproj"
-$wixprojPath = "PolyglotCLI.Wix/PolyglotCLI.Wix.wixproj"
+# Ruta del script de Inno Setup (encargado de publicar + compilar)
+$buildInstallerScript = Join-Path $scriptDir "build_installer.ps1"
+if (-not (Test-Path $buildInstallerScript)) {
+    Write-Error "No se encontro $buildInstallerScript"
+    exit 1
+}
+
+function Resolve-InstallerPath {
+    $candidates = Get-ChildItem -Path "installer/dist" -Filter "PolyglotCLI-*-x64-setup.exe" -ErrorAction SilentlyContinue
+    return $candidates | Select-Object -First 1
+}
 
 if ($Uninstall) {
     Write-Host "==========================================" -ForegroundColor Blue
-    Write-Host "   Desinstalador de PolyglotCLI (WiX MSI) " -ForegroundColor Blue
+    Write-Host "  Desinstalador de PolyglotCLI (Inno Setup) " -ForegroundColor Blue
     Write-Host "==========================================" -ForegroundColor Blue
 
-    # Intentar buscar el instalador MSI generado localmente
-    $msiFile = Get-ChildItem -Path "PolyglotCLI.Wix/bin" -Filter "PolyglotCLI.Wix.msi" -Recurse | Select-Object -First 1
-    
-    if (-not $msiFile) {
-        Write-Host "Compilando instalador temporal para ejecutar la desinstalacion..." -ForegroundColor Yellow
-        dotnet build $wixprojPath -c Release | Out-Null
-        $msiFile = Get-ChildItem -Path "PolyglotCLI.Wix/bin" -Filter "PolyglotCLI.Wix.msi" -Recurse | Select-Object -First 1
-    }
+    # Buscar el desinstalador de Inno Setup en la ruta por defecto de instalacion
+    $installRoot = Join-Path $env:ProgramFiles "FittyAr\PolyglotCLI"
+    $uninstaller = Join-Path $installRoot "unins000.exe"
 
-    if ($msiFile) {
-        Write-Host "Ejecutando desinstalador de Windows Installer..." -ForegroundColor Yellow
-        Start-Process msiexec.exe -ArgumentList "/x `"$($msiFile.FullName)`"" -Wait
+    if (Test-Path $uninstaller) {
+        Write-Host "Ejecutando desinstalador de Inno Setup ($uninstaller)..." -ForegroundColor Yellow
+        Start-Process $uninstaller -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
         Write-Host "Desinstalacion finalizada." -ForegroundColor Green
     } else {
-        Write-Error "No se pudo encontrar ni generar el instalador MSI para ejecutar la desinstalacion."
-        exit 1
+        Write-Host "[ADVERTENCIA] No se encontro $uninstaller. Es posible que PolyglotCLI no este instalado." -ForegroundColor Yellow
+        $fallback = Resolve-InstallerPath
+        if ($fallback) {
+            Write-Host "Reintentando con el instalador: $($fallback.FullName) /UNINSTALL" -ForegroundColor Yellow
+            Start-Process $fallback.FullName -ArgumentList "/UNINSTALL /VERYSILENT /SUPPRESSMSGBOXES" -Wait
+            Write-Host "Desinstalacion finalizada." -ForegroundColor Green
+        } else {
+            Write-Error "No hay un instalador local disponible para ejecutar la desinstalacion."
+            exit 1
+        }
     }
     exit 0
 }
 
 Write-Host "==========================================" -ForegroundColor Blue
-Write-Host "    Instalador Local de PolyglotCLI (MSI) " -ForegroundColor Blue
+Write-Host "  Instalador Local de PolyglotCLI (Inno)   " -ForegroundColor Blue
 Write-Host "==========================================" -ForegroundColor Blue
 
-# 1. Compilar y publicar la aplicacion Web en publish_out
-Write-Host "Publicando PolyglotCLI.web en publish_out..." -ForegroundColor Yellow
-try {
-    dotnet publish $csprojPath -c Release -r win-x64 --self-contained false -o publish_out | Out-Null
-    Write-Host "Publicacion exitosa." -ForegroundColor Green
-} catch {
-    Write-Error "Fallo la publicacion de dotnet: $_"
+# 1. Publicar + compilar el instalador con el script reutilizable
+Write-Host "Publicando apps y compilando instalador (scripts/build_installer.ps1)..." -ForegroundColor Yellow
+$psExe = Get-PowerShellExe
+& $psExe -NoLogo -NoProfile -File $buildInstallerScript
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Fallo la generacion del instalador. Revise los mensajes anteriores."
     exit 1
 }
 
-# 2. Compilar el proyecto de WiX para generar el instalador MSI
-Write-Host "Compilando proyecto WiX para generar instalador MSI..." -ForegroundColor Yellow
-try {
-    dotnet build $wixprojPath -c Release | Out-Null
-    Write-Host "Instalador MSI compilado exitosamente." -ForegroundColor Green
-} catch {
-    Write-Error "Fallo la compilacion del instalador MSI de WiX: $_"
+# 2. Buscar el instalador generado
+$installer = Resolve-InstallerPath
+if (-not $installer) {
+    Write-Error "No se encontro el archivo PolyglotCLI-*-x64-setup.exe en installer/dist/."
     exit 1
 }
 
-# 3. Buscar el instalador MSI generado
-$msiFile = Get-ChildItem -Path "PolyglotCLI.Wix/bin" -Filter "PolyglotCLI.Wix.msi" -Recurse | Select-Object -First 1
-
-if (-not $msiFile) {
-    Write-Error "No se encontro el archivo PolyglotCLI.Wix.msi en los directorios de salida de WiX."
-    exit 1
-}
-
-# 4. Lanzar el instalador MSI interactivo de forma nativa
-Write-Host "Ejecutando instalador MSI ($($msiFile.Name))..." -ForegroundColor Yellow
-Write-Host "Siga las instrucciones en pantalla en el asistente interactivo." -ForegroundColor Cyan
+# 3. Lanzar el instalador interactivo
+Write-Host ""
+Write-Host "Ejecutando instalador ($($installer.Name))..." -ForegroundColor Yellow
+Write-Host "Siga las instrucciones en pantalla del asistente de Inno Setup." -ForegroundColor Cyan
 Write-Host ""
 
 try {
-    # Ejecutamos el MSI de forma interactiva. Esto cargara la UI WixUI_FeatureTree
-    # y le permitira al usuario elegir carpeta, accesos directos y validar el flujo real.
-    Start-Process msiexec.exe -ArgumentList "/i `"$($msiFile.FullName)`"" -Wait
+    Start-Process $installer.FullName -Wait
     Write-Host "Proceso de instalacion finalizado correctamente." -ForegroundColor Green
 } catch {
-    Write-Error "Fallo la ejecucion de msiexec: $_"
+    Write-Error "Fallo la ejecucion del instalador: $_"
     exit 1
 }
-
