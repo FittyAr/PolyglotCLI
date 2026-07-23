@@ -121,6 +121,39 @@ jobs:
           }
           Write-Host "Instalador Inno Setup generado: $($setupExe.FullName)"
 
+      - name: Install NSIS (Nullsoft Install System)
+        shell: pwsh
+        run: |
+          # makensis (NSIS 3) no viene preinstalado en windows-latest, se obtiene
+          # desde Chocolatey para poder compilar el instalador Nullsoft.
+          if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+              Write-Error "Chocolatey no esta disponible en el runner; no se puede instalar NSIS."
+              exit 1
+          }
+          choco install nsis -y --no-progress --limit-output --version=3.11
+          $makensis = Get-ChildItem -Path "C:\Program Files (x86)\NSIS" -Filter "makensis.exe" -Recurse | Select-Object -First 1
+          if (-not $makensis) {
+              Write-Error "No se encontro makensis.exe tras instalar NSIS."
+              exit 1
+          }
+          Write-Host "makensis disponible en: $($makensis.FullName)"
+
+      - name: Build Setup EXE Installer (NSIS)
+        shell: pwsh
+        run: |
+          # Compila el instalador .exe equivalente con Nullsoft Install System
+          # (NSIS 3) mediante scripts/build_nsis_installer.ps1. Mantiene Inno
+          # Setup y genera un artefacto independiente con sufijo -nsis- para
+          # evitar colisiones al publicarlos en la misma GitHub Release.
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          pwsh scripts/build_nsis_installer.ps1 -Version $version -NoPublish
+          $nsisExe = Get-ChildItem -Path artifacts/dist -Filter "PolyglotCLI-*-x64-nsis-setup.exe" | Select-Object -First 1
+          if (-not $nsisExe) {
+              Write-Error "No se encontro el archivo PolyglotCLI-*-x64-nsis-setup.exe generado por NSIS."
+              exit 1
+          }
+          Write-Host "Instalador NSIS generado: $($nsisExe.FullName)"
+
       - name: Extract Changelog Section
         shell: pwsh
         run: |
@@ -140,6 +173,7 @@ jobs:
           files: |
             PolyglotCLI-*.msix
             artifacts/dist/PolyglotCLI-*-x64-setup.exe
+            artifacts/dist/PolyglotCLI-*-x64-nsis-setup.exe
           body_path: release_notes.md
           name: ${{ github.ref_name }}
         env:
