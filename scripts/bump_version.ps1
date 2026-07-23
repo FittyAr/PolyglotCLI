@@ -1,3 +1,28 @@
+# scripts/bump_version.ps1
+# Incrementa la version en el .csproj, actualiza el CHANGELOG.md, crea el commit/tag y hace push a GitHub.
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+
+$ErrorActionPreference = "Stop"
+
+# Asegurar que estamos en el directorio raiz del proyecto
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not $scriptDir) {
+    $scriptDir = $PSScriptRoot
+}
+if (-not $scriptDir) {
+    $scriptDir = "."
+}
+Set-Location $scriptDir
+Set-Location ".."
+
+$csprojPath = "PolyglotCLI.web/PolyglotCLI.web.csproj"
+$changelogPath = "docs/CHANGELOG.md"
+$unreleasedPath = "docs/UNRELEASE.md"
+$installerScript = Join-Path $scriptDir "build_installer.ps1"
+
+# Helper: prefiere PowerShell 7 (pwsh) y cae a Windows PowerShell 5.1 si no esta.
 function Get-PowerShellExe {
     $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
     if ($pwshCmd) { return "pwsh" }
