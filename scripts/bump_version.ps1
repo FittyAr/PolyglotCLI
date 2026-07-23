@@ -312,7 +312,6 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     # version que de todos modos el commit capturara), nos aseguramos de que esos
     # esten explícitamente en el stage.
     git add $csprojPath
-    if (Test-Path $wxsPath) { git add $wxsPath }
     git add $changelogPath
     git add $unreleasedPath
 

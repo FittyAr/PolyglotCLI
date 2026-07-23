@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Improved
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+- Removed residual WiX configuration references from bump_version.ps1 and deleted obsolete WiX documentation.
+### Fixed
+
+---
+
+## [v1.1.0] - 2026-07-23
+
+### Added
+
 - Nuevo sistema de instalación basado en **Inno Setup 7** (`installer/PolyglotCLI.iss`, `installer/license.txt`, `scripts/build_installer.ps1`). Genera un instalador `.exe` con asistente gráfico nativo de Windows que reemplaza al antiguo `.msi` de WiX. Reutiliza los recursos del manifiesto (`assets/icons/app.ico`, `assets/msix/`) y la licencia MIT (`installer/license.txt`).
 
 ### Improved
