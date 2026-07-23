@@ -80,7 +80,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ; Apuntamos al propio ejecutable del escritorio (que lleva app.ico embebido
 ; gracias a <ApplicationIcon> en PolyglotCLI.Maui.csproj) para mantener una
 ; unica fuente de verdad del icono corporativo.
-UninstallDisplayIcon={app}\Desktop\desktopapp\PolyglotCLI.Maui.exe
+UninstallDisplayIcon={app}\app.ico
 
 ; Espacio minimo requerido en la pantalla de seleccion de carpeta. Ver el
 ; comentario sobre EXTRA_SPACE_KB al inicio del script.
@@ -108,6 +108,9 @@ Name: "server";   Description: "Servidor Web (PolyglotCLI Web)";   Types: full c
 Name: "desktop";  Description: "Escritorio nativo (PolyglotCLI MAUI)"; Types: full custom
 
 [Files]
+; Icono de la aplicacion compartido para todos los accesos directos
+Source: "..\assets\icons\app.ico"; DestDir: "{app}"; Flags: ignoreversion
+
 ; Servidor Web (PolyglotCLI.web)
 Source: "..\artifacts\publish_out\*"; \
     DestDir: "{app}\Server\serverapp"; \
@@ -132,21 +135,21 @@ Name: "desktopicon"; \
 Name: "{group}\PolyglotCLI - Server"; \
     Filename: "{app}\Server\serverapp\PolyglotCLI.exe"; \
     WorkingDir: "{app}\Server\serverapp"; \
-    IconFilename: "{app}\Server\serverapp\PolyglotCLI.exe"; \
+    IconFilename: "{app}\app.ico"; \
     Comment: "Inicia el servidor web PolyglotCLI (se abre en http://localhost:5000)"; \
     Components: server
 
 Name: "{group}\PolyglotCLI - Web"; \
     Filename: "{cmd}"; \
     Parameters: "/C start """" http://localhost:5000"; \
-    IconFilename: "{app}\Server\serverapp\PolyglotCLI.exe"; \
+    IconFilename: "{app}\app.ico"; \
     Comment: "Abre el panel web de PolyglotCLI en el navegador predeterminado"; \
     Components: server; Flags: runmaximized
 
 Name: "{group}\PolyglotCLI - Desktop"; \
     Filename: "{app}\Desktop\desktopapp\PolyglotCLI.Maui.exe"; \
     WorkingDir: "{app}\Desktop\desktopapp"; \
-    IconFilename: "{app}\Desktop\desktopapp\PolyglotCLI.Maui.exe"; \
+    IconFilename: "{app}\app.ico"; \
     Comment: "Inicia la aplicacion nativa de escritorio PolyglotCLI"; \
     Components: desktop
 
@@ -154,21 +157,21 @@ Name: "{group}\PolyglotCLI - Desktop"; \
 Name: "{commondesktop}\PolyglotCLI - Servidor Web"; \
     Filename: "{app}\Server\serverapp\PolyglotCLI.exe"; \
     WorkingDir: "{app}\Server\serverapp"; \
-    IconFilename: "{app}\Server\serverapp\PolyglotCLI.exe"; \
+    IconFilename: "{app}\app.ico"; \
     Comment: "Inicia el servidor web PolyglotCLI"; \
     Tasks: desktopicon; Components: server
 
 Name: "{commondesktop}\PolyglotCLI - Abrir en el navegador"; \
     Filename: "{cmd}"; \
     Parameters: "/C start """" http://localhost:5000"; \
-    IconFilename: "{app}\Server\serverapp\PolyglotCLI.exe"; \
+    IconFilename: "{app}\app.ico"; \
     Comment: "Abre el panel web de PolyglotCLI en el navegador"; \
     Tasks: desktopicon; Components: server
 
 Name: "{commondesktop}\PolyglotCLI - Escritorio nativo"; \
     Filename: "{app}\Desktop\desktopapp\PolyglotCLI.Maui.exe"; \
     WorkingDir: "{app}\Desktop\desktopapp"; \
-    IconFilename: "{app}\Desktop\desktopapp\PolyglotCLI.Maui.exe"; \
+    IconFilename: "{app}\app.ico"; \
     Comment: "Inicia la aplicacion nativa de escritorio PolyglotCLI"; \
     Tasks: desktopicon; Components: desktop
 
