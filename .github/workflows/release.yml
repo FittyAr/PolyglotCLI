@@ -114,7 +114,7 @@ jobs:
           # Compila el instalador .exe con Inno Setup 7 mediante scripts/build_installer.ps1.
           $version = "${{ github.ref_name }}".TrimStart('v')
           pwsh scripts/build_installer.ps1 -Version $version -NoPublish
-          $setupExe = Get-ChildItem -Path installer/dist -Filter "PolyglotCLI-*-x64-setup.exe" | Select-Object -First 1
+          $setupExe = Get-ChildItem -Path artifacts/dist -Filter "PolyglotCLI-*-x64-setup.exe" | Select-Object -First 1
           if (-not $setupExe) {
               Write-Error "No se encontro el archivo PolyglotCLI-*-x64-setup.exe generado por Inno Setup."
               exit 1
@@ -139,7 +139,7 @@ jobs:
           draft: true
           files: |
             PolyglotCLI-*.msix
-            installer/dist/PolyglotCLI-*-x64-setup.exe
+            artifacts/dist/PolyglotCLI-*-x64-setup.exe
           body_path: release_notes.md
           name: ${{ github.ref_name }}
         env:

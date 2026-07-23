@@ -106,11 +106,11 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-$installerPath = Resolve-Path "installer/dist/PolyglotCLI-$Version-x64-setup.exe" -ErrorAction SilentlyContinue
+$installerPath = Resolve-Path "artifacts/dist/PolyglotCLI-$Version-x64-setup.exe" -ErrorAction SilentlyContinue
 if ($installerPath) {
     Write-Host "Instalador generado: $($installerPath.Path)" -ForegroundColor Green
 } else {
-    Write-Host "Instalador generado en installer/dist/." -ForegroundColor Green
+    Write-Host "Instalador generado en artifacts/dist/." -ForegroundColor Green
 }
 
 exit 0

@@ -26,6 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `installer/build_installer/` → `installer/dist/` (salida compilada del instalador Inno Setup).
   - `publish_out/` y `publish_maui/` → `artifacts/publish_out/` y `artifacts/publish_maui/` (outputs de `dotnet publish`, ahora ignorados por Git bajo `artifacts/`).
 - `installer/PolyglotCLI.iss`: actualizadas las rutas de los artefactos publicados (`..\artifacts\publish_out`, `..\artifacts\publish_maui`) y del icono (`..\assets\icons\app.ico`). El `OutputDir` pasa de `build_installer` a `dist`. Los mensajes de error del asistente ahora mencionan la nueva ruta `artifacts\publish_out`.
+- **Selector de componentes en el instalador**. El usuario elige qué módulos instalar durante el asistente:
+  - `[Types]`: `full` (Instalación completa) y `custom` (Personalizada).
+  - `[Components]`: `server` (Servidor Web) y `desktop` (Escritorio nativo MAUI). Ambos vienen marcados por defecto en `full` y son elegibles individualmente en `custom`.
+  - `[Code] NextButtonClick`: impide avanzar de la página de selección si el usuario desmarca ambos componentes (debe quedar al menos uno).
+- **Personalización visual del instalador con `assets/`**. El asistente ahora usa los recursos gráficos del manifiesto: `WizardImageFile = assets/msix/Assets/LogoSimple.png` (lateral) y `WizardSmallImageFile = assets/msix/Assets/Square44x44Logo.png` (cabecera), con `WizardImageStretch=yes` y fondo `$1F2937`.
+- **Accesos directos renombrados y agrupados**. Cada componente expone accesos directos claros en el Menú Inicio (y Escritorio cuando se marca la tarea `desktopicon`, ahora activada por defecto):
+  - `PolyglotCLI - Servidor Web` → arranca `Server\serverapp\PolyglotCLI.exe`.
+  - `PolyglotCLI - Abrir en el navegador` → abre `http://localhost:5000` con el navegador predeterminado (atajo a `{cmd} /C start "" http://localhost:5000`, usando el icono del propio ejecutable del servidor).
+  - `PolyglotCLI - Escritorio nativo` → arranca `Desktop\desktopapp\PolyglotCLI.Maui.exe`.
+- **Idioma del instalador**: se sustituye `compiler:Default.isl` (inglés) por `compiler:Languages\Spanish.isl`, de modo que todos los textos del asistente aparecen en español.
+- `[Run]` post-instalación: en lugar de lanzar el `.exe` del servidor automáticamente, ahora ofrece al usuario (desmarcado por defecto) abrir el panel web en el navegador.
 - `scripts/build_installer.ps1`, `scripts/install.ps1` y `.github/workflows/release.yml`: actualizados para publicar y leer los artefactos desde `artifacts/` y para generar el `.exe` final en `installer/dist/`.
 - `PolyglotCLI.core/Services/PromptLoader.cs`: la resolución de rutas busca primero `assets/prompts/` (ubicación canónica) y conserva `prompts/` como ubicación de fallback para despliegues existentes.
 - `PolyglotCLI.web/Components/Config/PromptsConfigTab.razor`: el texto informativo ahora indica `assets/prompts/` como carpeta de guardado.
