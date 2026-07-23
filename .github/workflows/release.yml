@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Package Release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build and Publish PolyglotCLI
+        run: |
+          dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o publish_out
+
+      - name: Prepare Assets & Sanitize Configuration
+        shell: pwsh
+        run: |
+          # 1. Copiar prompts
+          Copy-Item -Path prompts -Destination publish_out/prompts -Recurse -Force
+          
+          # 2. Copiar y sanitizar config.json para evitar filtrar secretos del desarrollador
+          $configPath = "publish_out/config.json"
+          if (Test-Path $configPath) {
+              try {
+                  $cfg = Get-Content -Raw -Path $configPath | ConvertFrom-Json
+                  $cfg.ApiKey = ""
+                  if ($cfg.ProviderApiKeys) {
+                      $cfg.ProviderApiKeys = New-Object PSObject
+                  }
+                  $cfg.ApiUrl = "http://localhost:1234/v1"
+                  
+                  $sanitized = ConvertTo-Json $cfg -Depth 10
+                  Set-Content -Path $configPath -Value $sanitized -Encoding UTF8
+                  Write-Host "config.json sanitizado con éxito."
+              } catch {
+                  Write-Host "Fallo al sanitizar config.json: $_"
+              }
+          }
+
+      - name: Compress Release Archive
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          $zipName = "PolyglotCLI-$version-win-x64.zip"
+          Compress-Archive -Path publish_out\* -DestinationPath $zipName -Force
+          Write-Host "Archivo zip creado: $zipName"
+
+      - name: Extract Changelog Section
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          try {
+              pwsh scripts/extract_changelog.ps1 $version > release_notes.md
+              Write-Host "Notas de release extraídas con éxito."
+          } catch {
+              Set-Content -Path release_notes.md -Value "Consulte el [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) para más detalles sobre los cambios de la versión $version."
+              Write-Host "No se pudieron extraer las notas; se utilizó texto de fallback."
+          }
+
+      - name: Create Draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: PolyglotCLI-*.zip
+          body_path: release_notes.md
+          name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
