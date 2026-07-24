@@ -139,14 +139,6 @@ h1, h2, h3, h4, h5, h6, .rz-text {
     border: none !important;
 }
 
-/* Cropper.Blazor: el <img> interno hereda el tamaño del contenedor padre.
-   Sin esto la imagen queda con altura 0 y el visor aparece en negro. */
-img.polyglot-cropper {
-    max-height: 100% !important;
-    max-width: 100% !important;
-    display: block !important;
-}
-
 /* ── Job Details dialog: workbench layout ─────────────────────────────
    Radzen sets .rz-dialog-content { flex: 0 1 auto }, so the body never
    grows into the dialog height and leaves a dead band under the panels.

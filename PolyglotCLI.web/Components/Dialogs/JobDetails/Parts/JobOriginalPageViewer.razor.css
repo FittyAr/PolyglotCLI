@@ -1,5 +1,5 @@
 /* Contenedor raíz del visor: garantiza altura completa dentro del RadzenTabsItem
-   y evita que el contenido (toolbar + cropper) empuje el layout del diálogo. */
+   y evita que el contenido (toolbar + panzoom) empuje el layout del diálogo. */
 .original-viewer-host {
     position: relative;
     flex: 1 1 0%;
@@ -35,10 +35,9 @@
     margin-left: 8px;
 }
 
-/* Patrón documentado por Cropper.Blazor:
-   https://cropperblazor.github.io/examples/cropperusage
-   El tamaño del cropper se hereda del elemento padre (el wrapper),
-   así que el wrapper debe tener altura y ancho explícitos. */
+/* Stage: este contenedor define el área visible del pan/zoom.
+   El wrapper interno (polyglot-panzoom-wrapper) ocupa 100% del stage
+   y es sobre el que BlazorPanzoom aplica los CSS transforms. */
 .original-viewer-stage {
     flex: 1 1 0%;
     min-height: 0;
@@ -49,13 +48,30 @@
     overflow: hidden;
 }
 
-/* Cropper.Blazor: el <img> interno hereda el tamaño del contenedor padre.
-   ::deep escapa del scope de Razor para que la regla aplique al <img>
-   que está dentro del CropperComponent (otro componente). */
-::deep .polyglot-cropper {
-    max-height: 100%;
+/* Wrapper interno que BlazorPanzoom manipula con CSS transforms.
+   ::deep escapa del scope de Razor para que la regla aplique al <div>
+   que está dentro del componente <Panzoom>. */
+::deep .polyglot-panzoom-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center center;
+}
+
+/* La imagen hereda el tamaño del wrapper y limita su dimensión
+   máxima para que páginas muy grandes no rompan el layout. */
+::deep .polyglot-panzoom-image {
     max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
     display: block;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
 }
 
 .original-viewer-empty {

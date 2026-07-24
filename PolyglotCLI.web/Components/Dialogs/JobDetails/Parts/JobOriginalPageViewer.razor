@@ -1,24 +1,25 @@
-@using Cropper.Blazor.Components
-@using Cropper.Blazor.Models
-
 <RadzenTabsItem Text="Original (PDF / Imagen)" Icon="image">
     <div class="original-viewer-host">
         @if (HasPageImage && !string.IsNullOrEmpty(PageImageBase64))
         {
             <div class="original-viewer-toolbar">
-                <RadzenButton Icon="zoom_in" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall" Click="@HandleZoomIn" Title="Acercar" Disabled="@(!IsCropperInteractive)" />
-                <RadzenButton Icon="zoom_out" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall" Click="@HandleZoomOut" Title="Alejar" Disabled="@(!IsCropperInteractive)" />
-                <RadzenButton Icon="restart_alt" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.ExtraSmall" Click="@HandleReset" Title="Restablecer" Disabled="@(!IsCropperInteractive)" />
+                <RadzenButton Icon="zoom_in" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall" Click="@HandleZoomIn" Title="Acercar" Disabled="@(!IsPanzoomInteractive)" />
+                <RadzenButton Icon="zoom_out" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall" Click="@HandleZoomOut" Title="Alejar" Disabled="@(!IsPanzoomInteractive)" />
+                <RadzenButton Icon="restart_alt" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.ExtraSmall" Click="@HandleReset" Title="Restablecer" Disabled="@(!IsPanzoomInteractive)" />
                 <span class="original-viewer-hint">Arrastra · Rueda · Doble clic</span>
             </div>
             <div class="original-viewer-stage">
-                <CropperComponent @ref="cropperRef"
-                                 Src="@PageImageDataUrl"
-                                 Options="cropperOptions"
-                                 Class="polyglot-cropper"
-                                 IsAvailableInitCropper="false"
-                                 OnReadyEvent="OnCropperReady"
-                                 OnLoadImageEvent="HandleImageLoaded" />
+                <Panzoom @ref="panzoomRef"
+                         PanzoomOptions="panzoomOptions"
+                         WheelMode="WheelMode.ZoomWithWheel">
+                    <div @ref="@context.ElementReference" class="polyglot-panzoom-wrapper">
+                        <img src="@PageImageDataUrl"
+                             alt="Página @PageNumber"
+                             class="polyglot-panzoom-image"
+                             draggable="false"
+                             @onload="OnImageLoaded" />
+                    </div>
+                </Panzoom>
             </div>
         }
         else

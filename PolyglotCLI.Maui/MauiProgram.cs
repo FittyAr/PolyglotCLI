@@ -3,8 +3,10 @@ using Radzen;
 using PolyglotCLI;
 using PolyglotCLI.Maui.Services;
 using PolyglotCLI.web;
-using Cropper.Blazor.Extensions;
+using PolyglotCLI.web.Services.JobDetails;
+using BlazorPanzoom;
 using CommunityToolkit.Maui;
+using static Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions;
 
 namespace PolyglotCLI.Maui
 {
@@ -43,11 +45,18 @@ namespace PolyglotCLI.Maui
 
 			builder.Services.AddMauiBlazorWebView();
 			builder.Services.AddRadzenComponents();
-			builder.Services.AddCropper();
+			builder.Services.AddBlazorPanzoomServices();
 
 			// Servicio de empaquetado de trabajos específico de MAUI (file pickers nativos)
 			builder.Services.AddSingleton<IJobPackageHost, MauiJobPackageHost>();
 			builder.Services.AddSingleton<IFolderPickerService, MauiFolderPickerService>();
+
+			// Servicios del verificador de páginas: son lógica pura (filesystem + JSON)
+			// sin dependencia de HTTP, así que se reutilizan idénticos en Web y MAUI.
+			builder.Services.AddScoped<IJobArtifactsService, JobArtifactsService>();
+			builder.Services.AddScoped<IJobPageVerifierService, JobPageVerifierService>();
+			builder.Services.AddScoped<IJobPageEditService, JobPageEditService>();
+			builder.Services.AddScoped<IJobPageReprocessService, JobPageReprocessService>();
 
 #if DEBUG
 			builder.Services.AddBlazorWebViewDeveloperTools();

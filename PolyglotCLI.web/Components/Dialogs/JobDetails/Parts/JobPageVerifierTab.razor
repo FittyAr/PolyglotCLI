@@ -13,7 +13,7 @@
         <RadzenCard class="page-verifier-stage">
             @if (SelectedPageData != null)
             {
-                <div class="page-verifier-stage__toolbar">
+                <div class="page-verifier-stage__toolbar" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-shrink: 0; min-height: 38px; flex-wrap: nowrap;">
                     <div class="page-verifier-stage__title-group">
                         <RadzenIcon Icon="auto_stories" Style="color: #818cf8; font-size: 1.1rem;" />
                         <RadzenText TextStyle="TextStyle.Subtitle1" class="page-verifier-stage__title">
@@ -27,7 +27,7 @@
                             </span>
                         }
                     </div>
-                    <RadzenButton Text="Re-procesar esta página" Icon="autorenew" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" Click="@HandleReprocessPage" IsBusy="@IsReprocessingPage" BusyText="Procesando..." class="page-verifier-stage__reprocess-btn" />
+                    <RadzenButton Text="Re-procesar esta página" Icon="autorenew" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" Click="@HandleReprocessPage" IsBusy="@IsReprocessingPage" BusyText="Procesando..." class="page-verifier-stage__reprocess-btn" Style="margin-left: auto;" />
                 </div>
                 <RadzenRow Gap="0.75rem" class="page-verifier-stage__body" Style="flex: 1 1 0%; min-height: 0; display: flex; height: 100%;">
                     <RadzenColumn Size="6" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">

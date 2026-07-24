@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
-using Cropper.Blazor.Components;
-using Cropper.Blazor.Models;
+using BlazorPanzoom;
 using Microsoft.AspNetCore.Components;
 
 namespace PolyglotCLI.web.Components.Dialogs.JobDetails.Parts;
@@ -23,58 +22,43 @@ public partial class JobOriginalPageViewer : ComponentBase
     [Parameter]
     public EventCallback<string> OnError { get; set; }
 
-    private CropperComponent? cropperRef;
+    private Panzoom? panzoomRef;
     private int? _activePageNumber;
-    private bool _isCropperReady;
+    private bool _isPanzoomReady;
     private bool _isDisposed;
-    private bool _isReinitializing;
 
-    private bool IsCropperInteractive => _isCropperReady && cropperRef != null && !_isDisposed;
+    private bool IsPanzoomInteractive => _isPanzoomReady && panzoomRef != null && !_isDisposed;
 
     private string PageImageDataUrl =>
         string.IsNullOrEmpty(PageImageBase64) ? string.Empty : $"data:image/png;base64,{PageImageBase64}";
 
-    private readonly Options cropperOptions = new()
+    private readonly PanzoomOptions panzoomOptions = new()
     {
-        ViewMode = ViewMode.Vm0,
-        DragMode = "move",
-        AutoCrop = false,
-        AutoCropArea = 0,
-        Background = false,
-        CropBoxMovable = false,
-        CropBoxResizable = false,
-        Modal = false,
-        Movable = true,
-        Rotatable = false,
-        Scalable = true,
-        ToggleDragModeOnDblclick = false,
-        Zoomable = true,
-        ZoomOnWheel = true,
-        ZoomOnTouch = true,
-        WheelZoomRatio = 0.1m
+        // Canvas = true hace que el pan/zoom se aplique al wrapper completo,
+        // no solo a la imagen, dejando margen para arrastrar fuera del <img>.
+        Canvas = true,
+        // El visor es solo pan/zoom: sin animación para que los botones
+        // Acercar/Alejar/Restablecer se sientan instantáneos.
+        Animate = false,
     };
 
-    private void OnCropperReady(Cropper.Blazor.Events.JSEventData<Cropper.Blazor.Events.CropReadyEvent.CropReadyEvent> _)
+    protected override void OnAfterRender(bool firstRender)
     {
-        if (_isDisposed)
+        if (firstRender)
         {
-            return;
+            // BlazorPanzoom inicializa su instancia JS en OnAfterRenderAsync;
+            // marcamos el visor como interactivo al primer render.
+            _isPanzoomReady = true;
+            _activePageNumber = PageNumber;
         }
-
-        _isCropperReady = true;
-        _activePageNumber = PageNumber;
-        InvokeAsync(StateHasChanged);
     }
 
-    // El visor del PDF/imagen reusa el mismo <img> cuando cambia la página,
-    // por lo que el evento onload del <img> se dispara para CADA nueva página.
-    // Si dejamos que Cropper.Blazor auto-inicialice (IsAvailableInitCropper=true,
-    // valor por defecto), apila un nuevo wrapper de canvas sobre el anterior en
-    // el DOM. Aquí asumimos el control del ciclo de vida: destruimos cualquier
-    // instancia previa y creamos una sola instancia nueva por página.
-    private void HandleImageLoaded()
+    // El visor reusa el mismo <img> cuando cambia la página, así que el evento
+    // onload del <img> se dispara para CADA nueva página. Llamamos a Reset()
+    // para que el pan/zoom vuelvan a la posición inicial en cada cambio.
+    private async Task OnImageLoaded()
     {
-        if (_isDisposed || cropperRef == null)
+        if (_isDisposed || panzoomRef == null)
         {
             return;
         }
@@ -84,53 +68,46 @@ public partial class JobOriginalPageViewer : ComponentBase
             return;
         }
 
-        // InitCropper() también dispara OnLoadImageEvent de forma síncrona;
-        // el flag evita reentrancia.
-        if (_isReinitializing)
-        {
-            return;
-        }
-
-        _isReinitializing = true;
         try
         {
-            if (_isCropperReady)
-            {
-                try
-                {
-                    cropperRef.Destroy();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Cropper destroy error: {ex.Message}");
-                }
-
-                _isCropperReady = false;
-                _activePageNumber = null;
-            }
-
-            cropperRef.InitCropper();
+            await panzoomRef.ResetAsync();
         }
-        finally
+        catch (Exception ex)
         {
-            _isReinitializing = false;
+            // ResetAsync puede fallar en el primer render antes de que el
+            // JS bundle de panzoom haya terminado de inicializar; lo ignoramos
+            // y dejamos que la próxima interacción del usuario lo configure.
+            Console.WriteLine($"Panzoom reset error: {ex.Message}");
         }
     }
 
-    private async Task HandleZoomIn() => await InvokeZoomAsync(+1);
-
-    private async Task HandleZoomOut() => await InvokeZoomAsync(-1);
-
-    private async Task InvokeZoomAsync(int direction)
+    private async Task HandleZoomIn()
     {
-        if (!IsCropperInteractive || cropperRef == null)
+        if (!IsPanzoomInteractive || panzoomRef == null)
         {
             await OnWarning.InvokeAsync();
             return;
         }
         try
         {
-            cropperRef.Zoom(direction >= 0 ? 0.1m : -0.1m);
+            await panzoomRef.ZoomInAsync();
+        }
+        catch (Exception ex)
+        {
+            await OnError.InvokeAsync(ex.Message);
+        }
+    }
+
+    private async Task HandleZoomOut()
+    {
+        if (!IsPanzoomInteractive || panzoomRef == null)
+        {
+            await OnWarning.InvokeAsync();
+            return;
+        }
+        try
+        {
+            await panzoomRef.ZoomOutAsync();
         }
         catch (Exception ex)
         {
@@ -140,14 +117,14 @@ public partial class JobOriginalPageViewer : ComponentBase
 
     private async Task HandleReset()
     {
-        if (!IsCropperInteractive || cropperRef == null)
+        if (!IsPanzoomInteractive || panzoomRef == null)
         {
             await OnWarning.InvokeAsync();
             return;
         }
         try
         {
-            cropperRef.Reset();
+            await panzoomRef.ResetAsync();
         }
         catch (Exception ex)
         {
@@ -158,7 +135,7 @@ public partial class JobOriginalPageViewer : ComponentBase
     public void Dispose()
     {
         _isDisposed = true;
-        _isCropperReady = false;
-        cropperRef = null;
+        _isPanzoomReady = false;
+        panzoomRef = null;
     }
 }

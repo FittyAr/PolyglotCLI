@@ -4,6 +4,16 @@
     flex-direction: column;
 }
 
+/* Logo en la barra superior: ocupa casi todo el alto del header de Radzen
+   sin deformarse, dejando el toggle de sidebar a la izquierda. */
+.app-brand-logo {
+    height: 38px;
+    width: auto;
+    margin-left: 10px;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
 main {
     flex: 1;
 }

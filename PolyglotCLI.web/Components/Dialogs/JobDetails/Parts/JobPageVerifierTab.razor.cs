@@ -101,9 +101,8 @@ public partial class JobPageVerifierTab : ComponentBase
             PageImageBase64 = base64;
             HasPageImage = true;
         }
-        // Documentación oficial de Cropper.Blazor: en .NET 8 con nuevos modos
-        // de render, los parámetros no se propagan al cropper de forma oportuna
-        // vía blazor.web.js. Forzamos el re-render para que el cambio llegue.
+        // Forzamos el re-render para que el cambio de imagen se propague
+        // al visor de pan/zoom antes del próximo ciclo interactivo.
         InvokeAsync(StateHasChanged);
         return Task.CompletedTask;
     }

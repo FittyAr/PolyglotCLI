@@ -2,8 +2,8 @@ using PolyglotCLI.web.Components;
 using PolyglotCLI.web.Services;
 using PolyglotCLI.web.Services.JobDetails;
 using Radzen;
+using BlazorPanzoom;
 using PolyglotCLI;
-using Cropper.Blazor.Extensions;
 
 namespace PolyglotCLI.web
 {
@@ -28,12 +28,12 @@ namespace PolyglotCLI.web
                     options.DetailedErrors = true;
                 })
                 .AddHubOptions(options => {
-                    // Cropper.Blazor envía imágenes base64 sobre SignalR; ampliar el límite por encima del valor por defecto (32KB).
+                    // El visor de página transmite imágenes base64 sobre SignalR; ampliar el límite por encima del valor por defecto (32KB).
                     // Se amplía a 128MB para soportar payloads grandes (p.ej. miniaturas en base64).
                     options.MaximumReceiveMessageSize = 128 * 1024 * 1024; // 128MB
                 });
             builder.Services.AddRadzenComponents();
-            builder.Services.AddCropper();
+            builder.Services.AddBlazorPanzoomServices();
 
             // HttpClient para que componentes (p.ej. el importador de .zpg) suban archivos directamente
             // al endpoint HTTP sin pasar por SignalR, evitando el límite de tamaño del hub.

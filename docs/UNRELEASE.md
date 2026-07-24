@@ -18,11 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Replaced the `Cropper.Blazor` dependency with `BlazorPanzoom` (shaigem/BlazorPanzoom, MIT) for the "Original (PDF / Imagen)" tab of the page verifier. Pan/zoom is now handled by wrapping the rendered image in a `<Panzoom>` component, eliminating the heavyweight CropperJS canvas overlay while keeping the same gestures (drag, wheel, double-click) and toolbar buttons (Acercar / Alejar / Restablecer).
+- Replaced the `PolyglotCLI Web` text in the top bar with the `Square150x150Logo.png` brand mark from `assets/msix/Assets/` (also copied to `PolyglotCLI.Maui/wwwroot/` so MAUI Hybrid serves it the same way).
+
 ### Deprecated
 
 ### Removed
 
+- Removed the `Cropper.Blazor` NuGet package and its JS/CSS interop layer (`_content/Cropper.Blazor/*`) from both `PolyglotCLI.web` and `PolyglotCLI.Maui`.
+
 ### Fixed
 
-- Fixed broken image preview in the "Verificador de Páginas" tab by adding the required `max-height/max-width` CSS rules for the Cropper.Blazor image.
 - Fixed translation textarea height in the "Verificador de Páginas" tab so it fills the available vertical space instead of staying small.
