@@ -1,13 +1,22 @@
 @using PolyglotCLI
 
+@*
+    Pestaña "General": configuración esencial del proveedor LLM y de la
+    aplicación. Lo avanzado (timeouts, logs, módulos) vive en
+    AdvancedConfigTab.
+*@
+
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
         <RadzenLabel Text="Proveedor LLM" class="rz-mb-2" />
         <RadzenDropDown Data="@providerOptions" @bind-Value="AppConfig.Provider" Change="@OnProviderChanged" class="rz-w-100" />
     </RadzenColumn>
     <RadzenColumn Size="6">
-        <RadzenLabel Text="API Key (Para proveedores Cloud)" class="rz-mb-2" />
-        <RadzenTextBox @bind-Value="AppConfig.ApiKey" Placeholder="sk-..." class="rz-w-100" />
+        <RadzenLabel Text="API Key" class="rz-mb-2" />
+        <RadzenTextBox @bind-Value="AppConfig.ApiKey"
+                       Placeholder="@(IsCloudProvider ? "sk-..." : "No requerida para proveedores locales")"
+                       Disabled="@(!IsCloudProvider)"
+                       class="rz-w-100" />
     </RadzenColumn>
 </RadzenRow>
 
@@ -16,75 +25,27 @@
         <RadzenLabel Text="URL Base de la API" class="rz-mb-2" />
         <div style="display: flex; gap: 0.5rem;">
             <RadzenTextBox @bind-Value="AppConfig.ApiUrl" style="flex-grow: 1;" />
-            <RadzenButton Text="Probar Conexión" Icon="sync" ButtonStyle="ButtonStyle.Secondary" 
-                          Click="@(async () => await OnTestConnection.InvokeAsync())" IsBusy="@IsTestingConnection" BusyText="Conectando..." />
+            <RadzenButton Text="Probar Conexión" Icon="sync" ButtonStyle="ButtonStyle.Secondary"
+                          Click="@(async () => await OnTestConnection.InvokeAsync())"
+                          IsBusy="@IsTestingConnection" BusyText="Conectando..." />
         </div>
     </RadzenColumn>
 </RadzenRow>
 
 <RadzenRow Gap="1rem" class="rz-mb-4">
-    <RadzenColumn Size="4">
-        <RadzenLabel Text="Model Check Timeout (segundos)" class="rz-mb-2" />
-        <RadzenNumeric @bind-Value="AppConfig.ModelCheckTimeoutSeconds" TValue="int" class="rz-w-100" />
-    </RadzenColumn>
-    <RadzenColumn Size="4">
-        <RadzenLabel Text="Timeout Mejora Prompt (segundos)" class="rz-mb-2" />
-        <RadzenNumeric @bind-Value="AppConfig.PromptImproveTimeoutSeconds" TValue="int" class="rz-w-100" />
-    </RadzenColumn>
-    <RadzenColumn Size="4">
+    <RadzenColumn Size="8">
         <RadzenLabel Text="Directorio de Salida" class="rz-mb-2" />
         <RadzenTextBox @bind-Value="AppConfig.OutputDirectory" class="rz-w-100" />
     </RadzenColumn>
-</RadzenRow>
-
-<RadzenRow Gap="1rem" class="rz-mb-4">
-    <RadzenColumn Size="12">
+    <RadzenColumn Size="4" class="rz-align-self-end rz-pb-1">
         <RadzenCheckBox @bind-Value="AppConfig.Debug" Name="cfgDebug" />
-        <RadzenLabel Text="Modo Debug (solo procesa las primeras 2 páginas)" Component="cfgDebug" class="rz-ml-2" />
+        <RadzenLabel Text="Modo Debug (2 primeras pág.)" Component="cfgDebug" class="rz-ml-2" />
     </RadzenColumn>
 </RadzenRow>
 
-<RadzenFieldset Text="Configuración de Logs" class="rz-mt-4">
-    <RadzenRow Gap="1rem">
-        <RadzenColumn Size="4">
-            <RadzenLabel Text="Directorio de Logs" class="rz-mb-2" />
-            <RadzenTextBox @bind-Value="AppConfig.LogDirectory" class="rz-w-100" />
-        </RadzenColumn>
-        <RadzenColumn Size="4">
-            <RadzenLabel Text="Nivel Log Consola" class="rz-mb-2" />
-            <RadzenTextBox @bind-Value="AppConfig.LogLevelConsole" class="rz-w-100" />
-        </RadzenColumn>
-        <RadzenColumn Size="4">
-            <RadzenLabel Text="Nivel Log Archivo" class="rz-mb-2" />
-            <RadzenTextBox @bind-Value="AppConfig.LogLevelFile" class="rz-w-100" />
-        </RadzenColumn>
-    </RadzenRow>
-</RadzenFieldset>
-
-<RadzenFieldset Text="Módulos Activos de la Traducción" class="rz-mt-4">
-    <RadzenRow Gap="1rem">
-        <RadzenColumn Size="3">
-            <RadzenCheckBox @bind-Value="AppConfig.ModuleExtractionEnabled" Name="modExtract" />
-            <RadzenLabel Text="Extracción / OCR" Component="modExtract" class="rz-ml-2" />
-        </RadzenColumn>
-        <RadzenColumn Size="3">
-            <RadzenCheckBox @bind-Value="AppConfig.ModuleTranslationEnabled" Name="modTranslate" />
-            <RadzenLabel Text="Traducción" Component="modTranslate" class="rz-ml-2" />
-        </RadzenColumn>
-        <RadzenColumn Size="3">
-            <RadzenCheckBox @bind-Value="AppConfig.ModuleReviewEnabled" Name="modReview" />
-            <RadzenLabel Text="Revisión (Review)" Component="modReview" class="rz-ml-2" />
-        </RadzenColumn>
-        <RadzenColumn Size="3">
-            <RadzenCheckBox @bind-Value="AppConfig.ModuleConversionEnabled" Name="modConvert" />
-            <RadzenLabel Text="Conversión de Formatos" Component="modConvert" class="rz-ml-2" />
-        </RadzenColumn>
-    </RadzenRow>
-</RadzenFieldset>
-
 @code {
     [Parameter]
-    public PolyglotCLI.AppConfig AppConfig { get; set; } = default!;
+    public AppConfig AppConfig { get; set; } = default!;
 
     [Parameter]
     public bool IsTestingConnection { get; set; }
@@ -104,6 +65,12 @@
         "MiniMax",
         "Custom"
     };
+
+    /// <summary>
+    /// True si el proveedor actual requiere API Key (modelo cloud).
+    /// </summary>
+    private bool IsCloudProvider =>
+        LlmProviderHelper.RequiresApiKey(LlmProviderHelper.ParseProvider(AppConfig.Provider));
 
     private void OnProviderChanged(object value)
     {

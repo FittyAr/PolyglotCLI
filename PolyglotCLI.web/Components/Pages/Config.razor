@@ -13,7 +13,12 @@
                     <GeneralConfigTab AppConfig="@AppConfig" IsTestingConnection="@isTestingConnection" OnTestConnection="@TestConnection" />
                 </RadzenTabsItem>
 
-                <!-- Pestaña 2: OCR Process -->
+                <!-- Pestaña 2: Avanzado -->
+                <RadzenTabsItem Text="Avanzado" Icon="tune">
+                    <AdvancedConfigTab AppConfig="@AppConfig" />
+                </RadzenTabsItem>
+
+                <!-- Pestaña 3: OCR Process -->
                 <RadzenTabsItem Text="OCR Process" Icon="visibility">
                     <OcrConfigTab AppConfig="@AppConfig" AvailableModels="@availableModels" IsTestingConnection="@isTestingConnection" OnLoadModels="@LoadModelsFromServer" />
                 </RadzenTabsItem>
