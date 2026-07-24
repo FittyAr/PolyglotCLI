@@ -1,16 +1,21 @@
-<RadzenCard style="flex: 1 1 0%; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 10px; min-height: 0; height: 100%; padding: 10px 12px !important;">
-    <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold;">1. Documentos</RadzenText>
+<RadzenCard
+    style="flex: 1 1 0%; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 10px; min-height: 0; height: 50%; padding: 10px 12px !important;">
+    <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold; flex-shrink: 0;">1. Documentos</RadzenText>
     @if (JsonFiles == null || JsonFiles.Count == 0)
     {
         <div style="padding: 6px; color: #b0bec5; font-size: 0.85rem;">No hay documentos JSON disponibles.</div>
     }
     else
     {
-        <RadzenListBox Data="@JsonFiles" TValue="JsonFileEntry" Value="@SelectedJsonEntry" Change="@((args) => OnJsonFileSelected.InvokeAsync((JsonFileEntry)args))" style="width: 100%; background: transparent; border: 1px solid rgba(255,255,255,0.08);">
+        <RadzenListBox Data="@JsonFiles" TValue="JsonFileEntry" Value="@SelectedJsonEntry"
+            Change="@((args) => OnJsonFileSelected.InvokeAsync((JsonFileEntry)args))"
+            style="width: 100%; max-height: 180px; overflow-y: auto; background: transparent; border: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;">
             <Template Context="doc">
-                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <div
+                    style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     <RadzenIcon Icon="description" Style="font-size: 1rem; color: #6366f1; min-width: 16px;" />
-                    <span title="@doc.DisplayName" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1;">@doc.DisplayName</span>
+                    <span title="@doc.DisplayName"
+                        style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1;">@doc.DisplayName</span>
                     <span style="color: #b0bec5; font-size: 0.75rem;">@doc.PageCount</span>
                 </div>
             </Template>
@@ -19,18 +24,35 @@
 
     @if (PageDataList != null && PageDataList.Count > 0)
     {
-        <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold; margin-top: 8px;">2. Selecciona Página</RadzenText>
-        <RadzenListBox Data="@PageDataList" TValue="DocumentPageData" Value="@SelectedPageData" Change="@((args) => OnPageSelected.InvokeAsync((DocumentPageData)args))" style="flex-grow: 1; height: 100%; min-height: 0; background: transparent; border: 1px solid rgba(255,255,255,0.08);">
+        <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold; margin-top: 8px; flex-shrink: 0;">
+            2. Selecciona Página
+            @if (FilteredPageDataList.Count != PageDataList.Count)
+            {
+                <span style="color: #b0bec5; font-weight: normal; font-size: 0.75rem;">
+                    (@FilteredPageDataList.Count de @PageDataList.Count)
+                </span>
+            }
+        </RadzenText>
+
+        <RadzenTextBox Placeholder="Buscar página..." @bind-Value="PageFilter" Change="@OnPageFilterChanged"
+            Style="width: 100%; flex-shrink: 0;" />
+
+        <RadzenListBox Data="@FilteredPageDataList" TValue="DocumentPageData" Value="@SelectedPageData"
+            Change="@((args) => OnPageSelected.InvokeAsync((DocumentPageData)args))"
+            style="flex-grow: 1; min-height: 0; max-height: 480px; overflow-y: auto; background: transparent; border: 1px solid rgba(255,255,255,0.08);">
             <Template Context="p">
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
                     <span>Pág / Chunk @p.PageNumber</span>
                     <div style="display: flex; gap: 4px; align-items: center;">
                         @if (PendingTranslationEdits.ContainsKey(p.PageNumber))
                         {
-                            <RadzenIcon Icon="edit" Style="color: #f59e0b; font-size: 0.85rem;" title="Editada en esta sesión" />
+                            <RadzenIcon Icon="edit" Style="color: #f59e0b; font-size: 0.85rem;"
+                                title="Editada en esta sesión" />
                         }
-                        <RadzenIcon Icon="@(p.IsOcrSuccessful ? "check_circle" : "error")" Style="@(p.IsOcrSuccessful ? "color: #10b981; font-size: 1rem;" : "color: #ef4444; font-size: 1rem;")" />
-                        <RadzenIcon Icon="@(p.IsTranslationSuccessful ? "check_circle" : "error")" Style="@(p.IsTranslationSuccessful ? "color: #10b981; font-size: 1rem;" : "color: #ef4444; font-size: 1rem;")" />
+                        <RadzenIcon Icon="@(p.IsOcrSuccessful ? "check_circle" : "error")"
+                            Style="@(p.IsOcrSuccessful ? "color: #10b981; font-size: 1rem;" : "color: #ef4444; font-size: 1rem;")" />
+                        <RadzenIcon Icon="@(p.IsTranslationSuccessful ? "check_circle" : "error")"
+                            Style="@(p.IsTranslationSuccessful ? "color: #10b981; font-size: 1rem;" : "color: #ef4444; font-size: 1rem;")" />
                     </div>
                 </div>
             </Template>
