@@ -4,16 +4,6 @@
     flex-direction: column;
 }
 
-/* Logo en la barra superior: ocupa casi todo el alto del header de Radzen
-   sin deformarse, dejando el toggle de sidebar a la izquierda. */
-.app-brand-logo {
-    height: 38px;
-    width: auto;
-    margin-left: 10px;
-    user-select: none;
-    -webkit-user-drag: none;
-}
-
 main {
     flex: 1;
 }
@@ -105,4 +95,44 @@ main {
         position: absolute;
         right: 0.75rem;
         top: 0.5rem;
+    }
+
+/* ── Header navigation buttons ──────────────────────────────────────
+   Los botones usan ButtonStyle.Secondary para mapear a
+   .rz-button.rz-secondary definido en wwwroot/app.css (glassmorphism
+   dark). ::deep cruza el Shadow DOM de Radzen para poder tocar el
+   .rz-button interno desde el CSS scoped del layout. */
+
+.header-nav-btn {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+    .header-nav-btn ::deep .rz-button {
+        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+    }
+
+    .header-nav-btn ::deep .rz-button:hover {
+        transform: translateY(-1px);
+    }
+
+/* Quita el focus ring morado por defecto de Radzen al clickar:
+   ya tenemos un active state propio, el focus ring solo agrega ruido. */
+.header-nav-btn ::deep .rz-button:focus,
+.header-nav-btn ::deep .rz-button:focus-visible {
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Estado activo: resalta la sección actual con la paleta índigo
+   de la app (rgba(99, 102, 241, ...)) ya presente en app.css. */
+.header-nav-btn--active ::deep .rz-button {
+    background: rgba(99, 102, 241, 0.22) !important;
+    border-color: #6366f1 !important;
+    color: #ffffff !important;
+    font-weight: 700;
+}
+
+    .header-nav-btn--active ::deep .rz-button:hover {
+        background: rgba(99, 102, 241, 0.32) !important;
     }

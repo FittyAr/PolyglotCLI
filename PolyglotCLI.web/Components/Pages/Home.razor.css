@@ -1,0 +1,18 @@
+/* Logo dentro del RadzenCard de Consola de Progreso.
+   Solo se renderiza en la sección de traductor (Home), por lo que no
+   aparece en History ni en Config. */
+.app-brand-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5rem 0 1rem 0;
+}
+
+.app-brand-logo {
+    height: 200px;
+    width: auto;
+    max-width: 100%;
+    user-select: none;
+    -webkit-user-drag: none;
+    filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.35));
+}

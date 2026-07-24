@@ -1,21 +1,26 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject PolyglotCLI.ApplicationMode AppMode
+@inject NavigationManager Nav
 
 <RadzenLayout style="min-height: 100vh">
     <RadzenHeader>
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
-            <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
-            <img src="brand-logo.png" alt="PolyglotCLI" class="app-brand-logo" />
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.Center"
+                     Gap="0.5rem"
+                     class="rz-px-3">
+            <RadzenButton Text="Traductor" Icon="translate" ButtonStyle="ButtonStyle.Secondary"
+                          Click="@(() => Nav.NavigateTo("/"))"
+                          class="@(IsActive("/") ? "header-nav-btn header-nav-btn--active" : "header-nav-btn")" />
+            <RadzenButton Text="Historial de Trabajos" Icon="history" ButtonStyle="ButtonStyle.Secondary"
+                          Click="@(() => Nav.NavigateTo("/history"))"
+                          class="@(IsActive("/history") ? "header-nav-btn header-nav-btn--active" : "header-nav-btn")" />
+            <RadzenButton Text="Configuración" Icon="settings" ButtonStyle="ButtonStyle.Secondary"
+                          Click="@(() => Nav.NavigateTo("/config"))"
+                          class="@(IsActive("/config") ? "header-nav-btn header-nav-btn--active" : "header-nav-btn")" />
         </RadzenStack>
     </RadzenHeader>
-
-    <RadzenSidebar @bind-Expanded="@sidebarExpanded">
-        <RadzenPanelMenu>
-            <RadzenPanelMenuItem Text="Traductor" Icon="translate" Path="/" />
-            <RadzenPanelMenuItem Text="Historial de Trabajos" Icon="history" Path="/history" />
-            <RadzenPanelMenuItem Text="Configuración" Icon="settings" Path="/config" />
-        </RadzenPanelMenu>
-    </RadzenSidebar>
 
     <RadzenBody>
         <div class="p-4">
@@ -38,5 +43,25 @@
 <RadzenContextMenu />
 
 @code {
-    bool sidebarExpanded = true;
+    private string currentPath = "/";
+
+    protected override void OnInitialized()
+    {
+        currentPath = new Uri(Nav.Uri).AbsolutePath;
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        currentPath = new Uri(e.Location).AbsolutePath;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private bool IsActive(string path) =>
+        string.Equals(currentPath, path, StringComparison.OrdinalIgnoreCase);
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
 }
