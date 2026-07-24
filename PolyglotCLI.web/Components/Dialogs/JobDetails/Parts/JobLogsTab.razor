@@ -1,0 +1,35 @@
+@inject IJobArtifactsService ArtifactsService
+
+<JobFilePickerPane
+    Items="@logFiles"
+    ListTitle="Archivos de Bitácora"
+    EmptyMessage="No se encontraron archivos de log en este trabajo."
+    IconStyle="font-size: 1.2rem; color: #f59e0b;"
+    GetIcon="@(_ => "receipt_long")"
+    SelectedFileName="@selectedLogFileName"
+    PreviewContent="@selectedLogFileContent"
+    PreviewTitle="Contenido"
+    DefaultSelectionHint="Selecciona un log"
+    PreviewColor="#f59e0b"
+    PreviewEmptyMessage="Selecciona una bitácora para previsualizar los eventos registrados en el backend."
+    OnFileSelected="@HandleLogFileSelected" />
+
+@code {
+    [Parameter]
+    public string JobDir { get; set; } = string.Empty;
+
+    private List<string> logFiles = new();
+    private string? selectedLogFileContent;
+    private string? selectedLogFileName;
+
+    protected override void OnInitialized()
+    {
+        logFiles = ArtifactsService.ListLogFiles(JobDir);
+    }
+
+    private void HandleLogFileSelected(string path)
+    {
+        selectedLogFileName = Path.GetFileName(path);
+        selectedLogFileContent = ArtifactsService.ReadTextFile(path, "Error al leer los logs");
+    }
+}

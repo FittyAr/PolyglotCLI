@@ -1,0 +1,49 @@
+@inject IJobArtifactsService ArtifactsService
+
+<JobFilePickerPane
+    Items="@tempImages"
+    ListTitle="Páginas (PNG)"
+    EmptyMessage="No se encontraron imágenes."
+    ListStyle="width: 100%; flex-grow: 1; height: 100%; min-height: 0; background: transparent; border: none; font-size: 0.8rem;"
+    IconStyle="font-size: 1rem; color: #10b981; min-width: 16px;"
+    GetIcon="@(_ => "image")"
+    SelectedFileName="@selectedImageName"
+    PreviewContent="@selectedImageBase64"
+    ShowImagePreview="@(selectedImageBase64 != null)"
+    PreviewTitle="Visor"
+    DefaultSelectionHint="Selecciona una página"
+    PreviewEmptyMessage="Selecciona una página de la lista para visualizar la imagen renderizada del PDF."
+    OnFileSelected="@HandleImageSelected" />
+
+@code {
+    [Parameter]
+    public string JobDir { get; set; } = string.Empty;
+
+    private List<string> tempImages = new();
+    private string? selectedImageBase64;
+    private string? selectedImageName;
+
+    protected override void OnInitialized()
+    {
+        tempImages = ArtifactsService.ListTempImages(JobDir);
+    }
+
+    private void HandleImageSelected(string path)
+    {
+        selectedImageName = Path.GetFileName(path);
+        string? content = ArtifactsService.ReadFileAsBase64(path);
+        if (content == null)
+        {
+            selectedImageBase64 = null;
+        }
+        else if (content.StartsWith("Error", StringComparison.OrdinalIgnoreCase))
+        {
+            selectedImageBase64 = null;
+            selectedImageName = $"Error al cargar la imagen: {content}";
+        }
+        else
+        {
+            selectedImageBase64 = content;
+        }
+    }
+}

@@ -1,0 +1,28 @@
+<RadzenTabsItem Text="Traducción" Icon="translate">
+    <div style="flex: 1 1 0%; display: flex; flex-direction: column; margin-top: 6px; min-height: 0; height: 100%;">
+        <div style="display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 6px; flex-shrink: 0;">
+            <RadzenButton Icon="@(IsEditingTranslation ? "visibility" : "edit")"
+                          Text="@(IsEditingTranslation ? "Vista previa" : "Editar")"
+                          ButtonStyle="ButtonStyle.Light"
+                          Size="ButtonSize.ExtraSmall"
+                          Click="@ToggleEditing" />
+        </div>
+        @if (IsEditingTranslation)
+        {
+            <RadzenTextArea Value="@Text" ValueChanged="@(async (string v) => await NotifyTranslationChanged(v))" style="flex: 1 1 0%; font-family: monospace; font-size: 0.9rem; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); padding: 12px; border-radius: 6px; resize: none; min-height: 0; height: 100%;" />
+        }
+        else
+        {
+            <div style="flex: 1 1 0%; overflow-y: auto; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 12px; min-height: 0; height: 100%;">
+                @if (!string.IsNullOrWhiteSpace(Text))
+                {
+                    <RadzenMarkdown Text="@GetMarkdownForPreview(Text)" />
+                }
+                else
+                {
+                    <div style="color: #b0bec5; font-size: 0.9rem;">Sin contenido para previsualizar.</div>
+                }
+            </div>
+        }
+    </div>
+</RadzenTabsItem>

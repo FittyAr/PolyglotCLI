@@ -1,0 +1,50 @@
+@inject IJobArtifactsService ArtifactsService
+
+<JobFilePickerPane
+    Items="@outputFiles"
+    ListTitle="Archivos en el Directorio de Salida"
+    EmptyMessage="No se encontraron archivos en la carpeta de salida del trabajo."
+    IconStyle="font-size: 1.2rem; color: #6366f1;"
+    GetIcon="@GetIconForOutputPath"
+    SelectedFileName="@selectedOutputFileName"
+    PreviewContent="@selectedOutputFileContent"
+    PreviewTitle="Previsualización"
+    DefaultSelectionHint="Selecciona un archivo"
+    PreviewColor="#cbd5e1"
+    PreviewEmptyMessage="Selecciona un archivo de texto/markdown de la lista para ver su contenido."
+    OnFileSelected="@HandleOutputFileSelected" />
+
+@code {
+    [Parameter]
+    public string JobDir { get; set; } = string.Empty;
+
+    private List<string> outputFiles = new();
+    private string? selectedOutputFileContent;
+    private string? selectedOutputFileName;
+
+    protected override void OnInitialized()
+    {
+        outputFiles = ArtifactsService.ListOutputFiles(JobDir);
+    }
+
+    private static string GetIconForOutputPath(string path)
+    {
+        return path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ? "article" : "description";
+    }
+
+    private void HandleOutputFileSelected(string path)
+    {
+        selectedOutputFileName = Path.GetFileName(path);
+        if (path.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".log", StringComparison.OrdinalIgnoreCase))
+        {
+            selectedOutputFileContent = ArtifactsService.ReadTextFile(path);
+        }
+        else
+        {
+            selectedOutputFileContent = $"[Archivo binario o no legible en texto: {selectedOutputFileName}]";
+        }
+    }
+}

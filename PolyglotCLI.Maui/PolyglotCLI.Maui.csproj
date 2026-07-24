@@ -88,6 +88,7 @@
     <ItemGroup>
         <!-- Enlace de archivos de componentes de la aplicación Web para compilación directa en MAUI -->
         <Compile Include="..\PolyglotCLI.web\Components\**\*.cs" LinkBase="Components" />
+        <Compile Include="..\PolyglotCLI.web\Services\JobDetails\**\*.cs" LinkBase="Services\JobDetails" />
         <Compile Include="..\PolyglotCLI.web\TranslationSession.cs" Link="TranslationSession.cs" />
         <RazorComponent Include="..\PolyglotCLI.web\Components\**\*.razor" Exclude="..\PolyglotCLI.web\Components\App.razor;..\PolyglotCLI.web\Components\Pages\Error.razor" LinkBase="Components" />
         <None Include="..\PolyglotCLI.web\Components\**\*.razor.css" Exclude="..\PolyglotCLI.web\Components\App.razor.css" LinkBase="Components" />

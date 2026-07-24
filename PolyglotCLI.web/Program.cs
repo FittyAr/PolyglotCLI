@@ -1,5 +1,6 @@
 using PolyglotCLI.web.Components;
 using PolyglotCLI.web.Services;
+using PolyglotCLI.web.Services.JobDetails;
 using Radzen;
 using PolyglotCLI;
 using Cropper.Blazor.Extensions;
@@ -45,6 +46,10 @@ namespace PolyglotCLI.web
             // (Web usa HTTP endpoints; MAUI usa file pickers nativos).
             builder.Services.AddScoped<IJobPackageHost, WebJobPackageHost>();
             builder.Services.AddScoped<IFolderPickerService, WebFolderPickerService>();
+            builder.Services.AddScoped<IJobArtifactsService, JobArtifactsService>();
+            builder.Services.AddScoped<IJobPageVerifierService, JobPageVerifierService>();
+            builder.Services.AddScoped<IJobPageEditService, JobPageEditService>();
+            builder.Services.AddScoped<IJobPageReprocessService, JobPageReprocessService>();
 
             var app = builder.Build();
 

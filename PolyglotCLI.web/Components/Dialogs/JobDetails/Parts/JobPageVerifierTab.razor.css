@@ -1,0 +1,20 @@
+/* Asegura que los RadzenTabs internos consuman todo el alto disponible
+   del stage del verificador. ::deep sale del scope local para alcanzar
+   los elementos generados por Radzen dentro del componente. */
+::deep .page-verifier-stage .rz-tabview {
+    flex: 1 1 0%;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+::deep .page-verifier-stage .rz-tabview-panels,
+::deep .page-verifier-stage .rz-tabview-panel {
+    flex: 1 1 0%;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}

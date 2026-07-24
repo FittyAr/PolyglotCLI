@@ -1,0 +1,30 @@
+<RadzenPanel AllowCollapse="true" Collapsed="@IsDetailsCollapsed" Collapse="@HandleCollapse" Expand="@HandleExpand" class="rz-mb-2" Style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; flex-shrink: 0;">
+    <HeaderTemplate>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <RadzenIcon Icon="info" Style="font-size: 1.2rem; color: #6366f1;" />
+            <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold; margin: 0;">Detalles del Trabajo</RadzenText>
+        </div>
+    </HeaderTemplate>
+    <ChildContent>
+        <RadzenRow Gap="1rem" Style="padding-top: 8px;">
+            <RadzenColumn Size="3">
+                <RadzenText TextStyle="TextStyle.Caption" style="color: #b0bec5; margin: 0;">Creado el</RadzenText>
+                <RadzenText TextStyle="TextStyle.Body2" style="font-weight: bold; margin: 0;">@Job.CreatedAt.ToString("d/M/yyyy HH:mm")</RadzenText>
+            </RadzenColumn>
+            <RadzenColumn Size="3">
+                <RadzenText TextStyle="TextStyle.Caption" style="color: #b0bec5; margin: 0;">Idioma Destino</RadzenText>
+                <RadzenText TextStyle="TextStyle.Body2" style="font-weight: bold; margin: 0;">@Job.TargetLanguage</RadzenText>
+            </RadzenColumn>
+            <RadzenColumn Size="3">
+                <RadzenText TextStyle="TextStyle.Caption" style="color: #b0bec5; margin: 0;">Modelo LLM</RadzenText>
+                <RadzenText TextStyle="TextStyle.Body2" style="font-weight: bold; margin: 0;">@(!string.IsNullOrEmpty(Job.ModelName) ? Job.ModelName : "Defecto del Servidor")</RadzenText>
+            </RadzenColumn>
+            <RadzenColumn Size="3">
+                <RadzenText TextStyle="TextStyle.Caption" style="color: #b0bec5; margin: 0;">Estado General</RadzenText>
+                <div>
+                    <RadzenBadge BadgeStyle="@JobStatusBadgeStyle.GetBadgeStyle(Job.Status)" Text="@Job.Status" />
+                </div>
+            </RadzenColumn>
+        </RadzenRow>
+    </ChildContent>
+</RadzenPanel>

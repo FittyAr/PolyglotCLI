@@ -1,0 +1,65 @@
+<RadzenSplitter Orientation="Orientation.Horizontal" Style="flex: 1 1 0%; min-height: 0; height: 100%;">
+    <RadzenSplitterPane Size="25%" Min="15%" Max="50%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+        <JobDocumentPageSelector
+            JsonFiles="@JsonFiles"
+            SelectedJsonEntry="@SelectedJsonEntry"
+            OnJsonFileSelected="@HandleJsonFileSelected"
+            PageDataList="@PageDataList"
+            SelectedPageData="@SelectedPageData"
+            OnPageSelected="@HandlePageSelected"
+            PendingTranslationEdits="@PendingTranslationEdits" />
+    </RadzenSplitterPane>
+    <RadzenSplitterPane Size="75%" Min="50%" Max="85%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+        <RadzenCard class="page-verifier-stage">
+            @if (SelectedPageData != null)
+            {
+                <div class="page-verifier-stage__toolbar">
+                    <RadzenText TextStyle="TextStyle.Subtitle1" class="page-verifier-stage__title">
+                        Visualizando Página @SelectedPageData.PageNumber de @(PageDataList?.Count ?? 0)
+                        @if (PendingTranslationEdits.Count > 0)
+                        {
+                            <span style="color: #f59e0b; font-size: 0.85rem; font-weight: normal; margin-left: 8px;">
+                                · @PendingTranslationEdits.Count página(s) editada(s) en esta sesión
+                            </span>
+                        }
+                    </RadzenText>
+                    <RadzenButton Text="Re-procesar esta página" Icon="autorenew" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" Click="@HandleReprocessPage" IsBusy="@IsReprocessingPage" BusyText="Procesando..." />
+                </div>
+                <RadzenRow Gap="0.75rem" class="page-verifier-stage__body" Style="flex: 1 1 0%; min-height: 0; display: flex; height: 100%;">
+                    <RadzenColumn Size="6" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+                        <RadzenTabs RenderMode="TabRenderMode.Client" Style="flex: 1 1 0%; display: flex; flex-direction: column; min-height: 0; height: 100%;">
+                            <Tabs>
+                                <JobOriginalPageViewer
+                                    PageNumber="@SelectedPageData.PageNumber"
+                                    HasPageImage="@HasPageImage"
+                                    PageImageBase64="@PageImageBase64"
+                                    OnWarning="@HandleViewerWarning"
+                                    OnError="@HandleViewerError" />
+                            </Tabs>
+                        </RadzenTabs>
+                    </RadzenColumn>
+                    <RadzenColumn Size="6" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+                        <RadzenTabs RenderMode="TabRenderMode.Client" Style="flex: 1 1 0%; display: flex; flex-direction: column; min-height: 0; height: 100%;">
+                            <Tabs>
+                                <JobTranslatedPageViewer
+                                    Text="@SelectedPageData.TranslatedText"
+                                    IsEditingTranslation="@IsEditingTranslation"
+                                    OnToggleEditing="@HandleToggleEditing"
+                                    OnTranslationChanged="@HandleTranslationEdited" />
+                                <JobOcrTextViewer Text="@SelectedPageData.OriginalText" />
+                                <JobReasoningViewer Text="@SelectedPageData.ThoughtText" />
+                            </Tabs>
+                        </RadzenTabs>
+                    </RadzenColumn>
+                </RadzenRow>
+            }
+            else
+            {
+                <div style="display: flex; align-items: center; justify-content: center; flex: 1 1 0%; color: #b0bec5; flex-direction: column; gap: 8px; height: 100%; min-height: 0;">
+                    <RadzenIcon Icon="find_in_page" Style="font-size: 3rem; color: #6366f1;" />
+                    <span>Selecciona un documento y una página del panel izquierdo para comenzar el análisis visual.</span>
+                </div>
+            }
+        </RadzenCard>
+    </RadzenSplitterPane>
+</RadzenSplitter>

@@ -1,0 +1,45 @@
+<RadzenSplitter Orientation="Orientation.Horizontal" Style="flex-grow: 1; min-height: 0; height: 100%;" class="rz-mt-3">
+    <RadzenSplitterPane Size="25%" Min="15%" Max="50%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+        <RadzenCard style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 12px !important;">
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; flex-shrink: 0;">@ListTitle</RadzenText>
+            @if (Items == null || Items.Count == 0)
+            {
+                <div style="padding: 10px; color: #b0bec5; font-size: 0.9rem; flex-grow: 1;">@EmptyMessage</div>
+            }
+            else
+            {
+                <RadzenListBox Data="@Items" TValue="string" style="@ListStyle" Change="@((args) => OnFileSelected.InvokeAsync((string)args))">
+                    <Template Context="path">
+                        <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            <RadzenIcon Icon="@GetIcon(path)" Style="@IconStyle" />
+                            <span>@Path.GetFileName(path)</span>
+                        </div>
+                    </Template>
+                </RadzenListBox>
+            }
+        </RadzenCard>
+    </RadzenSplitterPane>
+    <RadzenSplitterPane Size="75%" Min="50%" Max="85%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+        <RadzenCard style="flex-grow: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.15); min-height: 0; height: 100%; padding: 12px !important;">
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; flex-shrink: 0;">
+                @PreviewTitle: @(SelectedFileName ?? DefaultSelectionHint)
+            </RadzenText>
+            @if (ShowImagePreview)
+            {
+                <div style="flex-grow: 1; width: 100%; overflow: auto; border: 1px solid rgba(255,255,255,0.05); padding: 8px; border-radius: 4px; background: #000; display: block; text-align: center; min-height: 0; height: 100%;">
+                    <img src="data:image/png;base64,@PreviewContent" style="width: 100%; height: auto; display: block; margin: 0 auto;" />
+                </div>
+            }
+            else if (PreviewContent != null)
+            {
+                <div class="virtual-console flex-grow-1" style="flex-grow: 1; overflow-y: auto; white-space: pre-wrap; background-color: #030712; color: @PreviewColor; font-family: monospace; padding: 12px; border-radius: 6px; min-height: 0; height: 100%;">@PreviewContent</div>
+            }
+            else
+            {
+                <div style="display: flex; align-items: center; justify-content: center; flex-grow: 1; color: #b0bec5; height: 100%; min-height: 0;">
+                    @PreviewEmptyMessage
+                </div>
+            }
+        </RadzenCard>
+    </RadzenSplitterPane>
+</RadzenSplitter>

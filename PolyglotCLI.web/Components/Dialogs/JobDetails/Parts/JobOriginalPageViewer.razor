@@ -1,0 +1,29 @@
+@using Cropper.Blazor.Components
+@using Cropper.Blazor.Models
+
+<RadzenTabsItem Text="Original (PDF / Imagen)" Icon="image">
+    <div style="position: relative; flex: 1 1 0%; display: flex; flex-direction: column; margin-top: 6px; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; overflow: hidden; background: #000; min-height: 0; height: 100%;">
+        @if (HasPageImage && !string.IsNullOrEmpty(PageImageBase64))
+        {
+            <div style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(15, 23, 42, 0.9); border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; position: relative; z-index: 10;">
+                <RadzenButton Icon="zoom_in" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall" Click="@HandleZoomIn" Title="Acercar" Disabled="@(cropperRef == null)" />
+                <RadzenButton Icon="zoom_out" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall" Click="@HandleZoomOut" Title="Alejar" Disabled="@(cropperRef == null)" />
+                <RadzenButton Icon="restart_alt" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.ExtraSmall" Click="@HandleReset" Title="Restablecer" Disabled="@(cropperRef == null)" />
+                <span style="flex-grow: 1; color: #94a3b8; font-size: 0.72rem; margin-left: 8px;">Arrastra · Rueda · Doble clic</span>
+            </div>
+            <div style="flex: 1 1 0%; min-height: 0; background: #000; position: relative; height: 100%;">
+                <CropperComponent @ref="cropperRef"
+                                 Src="@PageImageDataUrl"
+                                 Options="cropperOptions"
+                                 Class="polyglot-cropper"
+                                 OnReadyEvent="OnCropperReady" />
+            </div>
+        }
+        else
+        {
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #b0bec5; font-size: 0.9rem; padding: 12px; text-align: center;">
+                No hay imagen renderizada disponible para este tipo de documento.
+            </div>
+        }
+    </div>
+</RadzenTabsItem>
