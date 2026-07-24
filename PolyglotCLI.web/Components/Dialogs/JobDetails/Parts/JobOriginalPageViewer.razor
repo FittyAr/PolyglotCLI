@@ -16,7 +16,9 @@
                                  Src="@PageImageDataUrl"
                                  Options="cropperOptions"
                                  Class="polyglot-cropper"
-                                 OnReadyEvent="OnCropperReady" />
+                                 IsAvailableInitCropper="false"
+                                 OnReadyEvent="OnCropperReady"
+                                 OnLoadImageEvent="HandleImageLoaded" />
             </div>
         }
         else

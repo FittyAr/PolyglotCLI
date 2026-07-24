@@ -27,6 +27,7 @@ public partial class JobOriginalPageViewer : ComponentBase
     private int? _activePageNumber;
     private bool _isCropperReady;
     private bool _isDisposed;
+    private bool _isReinitializing;
 
     private bool IsCropperInteractive => _isCropperReady && cropperRef != null && !_isDisposed;
 
@@ -53,39 +54,6 @@ public partial class JobOriginalPageViewer : ComponentBase
         WheelZoomRatio = 0.1m
     };
 
-    public override async Task SetParametersAsync(ParameterView parameters)
-    {
-        var previousPageNumber = PageNumber;
-        await base.SetParametersAsync(parameters);
-
-        if (PageNumber != previousPageNumber
-            && _isCropperReady
-            && cropperRef != null
-            && HasPageImage
-            && !string.IsNullOrEmpty(PageImageBase64))
-        {
-            await ReplaceImageAsync();
-        }
-    }
-
-    private async Task ReplaceImageAsync()
-    {
-        if (cropperRef == null || _isDisposed)
-        {
-            return;
-        }
-
-        try
-        {
-            await cropperRef.ReplaceAsync(PageImageDataUrl, false);
-            _activePageNumber = PageNumber;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Cropper replace error: {ex.Message}");
-        }
-    }
-
     private void OnCropperReady(Cropper.Blazor.Events.JSEventData<Cropper.Blazor.Events.CropReadyEvent.CropReadyEvent> _)
     {
         if (_isDisposed)
@@ -96,6 +64,57 @@ public partial class JobOriginalPageViewer : ComponentBase
         _isCropperReady = true;
         _activePageNumber = PageNumber;
         InvokeAsync(StateHasChanged);
+    }
+
+    // El visor del PDF/imagen reusa el mismo <img> cuando cambia la página,
+    // por lo que el evento onload del <img> se dispara para CADA nueva página.
+    // Si dejamos que Cropper.Blazor auto-inicialice (IsAvailableInitCropper=true,
+    // valor por defecto), apila un nuevo wrapper de canvas sobre el anterior en
+    // el DOM. Aquí asumimos el control del ciclo de vida: destruimos cualquier
+    // instancia previa y creamos una sola instancia nueva por página.
+    private void HandleImageLoaded()
+    {
+        if (_isDisposed || cropperRef == null)
+        {
+            return;
+        }
+
+        if (!HasPageImage || string.IsNullOrEmpty(PageImageBase64))
+        {
+            return;
+        }
+
+        // InitCropper() también dispara OnLoadImageEvent de forma síncrona;
+        // el flag evita reentrancia.
+        if (_isReinitializing)
+        {
+            return;
+        }
+
+        _isReinitializing = true;
+        try
+        {
+            if (_isCropperReady)
+            {
+                try
+                {
+                    cropperRef.Destroy();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Cropper destroy error: {ex.Message}");
+                }
+
+                _isCropperReady = false;
+                _activePageNumber = null;
+            }
+
+            cropperRef.InitCropper();
+        }
+        finally
+        {
+            _isReinitializing = false;
+        }
     }
 
     private async Task HandleZoomIn() => await InvokeZoomAsync(+1);
