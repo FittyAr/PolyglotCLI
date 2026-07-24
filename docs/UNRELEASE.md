@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Improved
 
+- Improved system translation, review, and OCR prompts with industry-standard terminology guidelines, formatting preservation (no-linting rules), local path mapping, and localized typographical punctuation.
+- Enhanced prompt engineering helper guides for users, adding structured glossary examples, regional localization instructions, and SEO considerations.
+
 ### Changed
 
 ### Deprecated
