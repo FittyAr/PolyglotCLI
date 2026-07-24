@@ -185,8 +185,8 @@
             foreach (var file in files)
             {
                 string fileName = Path.GetFileNameWithoutExtension(file).Replace("_data", "");
-                string translatedOut = Path.Combine(Config.OutputDirectory, $"{fileName}_{Config.TargetLanguage}.md");
-                string originalOut = Path.Combine(Config.OutputDirectory, $"{fileName}_original.md");
+                string translatedOut = Path.Combine(Config.AbsoluteOutputDirectory, $"{fileName}_{Config.TargetLanguage}.md");
+                string originalOut = Path.Combine(Config.AbsoluteOutputDirectory, $"{fileName}_original.md");
 
                 string formatsToConvert = Config.OutputFormats ?? "docx";
 
@@ -201,7 +201,7 @@
                 }
             }
 
-            await DialogService.Alert($"¡Exportación exitosa! Se exportaron e ingresaron {count} archivos Markdown y se convirtieron sus formatos en: {Config.OutputDirectory}", "Exportación Completada");
+            await DialogService.Alert($"¡Exportación exitosa! Se exportaron e ingresaron {count} archivos Markdown y se convirtieron sus formatos en: {Config.AbsoluteOutputDirectory}", "Exportación Completada");
         }
         catch (Exception ex)
         {

@@ -172,6 +172,66 @@ namespace PolyglotCLI
         [System.Text.Json.Serialization.JsonIgnore]
         public string? LoadedFromPath { get; set; }
 
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string AbsoluteOutputDirectory => GetSafeOutputDirectory(OutputDirectory);
+
+        public static bool IsPathInsideProgramFiles(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            try
+            {
+                string fullPath = Path.GetFullPath(path);
+                var pathsToCheck = new List<string>();
+
+                if (OperatingSystem.IsWindows())
+                {
+                    string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+                    if (!string.IsNullOrEmpty(pf)) pathsToCheck.Add(pf);
+
+                    string pfx86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+                    if (!string.IsNullOrEmpty(pfx86)) pathsToCheck.Add(pfx86);
+                }
+
+                // Check if the application base directory is in Program Files
+                string baseDir = AppContext.BaseDirectory;
+                if (!string.IsNullOrEmpty(baseDir) && baseDir.Contains("Program Files", StringComparison.OrdinalIgnoreCase))
+                {
+                    pathsToCheck.Add(baseDir);
+                }
+
+                foreach (var p in pathsToCheck)
+                {
+                    if (fullPath.StartsWith(p, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+            return false;
+        }
+
+        public static string GetSafeOutputDirectory(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                path = "output";
+            }
+
+            string fullPath = Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, path));
+
+            if (IsPathInsideProgramFiles(fullPath))
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                return Path.Combine(appData, "PolyglotCLI", "output");
+            }
+
+            return fullPath;
+        }
+
         public static string GetDefaultConfigPath()
         {
             if (OperatingSystem.IsWindows())
@@ -202,11 +262,11 @@ namespace PolyglotCLI
                 string baseDirConfig = Path.Combine(AppContext.BaseDirectory, "config.json");
                 string appDataConfig = GetDefaultConfigPath();
 
-                if (File.Exists(currentDirConfig))
+                if (File.Exists(currentDirConfig) && !IsPathInsideProgramFiles(currentDirConfig))
                 {
                     resolvedPath = currentDirConfig;
                 }
-                else if (File.Exists(baseDirConfig))
+                else if (File.Exists(baseDirConfig) && !IsPathInsideProgramFiles(baseDirConfig))
                 {
                     resolvedPath = baseDirConfig;
                 }
@@ -214,17 +274,27 @@ namespace PolyglotCLI
                 {
                     resolvedPath = appDataConfig;
                 }
+                else if (File.Exists(baseDirConfig))
+                {
+                    resolvedPath = baseDirConfig;
+                }
                 else
                 {
                     resolvedPath = appDataConfig; // Fallback default path for saving new config
                 }
             }
 
+            string savePath = resolvedPath;
+            if (IsPathInsideProgramFiles(resolvedPath))
+            {
+                savePath = GetDefaultConfigPath();
+            }
+
             AppConfig config;
             if (!File.Exists(resolvedPath))
             {
                 config = new AppConfig();
-                config.LoadedFromPath = resolvedPath;
+                config.LoadedFromPath = savePath;
                 return config;
             }
 
@@ -241,7 +311,7 @@ namespace PolyglotCLI
                 config = new AppConfig();
             }
 
-            config.LoadedFromPath = resolvedPath;
+            config.LoadedFromPath = savePath;
             return config;
         }
 

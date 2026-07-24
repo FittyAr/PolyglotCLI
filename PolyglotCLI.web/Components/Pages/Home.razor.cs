@@ -56,7 +56,7 @@ public partial class Home : ComponentBase, IDisposable
     {
         Config.Reload();
         options.TargetLanguage = Config.TargetLanguage;
-        options.OutputDirectory = Config.OutputDirectory;
+        options.OutputDirectory = Config.AbsoluteOutputDirectory;
         options.SelectedFormat = Config.DefaultOutputFormat;
         options.Verify = Config.EnableReview && Config.ModuleReviewEnabled;
         options.GenerateDoc = !string.IsNullOrEmpty(Config.DefaultOutputFormat) && Config.ModuleConversionEnabled;

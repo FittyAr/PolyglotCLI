@@ -34,7 +34,7 @@ namespace PolyglotCLI
                     Directory.CreateDirectory(outputsDir);
                 }
 
-                string absoluteOutputDir = Path.GetFullPath(config.OutputDirectory);
+                string absoluteOutputDir = config.AbsoluteOutputDirectory;
                 string fileNameWithoutExt = Path.GetFileNameWithoutExtension(sourceFilePath);
 
                 if (Directory.Exists(absoluteOutputDir))
@@ -957,7 +957,7 @@ namespace PolyglotCLI
                 ModelName = config.DefaultModel,
                 VisionModelName = config.DefaultVisionModel,
                 TargetLanguage = config.TargetLanguage,
-                OutputDirectory = config.OutputDirectory
+                OutputDirectory = config.AbsoluteOutputDirectory
             };
 
             string loadedModel = config.DefaultModel ?? "default-model";
@@ -1113,7 +1113,7 @@ namespace PolyglotCLI
             }).ToList(), dataJsonPath);
 
             // 8. Re-exportar a Markdown
-            string absoluteOutputDir = Path.GetFullPath(config.OutputDirectory);
+            string absoluteOutputDir = config.AbsoluteOutputDirectory;
             string outputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_{config.TargetLanguage}.md");
             string originalOutputPath = Path.Combine(absoluteOutputDir, $"{fileNameWithoutExt}_original.md");
 

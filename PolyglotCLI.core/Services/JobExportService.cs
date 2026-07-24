@@ -22,15 +22,15 @@ namespace PolyglotCLI
             }
 
             // Ensure output directory exists
-            if (!Directory.Exists(config.OutputDirectory))
+            if (!Directory.Exists(config.AbsoluteOutputDirectory))
             {
                 try
                 {
-                    Directory.CreateDirectory(config.OutputDirectory);
+                    Directory.CreateDirectory(config.AbsoluteOutputDirectory);
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"Failed to create output directory {config.OutputDirectory}: {ex.Message}");
+                    errors.Add($"Failed to create output directory {config.AbsoluteOutputDirectory}: {ex.Message}");
                     return (0, errors);
                 }
             }
@@ -46,10 +46,10 @@ namespace PolyglotCLI
                     {
                         string fileName = Path.GetFileNameWithoutExtension(file).Replace("_data", "");
                         
-                        string originalOut = Path.Combine(config.OutputDirectory, $"{fileName}_original.md");
+                        string originalOut = Path.Combine(config.AbsoluteOutputDirectory, $"{fileName}_original.md");
                         MarkdownWriter.ExportToMarkdown(originalOut, fileName, "Original", pages, true);
 
-                        string translatedOut = Path.Combine(config.OutputDirectory, $"{fileName}_{config.TargetLanguage}.md");
+                        string translatedOut = Path.Combine(config.AbsoluteOutputDirectory, $"{fileName}_{config.TargetLanguage}.md");
                         MarkdownWriter.ExportToMarkdown(translatedOut, fileName, config.TargetLanguage, pages, false);
                         count++;
                     }
