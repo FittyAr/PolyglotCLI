@@ -1,14 +1,32 @@
-<RadzenTabsItem Text="Pensamiento (Reasoning)" Icon="psychology">
-    <div style="flex: 1 1 0%; display: flex; flex-direction: column; margin-top: 6px; min-height: 0; height: 100%;">
-        @if (!string.IsNullOrEmpty(Text))
-        {
-            <pre style="flex: 1 1 0%; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #f59e0b; white-space: pre-wrap; background: #0b0f19; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; height: 100%; overflow-y: auto; min-height: 0;">@Text</pre>
-        }
-        else
-        {
-            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #b0bec5; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; background: #0b0f19; min-height: 0;">
-                No hay trazas de razonamiento (&lt;think&gt;) disponibles para esta página.
+<RadzenTabsItem>
+    <Template>
+        <div class="page-tabs-tab">
+            <RadzenIcon Icon="psychology" class="page-tabs-tab__icon page-tabs-tab__icon--reasoning" />
+            <span>Pensamiento</span>
+        </div>
+    </Template>
+    <ChildContent>
+        <div class="text-pane">
+            <div class="text-pane__header text-pane__header--readonly">
+                <span class="text-pane__mode">
+                    <RadzenIcon Icon="auto_awesome" Style="font-size: 0.95rem;" />
+                    Trazas del modelo (sólo lectura)
+                </span>
+                <span class="text-pane__counter">@(Text?.Length ?? 0) caracteres</span>
             </div>
-        }
-    </div>
+            <div class="text-pane__body">
+                @if (!string.IsNullOrEmpty(Text))
+                {
+                    <pre class="text-pane__preview text-pane__preview--reasoning">@Text</pre>
+                }
+                else
+                {
+                    <div class="text-pane__placeholder">
+                        <RadzenIcon Icon="psychology_alt" Style="font-size: 2rem; color: #475569;" />
+                        <div>No hay trazas de razonamiento (&lt;think&gt;) disponibles para esta página.</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </ChildContent>
 </RadzenTabsItem>

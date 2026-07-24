@@ -259,20 +259,9 @@ img.polyglot-cropper {
     border: 1px solid rgba(255, 255, 255, 0.07) !important;
 }
 
-.page-verifier-stage__toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
-    flex-shrink: 0;
-}
-
-.page-verifier-stage__title {
-    font-weight: 600;
-    margin: 0;
-    letter-spacing: -0.01em;
-}
+/* .page-verifier-stage__toolbar y .page-verifier-stage__title ahora viven
+   más abajo, en su bloque dedicado con los ajustes para alinear el botón
+   Re-procesar a la derecha del título. */
 
 .page-verifier-stage__body {
     flex: 1 1 0% !important;
@@ -285,6 +274,231 @@ img.polyglot-cropper {
 .page-verifier-stage .rz-tabview-nav li a {
     padding: 8px 12px !important;
     font-size: 0.8rem !important;
+}
+
+/* ── Page verifier toolbar (title + Re-procesar) ─────────────────── */
+.page-verifier-stage__toolbar {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+    min-height: 38px;
+    flex-wrap: nowrap;
+}
+
+.page-verifier-stage__title-group {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+}
+
+.page-verifier-stage__title {
+    font-weight: 600 !important;
+    margin: 0 !important;
+    letter-spacing: -0.01em;
+    color: #f1f5f9;
+    white-space: nowrap;
+}
+
+.page-verifier-stage__pending-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.page-verifier-stage__reprocess-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* ── Page tabs (right column: Traducción / OCR / Reasoning) ─────── */
+::deep .page-verifier-stage .page-tabs-tab {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+::deep .page-verifier-stage .page-tabs-tab__icon {
+    font-size: 0.95rem !important;
+}
+
+::deep .page-verifier-stage .page-tabs-tab__icon--translate { color: #818cf8; }
+::deep .page-verifier-stage .page-tabs-tab__icon--ocr { color: #38bdf8; }
+::deep .page-verifier-stage .page-tabs-tab__icon--reasoning { color: #fbbf24; }
+
+/* Active tab: tinted background + indigo underline + brighter text */
+::deep .page-verifier-stage .rz-tabview-nav li.rz-tabview-selected {
+    background: rgba(99, 102, 241, 0.10) !important;
+}
+
+::deep .page-verifier-stage .rz-tabview-nav li.rz-tabview-selected a {
+    border-bottom: 3px solid #6366f1 !important;
+}
+
+::deep .page-verifier-stage .rz-tabview-nav li.rz-tabview-selected .page-tabs-tab {
+    color: #f8fafc;
+}
+
+/* ── Text pane body (shared by Traducción / OCR / Reasoning) ───── */
+::deep .page-verifier-stage .text-pane {
+    flex: 1 1 0% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    width: 100%;
+    gap: 8px;
+}
+
+::deep .page-verifier-stage .text-pane__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-shrink: 0;
+    padding: 5px 10px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+}
+
+::deep .page-verifier-stage .text-pane__header--readonly {
+    background: rgba(11, 15, 25, 0.55);
+}
+
+::deep .page-verifier-stage .text-pane__mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: #94a3b8;
+}
+
+::deep .page-verifier-stage .text-pane__counter {
+    font-size: 0.7rem;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+::deep .page-verifier-stage .text-pane__body {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden;
+}
+
+/* RadzenTextArea: el componente renderiza un wrapper <span>; el <textarea>
+   interno es el que necesita flex/height. Forzamos ambos para garantizar
+   que ocupe todo el alto disponible. */
+::deep .page-verifier-stage .text-pane__textarea {
+    display: flex !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+}
+
+::deep .page-verifier-stage .text-pane__textarea textarea.rz-textarea {
+    flex: 1 1 0% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    resize: none !important;
+    box-sizing: border-box !important;
+}
+
+::deep .page-verifier-stage .text-pane__textarea--translate textarea.rz-textarea {
+    background: linear-gradient(180deg, #0f172a 0%, #0b1424 100%) !important;
+    color: #e2e8f0 !important;
+    border: 1px solid rgba(129, 140, 248, 0.25) !important;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important;
+    font-size: 0.88rem !important;
+    line-height: 1.55 !important;
+    padding: 12px 14px !important;
+    border-radius: 8px !important;
+}
+
+::deep .page-verifier-stage .text-pane__preview {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    width: 100%;
+    margin: 0;
+    padding: 14px 16px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+::deep .page-verifier-stage .text-pane__preview--translate {
+    background: linear-gradient(180deg, #0f172a 0%, #0b1424 100%);
+    color: #e2e8f0;
+    border-color: rgba(129, 140, 248, 0.25);
+}
+
+::deep .page-verifier-stage .text-pane__preview--ocr {
+    background: linear-gradient(180deg, #082f49 0%, #052135 100%);
+    color: #cbd5e1;
+    border-color: rgba(56, 189, 248, 0.25);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+::deep .page-verifier-stage .text-pane__preview--reasoning {
+    background: linear-gradient(180deg, #1c1407 0%, #110b02 100%);
+    color: #fde68a;
+    border-color: rgba(251, 191, 36, 0.25);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+::deep .page-verifier-stage .text-pane__empty {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    font-family: inherit;
+}
+
+::deep .page-verifier-stage .text-pane__placeholder {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #94a3b8;
+    font-size: 0.88rem;
+    background: linear-gradient(180deg, #1c1407 0%, #110b02 100%);
+    border: 1px dashed rgba(245, 158, 11, 0.25);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
 }
 
 .job-details-dialog-footer {

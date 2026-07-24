@@ -14,16 +14,20 @@
             @if (SelectedPageData != null)
             {
                 <div class="page-verifier-stage__toolbar">
-                    <RadzenText TextStyle="TextStyle.Subtitle1" class="page-verifier-stage__title">
-                        Visualizando Página @SelectedPageData.PageNumber de @(PageDataList?.Count ?? 0)
+                    <div class="page-verifier-stage__title-group">
+                        <RadzenIcon Icon="auto_stories" Style="color: #818cf8; font-size: 1.1rem;" />
+                        <RadzenText TextStyle="TextStyle.Subtitle1" class="page-verifier-stage__title">
+                            Visualizando Página @SelectedPageData.PageNumber de @(PageDataList?.Count ?? 0)
+                        </RadzenText>
                         @if (PendingTranslationEdits.Count > 0)
                         {
-                            <span style="color: #f59e0b; font-size: 0.85rem; font-weight: normal; margin-left: 8px;">
-                                · @PendingTranslationEdits.Count página(s) editada(s) en esta sesión
+                            <span class="page-verifier-stage__pending-pill">
+                                <RadzenIcon Icon="edit_note" Style="font-size: 0.95rem;" />
+                                @PendingTranslationEdits.Count editada@(PendingTranslationEdits.Count == 1 ? "" : "s") en esta sesión
                             </span>
                         }
-                    </RadzenText>
-                    <RadzenButton Text="Re-procesar esta página" Icon="autorenew" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" Click="@HandleReprocessPage" IsBusy="@IsReprocessingPage" BusyText="Procesando..." />
+                    </div>
+                    <RadzenButton Text="Re-procesar esta página" Icon="autorenew" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" Click="@HandleReprocessPage" IsBusy="@IsReprocessingPage" BusyText="Procesando..." class="page-verifier-stage__reprocess-btn" />
                 </div>
                 <RadzenRow Gap="0.75rem" class="page-verifier-stage__body" Style="flex: 1 1 0%; min-height: 0; display: flex; height: 100%;">
                     <RadzenColumn Size="6" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">

@@ -1,5 +1,22 @@
-<RadzenTabsItem Text="Texto Extraído (OCR)" Icon="description">
-    <div style="flex: 1 1 0%; display: flex; flex-direction: column; margin-top: 6px; min-height: 0; height: 100%;">
-        <pre style="flex: 1 1 0%; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #94a3b8; white-space: pre-wrap; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; height: 100%; overflow-y: auto; min-height: 0;">@Text</pre>
-    </div>
+<RadzenTabsItem>
+    <Template>
+        <div class="page-tabs-tab">
+            <RadzenIcon Icon="description" class="page-tabs-tab__icon page-tabs-tab__icon--ocr" />
+            <span>Texto Extraído</span>
+        </div>
+    </Template>
+    <ChildContent>
+        <div class="text-pane">
+            <div class="text-pane__header text-pane__header--readonly">
+                <span class="text-pane__mode">
+                    <RadzenIcon Icon="subject" Style="font-size: 0.95rem;" />
+                    OCR (sólo lectura)
+                </span>
+                <span class="text-pane__counter">@(Text?.Length ?? 0) caracteres</span>
+            </div>
+            <div class="text-pane__body">
+                <pre class="text-pane__preview text-pane__preview--ocr">@Text</pre>
+            </div>
+        </div>
+    </ChildContent>
 </RadzenTabsItem>
