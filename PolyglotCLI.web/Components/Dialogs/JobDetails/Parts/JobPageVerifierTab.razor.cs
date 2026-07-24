@@ -43,6 +43,7 @@ public partial class JobPageVerifierTab : ComponentBase
     private string? PageImageBase64 { get; set; }
     private bool IsReprocessingPage { get; set; }
     private bool IsEditingTranslation { get; set; } = true;
+    private int _pageLoadGeneration;
 
     private string? SelectedJsonFile => SelectedJsonEntry?.JsonFileName;
 
@@ -74,6 +75,7 @@ public partial class JobPageVerifierTab : ComponentBase
 
     private Task HandlePageSelected(DocumentPageData page)
     {
+        var generation = ++_pageLoadGeneration;
         SelectedPageData = page;
         PageImageBase64 = null;
         HasPageImage = false;
@@ -90,11 +92,19 @@ public partial class JobPageVerifierTab : ComponentBase
 
         string docName = SelectedJsonFile.Replace("_data.json", string.Empty, StringComparison.OrdinalIgnoreCase);
         var base64 = VerifierService.LoadPageImageBase64(JobDir, docName, page.PageNumber);
+        if (generation != _pageLoadGeneration)
+        {
+            return Task.CompletedTask;
+        }
         if (base64 != null)
         {
             PageImageBase64 = base64;
             HasPageImage = true;
         }
+        // Documentación oficial de Cropper.Blazor: en .NET 8 con nuevos modos
+        // de render, los parámetros no se propagan al cropper de forma oportuna
+        // vía blazor.web.js. Forzamos el re-render para que el cambio llegue.
+        InvokeAsync(StateHasChanged);
         return Task.CompletedTask;
     }
 

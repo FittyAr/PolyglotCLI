@@ -1,10 +1,70 @@
-/* Cropper.Blazor: el <img> interno que renderiza el componente hereda
-   el tamaño del contenedor padre. Sin estas reglas la imagen queda con
-   altura 0 y el visor aparece en negro.
+/* Contenedor raíz del visor: garantiza altura completa dentro del RadzenTabsItem
+   y evita que el contenido (toolbar + cropper) empuje el layout del diálogo. */
+.original-viewer-host {
+    position: relative;
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+    margin-top: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #000;
+    min-height: 0;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.original-viewer-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: rgba(15, 23, 42, 0.9);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+}
+
+.original-viewer-hint {
+    flex-grow: 1;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    margin-left: 8px;
+}
+
+/* Patrón documentado por Cropper.Blazor:
+   https://cropperblazor.github.io/examples/cropperusage
+   El tamaño del cropper se hereda del elemento padre (el wrapper),
+   así que el wrapper debe tener altura y ancho explícitos. */
+.original-viewer-stage {
+    flex: 1 1 0%;
+    min-height: 0;
+    height: 100%;
+    width: 100%;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Cropper.Blazor: el <img> interno hereda el tamaño del contenedor padre.
    ::deep escapa del scope de Razor para que la regla aplique al <img>
    que está dentro del CropperComponent (otro componente). */
 ::deep .polyglot-cropper {
     max-height: 100%;
     max-width: 100%;
     display: block;
+}
+
+.original-viewer-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 0%;
+    color: #b0bec5;
+    font-size: 0.9rem;
+    padding: 12px;
+    text-align: center;
 }

@@ -24,7 +24,11 @@ public partial class JobOriginalPageViewer : ComponentBase
     public EventCallback<string> OnError { get; set; }
 
     private CropperComponent? cropperRef;
-    private int? lastCropperPageNumber;
+    private int? _activePageNumber;
+    private bool _isCropperReady;
+    private bool _isDisposed;
+
+    private bool IsCropperInteractive => _isCropperReady && cropperRef != null && !_isDisposed;
 
     private string PageImageDataUrl =>
         string.IsNullOrEmpty(PageImageBase64) ? string.Empty : $"data:image/png;base64,{PageImageBase64}";
@@ -49,28 +53,49 @@ public partial class JobOriginalPageViewer : ComponentBase
         WheelZoomRatio = 0.1m
     };
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    public override async Task SetParametersAsync(ParameterView parameters)
     {
-        if (cropperRef != null
-            && PageNumber != lastCropperPageNumber
+        var previousPageNumber = PageNumber;
+        await base.SetParametersAsync(parameters);
+
+        if (PageNumber != previousPageNumber
+            && _isCropperReady
+            && cropperRef != null
             && HasPageImage
             && !string.IsNullOrEmpty(PageImageBase64))
         {
-            try
-            {
-                await cropperRef.ReplaceAsync(PageImageDataUrl, false);
-                lastCropperPageNumber = PageNumber;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Cropper replace error: {ex.Message}");
-            }
+            await ReplaceImageAsync();
+        }
+    }
+
+    private async Task ReplaceImageAsync()
+    {
+        if (cropperRef == null || _isDisposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await cropperRef.ReplaceAsync(PageImageDataUrl, false);
+            _activePageNumber = PageNumber;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Cropper replace error: {ex.Message}");
         }
     }
 
     private void OnCropperReady(Cropper.Blazor.Events.JSEventData<Cropper.Blazor.Events.CropReadyEvent.CropReadyEvent> _)
     {
-        lastCropperPageNumber = PageNumber;
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isCropperReady = true;
+        _activePageNumber = PageNumber;
+        InvokeAsync(StateHasChanged);
     }
 
     private async Task HandleZoomIn() => await InvokeZoomAsync(+1);
@@ -79,7 +104,7 @@ public partial class JobOriginalPageViewer : ComponentBase
 
     private async Task InvokeZoomAsync(int direction)
     {
-        if (cropperRef == null)
+        if (!IsCropperInteractive || cropperRef == null)
         {
             await OnWarning.InvokeAsync();
             return;
@@ -96,7 +121,7 @@ public partial class JobOriginalPageViewer : ComponentBase
 
     private async Task HandleReset()
     {
-        if (cropperRef == null)
+        if (!IsCropperInteractive || cropperRef == null)
         {
             await OnWarning.InvokeAsync();
             return;
@@ -109,5 +134,12 @@ public partial class JobOriginalPageViewer : ComponentBase
         {
             await OnError.InvokeAsync(ex.Message);
         }
+    }
+
+    public void Dispose()
+    {
+        _isDisposed = true;
+        _isCropperReady = false;
+        cropperRef = null;
     }
 }
