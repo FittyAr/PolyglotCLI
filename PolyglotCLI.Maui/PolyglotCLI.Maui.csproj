@@ -72,6 +72,19 @@
         <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>
 
+    <!--
+      Único archivo que el AboutConfigTab sirve localmente: LICENSE.
+      El README y los diagramas se enlazan directamente a GitHub para
+      que los cambios se vean sin rebuild. El target SyncDocs (más
+      abajo) mantiene la copia de LICENSE fresca antes de cada build.
+    -->
+
+    <Target Name="SyncDocs" BeforeTargets="BeforeBuild">
+        <Exec Command="powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\scripts\sync-docs.ps1&quot;"
+              Condition="Exists('$(MSBuildThisFileDirectory)..\scripts\sync-docs.ps1')"
+              ContinueOnError="true" />
+    </Target>
+
     <ItemGroup>
         <PackageReference Include="CommunityToolkit.Maui" Version="13.0.0" />
         <PackageReference Include="BlazorPanzoom" Version="0.2.1" />
@@ -89,6 +102,7 @@
         <!-- Enlace de archivos de componentes de la aplicación Web para compilación directa en MAUI -->
         <Compile Include="..\PolyglotCLI.web\Components\**\*.cs" LinkBase="Components" />
         <Compile Include="..\PolyglotCLI.web\Services\JobDetails\**\*.cs" LinkBase="Services\JobDetails" />
+        <Compile Include="..\PolyglotCLI.web\Services\UpdateHostedService.cs" Link="Services\UpdateHostedService.cs" />
         <Compile Include="..\PolyglotCLI.web\TranslationSession.cs" Link="TranslationSession.cs" />
         <RazorComponent Include="..\PolyglotCLI.web\Components\**\*.razor" Exclude="..\PolyglotCLI.web\Components\App.razor;..\PolyglotCLI.web\Components\Pages\Error.razor" LinkBase="Components" />
         <None Include="..\PolyglotCLI.web\Components\**\*.razor.css" Exclude="..\PolyglotCLI.web\Components\App.razor.css" LinkBase="Components" />

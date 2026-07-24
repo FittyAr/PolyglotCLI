@@ -1,15 +1,25 @@
 @using PolyglotCLI
+@inject DialogService DialogService
 
 @*
     Pestaña "General": configuración esencial del proveedor LLM y de la
     aplicación. Lo avanzado (timeouts, logs, módulos) vive en
     AdvancedConfigTab.
+
+    Al cambiar el Proveedor LLM, se abre un dialog preguntando si se
+    quiere replicar el cambio a OCR / Translation / Revision. Si el
+    usuario cancela, el dropdown vuelve a su valor anterior y no se
+    modifica nada.
 *@
 
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
         <RadzenLabel Text="Proveedor LLM" class="rz-mb-2" />
-        <RadzenDropDown Data="@providerOptions" @bind-Value="AppConfig.Provider" Change="@OnProviderChanged" class="rz-w-100" />
+        <RadzenDropDown Data="@providerOptions"
+                        Value="@AppConfig.Provider"
+                        Change="@OnProviderChanged"
+                        AllowClear="false"
+                        class="rz-w-100" />
     </RadzenColumn>
     <RadzenColumn Size="6">
         <RadzenLabel Text="API Key" class="rz-mb-2" />
@@ -72,12 +82,52 @@
     private bool IsCloudProvider =>
         LlmProviderHelper.RequiresApiKey(LlmProviderHelper.ParseProvider(AppConfig.Provider));
 
-    private void OnProviderChanged(object value)
+    /// <summary>
+    /// Maneja el cambio del dropdown de Proveedor LLM. NO muta
+    /// AppConfig.Provider directamente: primero abre el dialog
+    /// preguntando si se replica a OCR/Translation/Revision. Si el
+    /// usuario cancela, el dropdown vuelve a su valor anterior
+    /// automáticamente (porque usamos Value + Change en lugar de
+    /// @bind-Value, y nunca escribimos AppConfig.Provider en ese caso).
+    /// </summary>
+    private async Task OnProviderChanged(object value)
     {
-        if (value is string providerStr)
+        if (value is not string providerStr || string.IsNullOrWhiteSpace(providerStr))
+            return;
+
+        var previousProvider = AppConfig.Provider;
+
+        var result = await DialogService.OpenAsync<ProviderCascadeDialog>(
+            title: "Replicar proveedor",
+            parameters: new Dictionary<string, object?>
+            {
+                { "NewProvider",        providerStr            },
+                { "CurrentOcr",         AppConfig.OcrProvider   },
+                { "CurrentTranslation", AppConfig.TranslationProvider },
+                { "CurrentReview",      AppConfig.ReviewProvider }
+            },
+            options: new DialogOptions
+            {
+                Width = "500px",
+                CloseDialogOnEsc = true,
+                CloseDialogOnOverlayClick = false
+            });
+
+        if (result is ProviderCascadeDialog.Result r)
         {
+            // Confirmado: aplicar el provider nuevo y la API URL por defecto
+            AppConfig.Provider = providerStr;
             var provider = LlmProviderHelper.ParseProvider(providerStr);
             AppConfig.ApiUrl = LlmProviderHelper.GetDefaultApiUrl(provider);
+
+            // Replicar a las secciones que el usuario tildó
+            if (r.ApplyToOcr)         AppConfig.OcrProvider         = providerStr;
+            if (r.ApplyToTranslation) AppConfig.TranslationProvider = providerStr;
+            if (r.ApplyToReview)      AppConfig.ReviewProvider      = providerStr;
         }
+        // Si r es null (cancelado / cerrado por Esc) no hacemos nada:
+        // como nunca escribimos AppConfig.Provider, el dropdown conserva
+        // el valor anterior sin necesidad de revertir.
     }
 }
+

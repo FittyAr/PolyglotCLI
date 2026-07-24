@@ -1,0 +1,153 @@
+@using PolyglotCLI.Update
+@using PolyglotCLI.web.Services
+@using PolyglotCLI.web.Components.Dialogs
+@inject DialogService DialogService
+@inject NotificationService Notifier
+
+@*
+    Dialog que se muestra cuando UpdateHostedService detecta una nueva
+    versión. Ofrece tres acciones:
+      - "Actualizar ahora"      -> descarga el instalador y lo lanza
+                                    en modo silencioso, conservando
+                                    los componentes instalados.
+      - "Más tarde"             -> cierra el dialog, el aviso volverá
+                                    a salir en próximos arranques.
+      - "Ignorar esta versión"  -> marca la versión como descartada,
+                                    no vuelve a salir hasta que salga
+                                    una más nueva.
+*@
+
+<RadzenStack Gap="1rem">
+    <RadzenRow>
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.Caption" style="opacity:0.7;">Versión instalada</RadzenText>
+            <RadzenText TextStyle="TextStyle.H6"><code>@Info.CurrentVersion</code></RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="6">
+            <RadzenText TextStyle="TextStyle.Caption" style="opacity:0.7;">Última versión</RadzenText>
+            <RadzenText TextStyle="TextStyle.H6" style="color: var(--rz-success);">
+                <code>@Info.LatestVersion</code>
+            </RadzenText>
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (Info.PublishedAt is DateTime pub)
+    {
+        <RadzenText TextStyle="TextStyle.Caption" style="opacity:0.7;">
+            Publicada el @pub.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+            @if (Info.InstallerSizeBytes > 0)
+            {
+                <span> · Instalador: @FormatSize(Info.InstallerSizeBytes)</span>
+            }
+        </RadzenText>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Info.ReleaseNotes))
+    {
+        <RadzenFieldset Text="Notas de la release">
+            <pre style="white-space: pre-wrap; max-height: 220px; overflow: auto;
+                        font-family: inherit; font-size: 0.85rem; margin: 0;">@Info.ReleaseNotes</pre>
+        </RadzenFieldset>
+    }
+
+    <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" Variant="Variant.Flat"
+                 Icon="shield" style="font-size: 0.85rem;">
+        La actualización se descarga a una carpeta temporal y se ejecuta en
+        <strong>modo silencioso</strong>. El instalador detecta tu instalación
+        actual (Inno Setup), respeta los componentes que ya tenés
+        seleccionados (servidor, escritorio, o ambos) y mantiene tu
+        <code>config.json</code> intacto.
+    </RadzenAlert>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+        <RadzenButton Text="Ignorar esta versión" Icon="close" ButtonStyle="ButtonStyle.Light"
+                      Click="@(() => DialogService.Close("dismiss"))" />
+        <RadzenButton Text="Más tarde" Icon="schedule" ButtonStyle="ButtonStyle.Secondary"
+                      Click="@(() => DialogService.Close("later"))" />
+        <RadzenButton Text="Actualizar ahora" Icon="system_update_alt" ButtonStyle="ButtonStyle.Success"
+                      Click="@OnUpdateClick" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public UpdateInfo Info { get; set; } = default!;
+
+    private UpdateService? _updater;
+
+    protected override void OnInitialized()
+    {
+        _updater = new UpdateService(Info.CurrentVersion);
+    }
+
+    private async Task OnUpdateClick()
+    {
+        if (_updater is null) return;
+
+        // Cierra este dialog antes de abrir el de progreso.
+        DialogService.Close();
+
+        var state = new ProgressState { Status = "Conectando con GitHub..." };
+        var progressDialog = DialogService.OpenAsync<ProgressDialog>(
+            title: $"Actualizando a {Info.LatestVersion}",
+            parameters: new Dictionary<string, object?> { { "State", state } },
+            options: new DialogOptions
+            {
+                Width = "520px",
+                CloseDialogOnEsc = false,
+                CloseDialogOnOverlayClick = false
+            });
+
+        var progress = new Progress<double>(pct =>
+        {
+            // El progress bar del dialog existente es indeterminate; solo
+            // actualizamos el texto de estado. Si en el futuro se quiere
+            // uno con porcentaje real, basta con cambiar a un dialog
+            // que acepte un valor numérico.
+            state.UpdateStatus($"Descargado {pct * 100:F0}% — guardando en carpeta temporal...");
+        });
+
+        string? installerPath;
+        try
+        {
+            installerPath = await _updater.DownloadInstallerAsync(Info, progress);
+        }
+        catch (Exception ex)
+        {
+            try { DialogService.Close(); } catch { }
+            Notifier.Notify(NotificationSeverity.Error, "Descarga fallida", ex.Message, duration: 8000);
+            AppLogger.Error("UpdateAvailableDialog: fallo la descarga del instalador", ex);
+            return;
+        }
+
+        state.UpdateStatus("Iniciando instalador silencioso...");
+        try
+        {
+            _updater.LaunchSilentInstaller(installerPath);
+        }
+        catch (Exception ex)
+        {
+            try { DialogService.Close(); } catch { }
+            Notifier.Notify(NotificationSeverity.Error,
+                "No se pudo iniciar el instalador",
+                ex.Message,
+                duration: 8000);
+            AppLogger.Error("UpdateAvailableDialog: fallo al lanzar el instalador", ex);
+            return;
+        }
+
+        // /CLOSEAPPLICATIONS cerrará esta app. Damos un margen para que
+        // el mensaje sea visible y luego salimos manualmente como red
+        // de seguridad por si el instalador no cierra la app (p.ej. en
+        // alguna versión sin /CLOSEAPPLICATIONS).
+        await Task.Delay(1500);
+        try { DialogService.Close(); } catch { }
+        Environment.Exit(0);
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F1} MB";
+    }
+}

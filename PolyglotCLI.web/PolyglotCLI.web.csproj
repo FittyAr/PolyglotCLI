@@ -26,7 +26,26 @@
     <Content Include="..\assets\icons\app.ico" Link="wwwroot\app.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!--
+      Único archivo que el AboutConfigTab sirve localmente: LICENSE.
+      El README y los diagramas se enlazan directamente a GitHub para
+      que los cambios se vean sin rebuild. El target SyncDocs (más
+      abajo) mantiene la copia de LICENSE fresca antes de cada build.
+    -->
   </ItemGroup>
+
+  <!--
+    Antes de compilar, sincroniza ../docs, ../README.md y ../LICENSE
+    hacia wwwroot/. Es idempotente (solo sobreescribe), rápido
+    (archivos pequeños), y garantiza que el static file middleware
+    pueda servir los hrefs del AboutConfigTab sin que el repo quede
+    con archivos desactualizados.
+  -->
+  <Target Name="SyncDocs" BeforeTargets="BeforeBuild">
+    <Exec Command="powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\scripts\sync-docs.ps1&quot;"
+          Condition="Exists('$(MSBuildThisFileDirectory)..\scripts\sync-docs.ps1')"
+          ContinueOnError="true" />
+  </Target>
 
 </Project>
 

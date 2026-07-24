@@ -28,10 +28,15 @@
         </div>
     </RadzenBody>
 
+    @* Componente "fantasma" que escucha el servicio de auto-update y
+        muestra un dialog con el aviso cuando hay una versión nueva.
+        No renderiza nada visible. *@
+    <UpdateNotifier />
+
     @if (AppMode.IsWebMode)
     {
         <RadzenFooter>
-            <RadzenLabel Text="PolyglotCLI © 2026" />
+            <RadzenLabel Text="PolyglotCLI © 2026 FittyAr" />
         </RadzenFooter>
     }
 </RadzenLayout>

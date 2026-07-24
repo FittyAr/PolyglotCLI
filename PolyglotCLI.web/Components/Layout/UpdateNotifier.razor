@@ -1,0 +1,94 @@
+@namespace PolyglotCLI.web.Components.Layout
+@implements IDisposable
+@inject IServiceProvider Services
+@inject NotificationService Notifier
+@inject DialogService DialogService
+@using PolyglotCLI.Update
+@using PolyglotCLI.web.Services
+
+@*
+    Componente "escucha"挂在 todas las páginas. Se suscribe al evento
+    OnUpdateAvailable de UpdateHostedService y muestra un toast de Radzen
+    con el botón "Actualizar ahora". Si el usuario descarta, se marca la
+    versión como ignorada para no volver a mostrarla en próximos arranques.
+
+    Si la app corre como MSIX (Microsoft Store), no se hace nada: el
+    Store se encarga de las actualizaciones.
+*@
+
+@code {
+    private UpdateHostedService? _service;
+    private bool _subscribed;
+
+    protected override void OnInitialized()
+    {
+        // En MSIX o cuando el hosted service no está registrado, salir
+        // sin suscribirse. InstallEnvironment.CanSelfUpdate ya es la
+        // misma guarda que Program.cs usó para decidir si registrar.
+        if (!InstallEnvironment.CanSelfUpdate) return;
+
+        try
+        {
+            var hosted = (IEnumerable<Microsoft.Extensions.Hosting.IHostedService>?)Services
+                .GetService(typeof(IEnumerable<Microsoft.Extensions.Hosting.IHostedService>));
+            _service = hosted?.OfType<UpdateHostedService>().FirstOrDefault();
+
+            if (_service is not null)
+            {
+                _service.OnUpdateAvailable += HandleUpdateAvailable;
+                _subscribed = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            // No bloquear la UI si algo falla al resolver el servicio.
+            AppLogger.Warn($"UpdateNotifier: no se pudo suscribir al servicio de updates ({ex.Message})");
+        }
+    }
+
+    private void HandleUpdateAvailable(UpdateInfo info)
+    {
+        InvokeAsync(async () =>
+        {
+            var key = new NotificationMessage
+            {
+                Severity = NotificationSeverity.Info,
+                Summary = $"PolyglotCLI {info.LatestVersion} disponible",
+                Detail = $"Tenés instalada la {info.CurrentVersion}. ¿Querés actualizar ahora? " +
+                         "El instalador se descarga y se ejecuta en modo silencioso, conservando tu configuración.",
+                Duration = 12000,
+                Payload = info
+            };
+            // Botón "Actualizar" en la notificación
+            Notifier.Messages.Add(key);
+
+            // Como Radzen aún no expone acciones inline en los toasts de
+            // forma estable, mostramos un dialog modal con la decisión.
+            // Es más claro y permite al usuario leer las release notes.
+            var result = await DialogService.OpenAsync<UpdateAvailableDialog>(
+                title: $"Actualización disponible: {info.LatestVersion}",
+                parameters: new Dictionary<string, object?> { { "Info", info } },
+                options: new DialogOptions
+                {
+                    Width = "560px",
+                    CloseDialogOnEsc = true,
+                    CloseDialogOnOverlayClick = false
+                });
+
+            if (string.Equals(result as string, "dismiss", StringComparison.OrdinalIgnoreCase) &&
+                _service is not null)
+            {
+                _service.DismissUpdate(info.LatestVersion);
+            }
+        });
+    }
+
+    public void Dispose()
+    {
+        if (_subscribed && _service is not null)
+        {
+            _service.OnUpdateAvailable -= HandleUpdateAvailable;
+            _subscribed = false;
+        }
+    }
+}

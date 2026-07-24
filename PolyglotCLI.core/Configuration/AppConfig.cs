@@ -169,6 +169,39 @@ namespace PolyglotCLI
         public string LogLevelConsole { get; set; } = "Information";
         public string LogLevelFile { get; set; } = "Debug";
 
+        // --- Actualizaciones automáticas (solo aplica a instalaciones Inno
+        //     Setup / .exe; en MSIX lo gestiona Microsoft Store) ---
+
+        /// <summary>
+        /// Si está activo, PolyglotCLI consulta periódicamente la última
+        /// release de GitHub y notifica al usuario cuando hay una versión
+        /// nueva. Por defecto <c>true</c>.
+        /// </summary>
+        public bool UpdateCheckEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Intervalo en horas entre comprobaciones automáticas. Por
+        /// defecto 6h (prudente: respeta el rate limit de GitHub sin
+        /// molestar al usuario). Valor mínimo 1.
+        /// </summary>
+        public int UpdateCheckIntervalHours { get; set; } = 6;
+
+        /// <summary>
+        /// Marca de tiempo (UTC) de la última comprobación de updates.
+        /// Se persiste en <c>config.json</c> para que la próxima ejecución
+        /// sepa cuánto tiempo ha pasado desde el último check sin
+        /// pegarle a la API innecesariamente.
+        /// </summary>
+        public DateTime? LastUpdateCheckUtc { get; set; }
+
+        /// <summary>
+        /// Versión a la que el usuario eligió <i>recordar</i> la
+        /// actualización (p.ej. "1.2.0") para que no le vuelva a salir
+        /// el aviso en próximos arranques. <c>null</c> = no ignorar
+        /// ninguna.
+        /// </summary>
+        public string? DismissedUpdateVersion { get; set; }
+
         [System.Text.Json.Serialization.JsonIgnore]
         public string? LoadedFromPath { get; set; }
 

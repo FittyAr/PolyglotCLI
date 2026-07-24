@@ -1,0 +1,1867 @@
+@using System.Reflection
+@using System.Runtime.Versioning
+@using PolyglotCLI.Update
+@using PolyglotCLI.web.Services
+@inject IServiceProvider Services
+@inject NotificationService Notifier
+@inject DialogService DialogService
+
+@*
+Pestaña "About": muestra información del proyecto PolyglotCLI
+(versión, licencia, desarrollador, stack tecnológico) y expone
+el control manual de actualizaciones (solo en instalaciones
+Inno Setup / .exe).
+*@
+
+<RadzenRow Gap="1.5rem">
+    <!-- Columna izquierda: identidad del proyecto -->
+    <RadzenColumn Size="12" SizeMD="5">
+        <RadzenFieldset Text="PolyglotCLI" class="rz-mt-2">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                <img src="brand-logo.png" alt="PolyglotCLI logo"
+                    style="width: 64px; height: 64px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);" />
+                <div>
+                    <RadzenText TextStyle="TextStyle.H5" style="margin: 0;">PolyglotCLI</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Caption" style="opacity: 0.75;">
+                        Traductor de documentos potenciado por LLMs
+                    </RadzenText>
+                </div>
+            </div>
+
+            <RadzenText TextStyle="TextStyle.Body2" style="margin-bottom: 0.75rem;">
+                Aplicación web (Blazor Server) que traduce documentos PDF, DOCX, ODT e imágenes
+                página por página, usando proveedores LLM locales (Ollama, LM Studio, llama.cpp)
+                o en la nube (OpenAI, Gemini, Qwen, Kimi, MiniMax, etc.). Procesamiento incremental
+                con escritura inmediata a disco y visor integrado de páginas originales.
+            </RadzenText>
+
+            <table class="rz-grid-table rz-w-100" style="font-size: 0.9rem;">
+                <tbody>
+                    <tr>
+                        <td style="opacity: 0.7; width: 40%;">Versión</td>
+                        <td>
+                            <code>@AppVersion</code>
+                            @if (!string.IsNullOrEmpty(GitCommitShort))
+
+
+
+
+
+
+
+                            {
+                                <span style="opacity: 0.6; margin-left: 0.4rem;">(@GitCommitShort)</span>
+                            }
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">Target Framework</td>
+                        <td><code>@TargetFramework</code></td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">.NET Runtime</td>
+                        <td><code>@RuntimeVersion</code></td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">Compilado</td>
+                        <td><code>@BuildDate</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </RadzenFieldset>
+
+        <RadzenFieldset Text="Desarrollador" class="rz-mt-4">
+            <table class="rz-grid-table rz-w-100" style="font-size: 0.9rem;">
+                <tbody>
+                    <tr>
+                        <td style="opacity: 0.7; width: 40%;">Autor</td>
+                        <td>
+                            <a href="https://fitty.ar" target="_blank" rel="noopener"
+                                style="color: var(--rz-primary); text-decoration: none;">
+                                FittyAr
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">Sitio del proyecto</td>
+                        <td>
+                            <a href="https://fitty.ar/pages/polyglot-cli.html" target="_blank" rel="noopener"
+                                style="color: var(--rz-primary); text-decoration: none;">
+                                fitty.ar/pages/polyglot-cli.html
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">Repositorio</td>
+                        <td>
+                            <a href="https://github.com/FittyAr/PolyglotCLI" target="_blank" rel="noopener"
+                                style="color: var(--rz-primary); text-decoration: none;">
+                                github.com/FittyAr/PolyglotCLI
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">Copyright</td>
+                        <td>© 2026 FittyAr. Todos los derechos reservados.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </RadzenFieldset>
+
+        <RadzenFieldset Text="Licencia" class="rz-mt-4">
+            <RadzenText TextStyle="TextStyle.Body2" style="margin-bottom: 0.5rem;">
+                Este proyecto se distribuye bajo la <strong>MIT License</strong>.
+            </RadzenText>
+            <pre style="background: rgba(0,0,0,0.15); padding: 0.75rem; border-radius: 6px;
+                        font-size: 0.75rem; max-height: 180px; overflow: auto; white-space: pre-wrap;
+                        font-family: monospace; margin: 0;">@LicenseText</pre>
+        </RadzenFieldset>
+    </RadzenColumn>
+
+    <!-- Columna derecha: stack y créditos -->
+    <RadzenColumn Size="12" SizeMD="7">
+        <RadzenFieldset Text="Stack Tecnológico" class="rz-mt-2">
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Frontend</RadzenText>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="Blazor Server (.NET 10)" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="Radzen.Blazor 11.1.7" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="BlazorPanzoom 0.2.1" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Bootstrap 5" />
+            </div>
+
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Núcleo / Procesamiento</RadzenText>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Microsoft.SemanticKernel 1.78.0" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="UglyToad.PdfPig 1.7.0" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="PDFtoImage 5.2.1" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="PeachPDF 0.9.5" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="DocumentFormat.OpenXml 3.5.1" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="NetOdt 1.0.0" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="HtmlToOpenXml 3.5.0" />
+            </div>
+
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Texto y marcado</RadzenText>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Markdig 1.3.2" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="AngleSharp 1.5.2" />
+            </div>
+
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Logging</RadzenText>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                <RadzenBadge BadgeStyle="BadgeStyle.Dark" Text="Serilog 4.4.0" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Dark" Text="Serilog.Sinks.File 7.0.0" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Dark" Text="Serilog.Sinks.Map 2.0.0" />
+            </div>
+        </RadzenFieldset>
+
+        <RadzenFieldset Text="Proveedores LLM soportados" class="rz-mt-4">
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="Ollama" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="LM Studio" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="llama.cpp" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="OpenAI" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="Gemini" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="Qwen" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="Kimi" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="MiniMax" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="Custom" />
+            </div>
+        </RadzenFieldset>
+
+        <RadzenFieldset Text="Créditos y enlaces" class="rz-mt-4">
+            <table class="rz-grid-table rz-w-100" style="font-size: 0.9rem;">
+                <tbody>
+                    <tr>
+                        <td style="opacity: 0.7; width: 30%;">Repositorio</td>
+                        <td>
+                            <a href="https://github.com/FittyAr/PolyglotCLI" target="_blank" rel="noopener"
+                                style="color: var(--rz-primary); text-decoration: none;">
+                                github.com/FittyAr/PolyglotCLI
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">Documentación</td>
+                        <td>
+                            <a href="https://github.com/FittyAr/PolyglotCLI/blob/master/README.md" target="_blank"
+                                rel="noopener" style="color: var(--rz-primary); text-decoration: none;">
+                                README.md
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">Diagrama de arquitectura</td>
+                        <td>
+                            <a href="https://github.com/FittyAr/PolyglotCLI/blob/master/docs/diagram/architecture_es.svg"
+                                target="_blank" rel="noopener" style="color: var(--rz-primary); text-decoration: none;">
+                                Architecture
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">Prompts del sistema</td>
+                        <td><code>assets/prompts/</code> (5 archivos .md editables)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </RadzenFieldset>
+
+        <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" Variant="Variant.Flat" Icon="favorite"
+            class="rz-mt-4" style="font-size: 0.85rem;">
+            Hecho con ❤ para la comunidad de traducción. Si este proyecto te resulta
+            útil, considera dejar una estrella en el repositorio.
+        </RadzenAlert>
+
+        <RadzenFieldset Text="Actualizaciones" class="rz-mt-4">
+            @* La UI de updates es responsabilidad de UpdateNotifier; este
+            bloque solo muestra el estado actual y permite forzar un
+            check manual. *@
+            <table class="rz-grid-table rz-w-100" style="font-size: 0.9rem;">
+                <tbody>
+                    <tr>
+                        <td style="opacity: 0.7; width: 35%;">Tipo de instalación</td>
+                        <td>
+                            @if (InstallEnvironment.IsMsixInstalled)
+
+
+
+
+
+
+
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="MSIX (Microsoft Store)" />
+                                <span style="opacity:0.7; margin-left:0.5rem;">
+                                    Las actualizaciones las gestiona Microsoft Store.
+                                </span>
+                            }
+
+
+
+
+
+
+
+                            else if (InstallEnvironment.IsInnoInstalled)
+
+
+
+
+
+
+
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Inno Setup (.exe)" />
+                                <span style="opacity:0.7; margin-left:0.5rem;">
+                                    Auto-actualizable desde GitHub.
+                                </span>
+                            }
+
+
+
+
+
+
+
+                            else
+
+
+
+
+
+
+
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Desarrollo / portable" />
+                                <span style="opacity:0.7; margin-left:0.5rem;">
+                                    Auto-update deshabilitado (no es una instalación estándar).
+                                </span>
+                            }
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">Última consulta</td>
+                        <td>@LastCheckDisplay</td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7;">Última versión</td>
+                        <td>
+                            @if (string.IsNullOrEmpty(LatestVersionDisplay))
+
+
+
+
+
+
+
+                            {
+                                <span style="opacity:0.7;">—</span>
+                            }
+
+
+
+
+
+
+
+                            else
+
+
+
+
+
+
+
+                            {
+                                <code>@LatestVersionDisplay</code>
+                                @if (IsUpdateAvailable)
+
+
+
+
+
+
+
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="disponible" class="rz-ml-2" />
+                                }
+                            }
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; align-items: center;">
+                <RadzenButton Text="Buscar actualizaciones" Icon="refresh" ButtonStyle="ButtonStyle.Secondary"
+                    Click="@OnCheckClick" IsBusy="@_checking" BusyText="Buscando..."
+                    Disabled="@(!InstallEnvironment.CanSelfUpdate)" />
+                @if (!InstallEnvironment.CanSelfUpdate)
+
+
+
+
+
+
+
+                {
+                    <span style="opacity:0.7; font-size: 0.8rem;">
+                        No disponible en este modo de instalación.
+                    </span>
+                }
+            </div>
+        </RadzenFieldset>
+    </RadzenColumn>
+</RadzenRow>
+
+@code {
+    private string AppVersion { get; } = ResolveAppVersion();
+
+
+
+
+
+
+
+    private string? GitCommitShort { get; } = ResolveGitCommitShort();
+
+
+
+
+
+
+
+    private string TargetFramework { get; } = ResolveTargetFramework();
+
+
+
+
+
+
+
+    private string RuntimeVersion { get; } = Environment.Version.ToString();
+
+
+
+
+
+
+
+    private string BuildDate { get; } = ResolveBuildDate();
+
+
+
+
+
+
+
+    private string LicenseText { get; } = DefaultLicenseText;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // --- Estado de actualizaciones ---
+
+
+
+
+
+
+
+    private bool _checking;
+
+
+
+
+
+
+
+    private UpdateInfo? _updateInfo;
+
+
+
+
+
+
+
+    private string LastCheckDisplay =>
+
+
+
+
+
+
+
+    _updateInfo is null
+
+
+
+
+
+
+
+    ? "Nunca"
+
+
+
+
+
+
+
+    : (_updateInfo.CheckSucceeded ? "OK" : $"Error: {_updateInfo.ErrorMessage}");
+
+
+
+
+
+
+
+    private string LatestVersionDisplay =>
+
+
+
+
+
+
+
+    _updateInfo is null || !_updateInfo.CheckSucceeded ? string.Empty : _updateInfo.LatestVersion;
+
+
+
+
+
+
+
+    private bool IsUpdateAvailable =>
+
+
+
+
+
+
+
+    _updateInfo is { CheckSucceeded: true, IsUpdateAvailable: true };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private UpdateHostedService? _updater;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected override void OnInitialized()
+
+
+
+
+
+
+
+    {
+
+
+
+
+
+
+
+        // Solo resolvemos el servicio si la app puede auto-actualizarse
+
+
+
+
+
+
+
+        // (es decir, no es MSIX). En MSIX el campo sale deshabilitado.
+
+
+
+
+
+
+
+        if (InstallEnvironment.CanSelfUpdate)
+
+
+
+
+
+
+
+        {
+
+
+
+
+
+
+
+            try
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                var hosted = (IEnumerable<Microsoft.Extensions.Hosting.IHostedService>?)Services
+
+
+
+
+
+
+
+                .GetService(typeof(IEnumerable<Microsoft.Extensions.Hosting.IHostedService>));
+
+
+
+
+
+
+
+                _updater = hosted?.FirstOrDefault(s => s is UpdateHostedService) as UpdateHostedService;
+
+
+
+
+
+
+
+                if (_updater?.LastCheck is UpdateInfo last)
+
+
+
+
+
+
+
+                {
+
+
+
+
+
+
+
+                    _updateInfo = last;
+
+
+
+
+
+
+
+                }
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+            catch
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                // Si falla la resolución, el botón seguirá funcionando
+
+
+
+
+
+
+
+                // porque OnCheckClick también resuelve el servicio.
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private async Task OnCheckClick()
+
+
+
+
+
+
+
+    {
+
+
+
+
+
+
+
+        if (_checking) return;
+
+
+
+
+
+
+
+        _checking = true;
+
+
+
+
+
+
+
+        try
+
+
+
+
+
+
+
+        {
+
+
+
+
+
+
+
+            // Re-resolver por si el servicio no estaba disponible en
+
+
+
+
+
+
+
+            // OnInitialized (p.ej. la pestaña se montó antes que el host).
+
+
+
+
+
+
+
+            if (_updater is null)
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                var hosted = (IEnumerable<Microsoft.Extensions.Hosting.IHostedService>?)Services
+
+
+
+
+
+
+
+                .GetService(typeof(IEnumerable<Microsoft.Extensions.Hosting.IHostedService>));
+
+
+
+
+
+
+
+                _updater = hosted?.FirstOrDefault(s => s is UpdateHostedService) as UpdateHostedService;
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+            if (_updater is null)
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                Notifier.Notify(NotificationSeverity.Warning,
+
+
+
+
+
+
+
+                "Servicio de updates no disponible",
+
+
+
+
+
+
+
+                "Esta instalación no soporta auto-actualización.",
+
+
+
+
+
+
+
+                duration: 6000);
+
+
+
+
+
+
+
+                return;
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            var info = await _updater.CheckNowAsync();
+
+
+
+
+
+
+
+            _updateInfo = info;
+
+
+
+
+
+
+
+            if (info.CheckSucceeded && info.IsUpdateAvailable)
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                // Reusar el dialog del notifier
+
+
+
+
+
+
+
+                var result = await DialogService.OpenAsync<UpdateAvailableDialog>(
+
+
+
+
+
+
+
+                title: $"Actualización disponible: {info.LatestVersion}",
+
+
+
+
+
+
+
+                parameters: new Dictionary<string, object?> { { "Info", info } },
+
+
+
+
+
+
+
+                options: new DialogOptions { Width = "560px" });
+
+
+
+
+
+
+
+                if (string.Equals(result as string, "dismiss", StringComparison.OrdinalIgnoreCase))
+
+
+
+
+
+
+
+                {
+
+
+
+
+
+
+
+                    _updater.DismissUpdate(info.LatestVersion);
+
+
+
+
+
+
+
+                }
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+            else if (info.CheckSucceeded)
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                Notifier.Notify(NotificationSeverity.Success,
+
+
+
+
+
+
+
+                "Sin actualizaciones",
+
+
+
+
+
+
+
+                $"Ya tenés la última versión ({info.CurrentVersion}).",
+
+
+
+
+
+
+
+                duration: 5000);
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+            else
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                Notifier.Notify(NotificationSeverity.Error,
+
+
+
+
+
+
+
+                "No se pudo consultar GitHub",
+
+
+
+
+
+
+
+                info.ErrorMessage,
+
+
+
+
+
+
+
+                duration: 7000);
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        finally
+
+
+
+
+
+
+
+        {
+
+
+
+
+
+
+
+            _checking = false;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /// <summary>
+    /// Versión del ensamblado: combina el archivo AssemblyInformationalVersionAttribute
+    /// (formato "1.1.2+abcdef") cuando está disponible, y cae al
+    /// AssemblyVersion si falta. Sin reflexión, una cadena vacía.
+    /// </summary>
+    private static string ResolveAppVersion()
+
+
+
+
+
+
+
+    {
+
+
+
+
+
+
+
+        var asm = typeof(AboutConfigTab).Assembly;
+
+
+
+
+
+
+
+        var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+
+
+
+
+
+
+        if (!string.IsNullOrWhiteSpace(info))
+
+
+
+
+
+
+
+        {
+
+
+
+
+
+
+
+            // "1.1.2+abcdef..." -> mostramos sólo el hash corto aparte
+
+
+
+
+
+
+
+            var plusIdx = info.IndexOf('+');
+
+
+
+
+
+
+
+            if (plusIdx > 0)
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                return info[..plusIdx];
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+            return info;
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        return asm.GetName().Version?.ToString() ?? "1.0.0";
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static string? ResolveGitCommitShort()
+
+
+
+
+
+
+
+    {
+
+
+
+
+
+
+
+        var asm = typeof(AboutConfigTab).Assembly;
+
+
+
+
+
+
+
+        var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+
+
+
+
+
+
+        if (!string.IsNullOrWhiteSpace(info))
+
+
+
+
+
+
+
+        {
+
+
+
+
+
+
+
+            var plusIdx = info.IndexOf('+');
+
+
+
+
+
+
+
+            if (plusIdx > 0 && plusIdx + 1 < info.Length)
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                var hash = info[(plusIdx + 1)..];
+
+
+
+
+
+
+
+                return hash.Length >= 7 ? hash[..7] : hash;
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        return null;
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static string ResolveTargetFramework()
+
+
+
+
+
+
+
+    {
+
+
+
+
+
+
+
+        var asm = typeof(AboutConfigTab).Assembly;
+
+
+
+
+
+
+
+        var attr = asm.GetCustomAttribute<TargetFrameworkAttribute>();
+
+
+
+
+
+
+
+        return attr?.FrameworkName ?? "net10.0";
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static string ResolveBuildDate()
+
+
+
+
+
+
+
+    {
+
+
+
+
+
+
+
+        // La fecha de compilación no es trivial sin MSBuild; usamos la del
+
+
+
+
+
+
+
+        // ensamblado (WriteTime del PE header) cuando está disponible, y
+
+
+
+
+
+
+
+        // caemos a la del directorio de la app en single-file publish.
+
+
+
+
+
+
+
+        try
+
+
+
+
+
+
+
+        {
+
+
+
+
+
+
+
+            var asm = typeof(AboutConfigTab).Assembly;
+
+
+
+
+
+
+
+            var location = asm.Location;
+
+
+
+
+
+
+
+            if (!string.IsNullOrEmpty(location) && System.IO.File.Exists(location))
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                return System.IO.File.GetLastWriteTime(location).ToString("yyyy-MM-dd HH:mm");
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+            // En single-file publish asm.Location es vacío; usamos el
+
+
+
+
+
+
+
+            // directorio base de la app como proxy razonable.
+
+
+
+
+
+
+
+            var baseDir = AppContext.BaseDirectory;
+
+
+
+
+
+
+
+            if (!string.IsNullOrEmpty(baseDir))
+
+
+
+
+
+
+
+            {
+
+
+
+
+
+
+
+                var probe = System.IO.Path.Combine(baseDir, asm.GetName().Name + ".dll");
+
+
+
+
+
+
+
+                if (System.IO.File.Exists(probe))
+
+
+
+
+
+
+
+                {
+
+
+
+
+
+
+
+                    return System.IO.File.GetLastWriteTime(probe).ToString("yyyy-MM-dd HH:mm");
+
+
+
+
+
+
+
+                }
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        catch
+
+
+
+
+
+
+
+        {
+
+
+
+
+
+
+
+            // Si nada funciona, mostramos la fecha actual como último recurso.
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+        return DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm") + " UTC";
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private const string DefaultLicenseText =
+
+
+
+
+
+
+
+    "MIT License\n\n" +
+
+
+
+
+
+
+
+    "Copyright (c) 2026 FittyAr\n\n" +
+
+
+
+
+
+
+
+    "Permission is hereby granted, free of charge, to any person obtaining a copy\n" +
+
+
+
+
+
+
+
+    "of this software and associated documentation files (the \"Software\"), to deal\n" +
+
+
+
+
+
+
+
+    "in the Software without restriction, including without limitation the rights\n" +
+
+
+
+
+
+
+
+    "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n" +
+
+
+
+
+
+
+
+    "copies of the Software, and to permit persons to whom the Software is\n" +
+
+
+
+
+
+
+
+    "furnished to do so, subject to the following conditions:\n\n" +
+
+
+
+
+
+
+
+    "The above copyright notice and this permission notice shall be included in all\n" +
+
+
+
+
+
+
+
+    "copies or substantial portions of the Software.\n\n" +
+
+
+
+
+
+
+
+    "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n" +
+
+
+
+
+
+
+
+    "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n" +
+
+
+
+
+
+
+
+    "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.";
+}

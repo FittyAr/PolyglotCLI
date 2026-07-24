@@ -1,0 +1,41 @@
+@inject DialogService DialogService
+
+@*
+    Modal genérico de "cambios sin guardar". Devuelve un Choice que
+    Config.razor.cs traduce a: cancelar la navegación, descartar y
+    dejar navegar, o guardar antes de salir.
+*@
+
+<RadzenStack Gap="1rem">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <RadzenIcon Icon="warning_amber" Style="font-size: 2rem; color: #fbbf24;" />
+        <RadzenText TextStyle="TextStyle.Body1" style="margin: 0;">
+            Tenés <strong>cambios sin guardar</strong> en la configuración.
+        </RadzenText>
+    </div>
+
+    <RadzenText TextStyle="TextStyle.Body2" style="color: #94a3b8; margin: 0;">
+        ¿Querés guardar los cambios antes de salir, descartarlos, o cancelar y quedarte en la página?
+    </RadzenText>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
+        <RadzenButton Text="Cancelar" Icon="close"
+                      ButtonStyle="ButtonStyle.Secondary"
+                      Click="@(() => DialogService.Close(Choice.Cancel))" />
+        <RadzenButton Text="Descartar cambios" Icon="delete_outline"
+                      ButtonStyle="ButtonStyle.Danger"
+                      Click="@(() => DialogService.Close(Choice.Discard))" />
+        <RadzenButton Text="Guardar y salir" Icon="save"
+                      ButtonStyle="ButtonStyle.Primary"
+                      Click="@(() => DialogService.Close(Choice.Save))" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    public enum Choice
+    {
+        Cancel,
+        Discard,
+        Save
+    }
+}

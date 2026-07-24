@@ -4,6 +4,8 @@ using PolyglotCLI.web.Services.JobDetails;
 using Radzen;
 using BlazorPanzoom;
 using PolyglotCLI;
+using PolyglotCLI.Update;
+using Microsoft.AspNetCore.StaticFiles;
 
 namespace PolyglotCLI.web
 {
@@ -51,6 +53,14 @@ namespace PolyglotCLI.web
             builder.Services.AddScoped<IJobPageEditService, JobPageEditService>();
             builder.Services.AddScoped<IJobPageReprocessService, JobPageReprocessService>();
 
+            // Servicio de auto-actualización (background). Solo activo en
+            // instalaciones Inno Setup / .exe; en MSIX no se registra
+            // ningún chequeo porque lo gestiona Microsoft Store.
+            if (InstallEnvironment.CanSelfUpdate)
+            {
+                builder.Services.AddHostedService<UpdateHostedService>();
+            }
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -62,7 +72,25 @@ namespace PolyglotCLI.web
             app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
             app.UseHttpsRedirection();
             app.UseAntiforgery();
-            app.UseStaticFiles();
+
+            // UseStaticFiles con un proveedor de MIME types extendido:
+            // por defecto el middleware rechaza archivos sin extensión
+            // (p.ej. LICENSE) porque no les puede asignar Content-Type.
+            // El AboutConfigTab enlaza LICENSE, README.md, y
+            // docs/architecture.svg, así que necesitamos servir todos
+            // los archivos de wwwroot/ sin importar la extensión.
+            var staticContentTypes = new FileExtensionContentTypeProvider();
+            // Asegurar que .md se sirva como text/markdown
+            staticContentTypes.Mappings[".md"] = "text/markdown; charset=utf-8";
+            // Servir archivos sin extensión reconocida (LICENSE, etc.) como
+            // text/plain para que el navegador los pueda mostrar.
+            var staticFileOptions = new StaticFileOptions
+            {
+                ContentTypeProvider = staticContentTypes,
+                ServeUnknownFileTypes = true,
+                DefaultContentType = "text/plain; charset=utf-8"
+            };
+            app.UseStaticFiles(staticFileOptions);
             app.MapRazorComponents<App>()
                 .AddInteractiveServerRenderMode();
 

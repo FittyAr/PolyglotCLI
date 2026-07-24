@@ -1,0 +1,92 @@
+@inject DialogService DialogService
+
+@*
+    Dialog que pregunta al usuario si quiere replicar el proveedor recién
+    seleccionado en las secciones OCR, Translation y/o Revision. Si el
+    usuario cancela, no se aplica nada y el dropdown principal vuelve a
+    su valor anterior.
+*@
+
+<RadzenStack Gap="1rem">
+    <RadzenText TextStyle="TextStyle.Body1">
+        Vas a cambiar el proveedor principal a <strong>@NewProvider</strong>.
+        ¿Querés usar el mismo proveedor también en estas secciones?
+    </RadzenText>
+
+    <RadzenCard Variant="Variant.Flat" class="rz-p-3" style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25);">
+        <RadzenStack Gap="0.75rem">
+            <div>
+                <RadzenCheckBox @bind-Value="applyToOcr" Name="cascadeOcr" TValue="bool" />
+                <RadzenLabel Text="OCR Process" Component="cascadeOcr" class="rz-ml-2" />
+                @if (!string.IsNullOrEmpty(CurrentOcr) && !string.Equals(CurrentOcr, NewProvider, StringComparison.OrdinalIgnoreCase))
+                {
+                    <RadzenText TextStyle="TextStyle.Caption" style="display: block; margin-left: 26px; color: #94a3b8;">
+                        actualmente: @CurrentOcr
+                    </RadzenText>
+                }
+            </div>
+            <div>
+                <RadzenCheckBox @bind-Value="applyToTranslation" Name="cascadeTranslation" TValue="bool" />
+                <RadzenLabel Text="Translation" Component="cascadeTranslation" class="rz-ml-2" />
+                @if (!string.IsNullOrEmpty(CurrentTranslation) && !string.Equals(CurrentTranslation, NewProvider, StringComparison.OrdinalIgnoreCase))
+                {
+                    <RadzenText TextStyle="TextStyle.Caption" style="display: block; margin-left: 26px; color: #94a3b8;">
+                        actualmente: @CurrentTranslation
+                    </RadzenText>
+                }
+            </div>
+            <div>
+                <RadzenCheckBox @bind-Value="applyToReview" Name="cascadeReview" TValue="bool" />
+                <RadzenLabel Text="Revision" Component="cascadeReview" class="rz-ml-2" />
+                @if (!string.IsNullOrEmpty(CurrentReview) && !string.Equals(CurrentReview, NewProvider, StringComparison.OrdinalIgnoreCase))
+                {
+                    <RadzenText TextStyle="TextStyle.Caption" style="display: block; margin-left: 26px; color: #94a3b8;">
+                        actualmente: @CurrentReview
+                    </RadzenText>
+                }
+            </div>
+        </RadzenStack>
+    </RadzenCard>
+
+    <RadzenText TextStyle="TextStyle.Caption" style="color: #94a3b8;">
+        Si no marcás ninguna, solo se actualiza el proveedor principal.
+    </RadzenText>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
+        <RadzenButton Text="Cancelar" Icon="close" ButtonStyle="ButtonStyle.Secondary" Click="@Cancel" />
+        <RadzenButton Text="Aplicar" Icon="check" ButtonStyle="ButtonStyle.Primary" Click="@Apply" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public string NewProvider { get; set; } = string.Empty;
+    [Parameter] public string CurrentOcr { get; set; } = string.Empty;
+    [Parameter] public string CurrentTranslation { get; set; } = string.Empty;
+    [Parameter] public string CurrentReview { get; set; } = string.Empty;
+
+    private bool applyToOcr = true;
+    private bool applyToTranslation = true;
+    private bool applyToReview = true;
+
+    /// <summary>
+    /// Resultado devuelto por DialogService.Close. null si el usuario
+    /// canceló; un Result con los flags si confirmó.
+    /// </summary>
+    public class Result
+    {
+        public bool ApplyToOcr { get; set; }
+        public bool ApplyToTranslation { get; set; }
+        public bool ApplyToReview { get; set; }
+        public bool AnySelected => ApplyToOcr || ApplyToTranslation || ApplyToReview;
+    }
+
+    private void Apply() =>
+        DialogService.Close(new Result
+        {
+            ApplyToOcr = applyToOcr,
+            ApplyToTranslation = applyToTranslation,
+            ApplyToReview = applyToReview
+        });
+
+    private void Cancel() => DialogService.Close(null);
+}

@@ -6,18 +6,26 @@ using System.Threading.Tasks;
 using System.Net.Http;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Routing;
 using Radzen;
 using PolyglotCLI;
+using PolyglotCLI.web.Components.Dialogs;
 
 namespace PolyglotCLI.web.Components.Pages;
 
-public partial class Config : ComponentBase
+public partial class Config : ComponentBase, IDisposable
 {
     [Inject]
     protected PolyglotCLI.AppConfig AppConfig { get; set; } = default!;
 
     [Inject]
     protected NotificationService NotificationService { get; set; } = default!;
+
+    [Inject]
+    protected DialogService DialogService { get; set; } = default!;
+
+    [Inject]
+    protected NavigationManager NavigationManager { get; set; } = default!;
 
     protected string saveMessage = "";
     protected string outputFormatsInput = "";
@@ -32,6 +40,14 @@ public partial class Config : ComponentBase
     protected string translationPromptText = "";
     protected string reviewPromptText = "";
     protected string promptImproverPromptText = "";
+
+    // ── Dirty tracking ────────────────────────────────────────────────
+    // Serializamos el AppConfig al entrar a la página y cada vez que
+    // guardamos. La navegación SPA sale interceptada por el
+    // locationHandler si hay cambios pendientes.
+    private string? _baselineJson;
+    private IDisposable? _locationHandler;
+    private bool _handlerRegistered;
 
     protected override async Task OnInitializedAsync()
     {
@@ -64,6 +80,173 @@ public partial class Config : ComponentBase
             if (!string.IsNullOrEmpty(AppConfig.ReviewModel) && !availableModels.Contains(AppConfig.ReviewModel))
                 availableModels.Add(AppConfig.ReviewModel);
         }
+
+        // Capturamos el baseline después de Reload + carga inicial.
+        // Cualquier cambio posterior se detecta comparando contra este JSON.
+        _baselineJson = SerializeForCompare(AppConfig);
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && !_handlerRegistered)
+        {
+            _locationHandler = NavigationManager.RegisterLocationChangingHandler(OnLocationChanging);
+            _handlerRegistered = true;
+        }
+    }
+
+    /// <summary>
+    /// Intercepta la navegación SPA. Si hay cambios sin guardar,
+    /// muestra el modal y decide según la respuesta del usuario.
+    /// </summary>
+    private async ValueTask OnLocationChanging(LocationChangingContext context)
+    {
+        if (!IsDirty())
+            return; // Sin cambios: dejar pasar.
+
+        // El target siempre es distinto de la URL actual (RegisterLocationChangingHandler
+        // solo se llama cuando hay cambio real de ubicación).
+        var result = await DialogService.OpenAsync<UnsavedChangesDialog>(
+            title: "Cambios sin guardar",
+            options: new DialogOptions
+            {
+                Width = "480px",
+                CloseDialogOnEsc = true,
+                CloseDialogOnOverlayClick = false
+            });
+
+        if (result is UnsavedChangesDialog.Choice choice)
+        {
+            switch (choice)
+            {
+                case UnsavedChangesDialog.Choice.Cancel:
+                    context.PreventNavigation();
+                    break;
+
+                case UnsavedChangesDialog.Choice.Discard:
+                    ApplyBaseline();
+                    // No llamamos PreventNavigation: dejamos pasar con el
+                    // estado descartado.
+                    break;
+
+                case UnsavedChangesDialog.Choice.Save:
+                    await SaveConfig(AppConfig);
+                    // Si SaveConfig reportó error, el baseline no se
+                    // actualizó → todavía dirty → bloqueamos para que
+                    // el usuario no pierda los cambios.
+                    if (IsDirty())
+                        context.PreventNavigation();
+                    break;
+            }
+        }
+        else
+        {
+            // Cerrado por Esc u overlay (aunque overlay está bloqueado).
+            // Interpretamos como "cancelar" para no perder datos.
+            context.PreventNavigation();
+        }
+    }
+
+    private bool IsDirty()
+    {
+        if (_baselineJson is null)
+            return false;
+        var current = SerializeForCompare(AppConfig);
+        return !string.Equals(current, _baselineJson, StringComparison.Ordinal);
+    }
+
+    private void ApplyBaseline()
+    {
+        if (_baselineJson is null)
+            return;
+        try
+        {
+            // Restaurar todos los campos del snapshot al AppConfig vivo.
+            // Es la forma más simple de "deshacer": reemplazamos por el
+            // estado original serializado. No toca LoadedFromPath.
+            var snapshot = JsonSerializer.Deserialize<PolyglotCLI.AppConfig>(_baselineJson);
+            if (snapshot is null) return;
+            CopyInto(snapshot, AppConfig);
+            // También revertimos los buffers locales de los prompts:
+            try
+            {
+                var promptLoader = new PromptLoader();
+                try { ocrPromptText = promptLoader.LoadOcrPrompt(); } catch {}
+                try { translationPromptText = promptLoader.LoadTranslationPrompt(); } catch {}
+                try { reviewPromptText = promptLoader.LoadReviewPrompt(); } catch {}
+                try { promptImproverPromptText = promptLoader.LoadPromptImproverPrompt(); } catch {}
+            }
+            catch { }
+        }
+        catch
+        {
+            // Si falla el deserializar, no hacemos nada: el estado queda
+            // como está y el usuario verá los cambios (peor escenario
+            // aceptable).
+        }
+    }
+
+    private static string SerializeForCompare(PolyglotCLI.AppConfig cfg)
+    {
+        // Serializamos solo los campos persistibles. LoadedFromPath es
+        // [JsonIgnore] así que ya queda fuera; igual lo limpiamos
+        // explícitamente para que el snapshot sea estable entre
+        // re-renders.
+        var copy = new PolyglotCLI.AppConfig();
+        CopyInto(cfg, copy);
+        copy.LoadedFromPath = null;
+        return JsonSerializer.Serialize(copy);
+    }
+
+    private static void CopyInto(PolyglotCLI.AppConfig src, PolyglotCLI.AppConfig dst)
+    {
+        dst.Provider = src.Provider;
+        dst.OcrProvider = src.OcrProvider;
+        dst.TranslationProvider = src.TranslationProvider;
+        dst.ReviewProvider = src.ReviewProvider;
+        dst.ApiUrl = src.ApiUrl;
+        dst.ApiKey = src.ApiKey;
+        dst.ProviderApiKeys = new Dictionary<string, string>(src.ProviderApiKeys);
+        dst.ProviderConfigs = new Dictionary<string, ProviderConfig>(src.ProviderConfigs);
+        dst.DefaultModel = src.DefaultModel;
+        dst.DefaultVisionModel = src.DefaultVisionModel;
+        dst.TargetLanguage = src.TargetLanguage;
+        dst.OutputDirectory = src.OutputDirectory;
+        dst.LastScanDirectory = src.LastScanDirectory;
+        dst.Debug = src.Debug;
+        dst.AdditionalPrompt = src.AdditionalPrompt;
+        dst.TranslationTimeoutSeconds = src.TranslationTimeoutSeconds;
+        dst.PromptImproveTimeoutSeconds = src.PromptImproveTimeoutSeconds;
+        dst.ModelCheckTimeoutSeconds = src.ModelCheckTimeoutSeconds;
+        dst.Temperature = src.Temperature;
+        dst.MaxCharactersPerChunk = src.MaxCharactersPerChunk;
+        dst.ChunkOverlapCharacters = src.ChunkOverlapCharacters;
+        dst.PreserveFormat = src.PreserveFormat;
+        dst.EnableReview = src.EnableReview;
+        dst.ReviewModel = src.ReviewModel;
+        dst.ReviewTimeoutSeconds = src.ReviewTimeoutSeconds;
+        dst.ReviewTemperature = src.ReviewTemperature;
+        dst.OcrTemperature = src.OcrTemperature;
+        dst.OcrTimeoutSeconds = src.OcrTimeoutSeconds;
+        dst.OutputFormats = src.OutputFormats;
+        dst.SaveMarkdown = src.SaveMarkdown;
+        dst.ModuleExtractionEnabled = src.ModuleExtractionEnabled;
+        dst.ModuleTranslationEnabled = src.ModuleTranslationEnabled;
+        dst.ModuleReviewEnabled = src.ModuleReviewEnabled;
+        dst.ModuleConversionEnabled = src.ModuleConversionEnabled;
+        dst.DefaultOutputFormat = src.DefaultOutputFormat;
+        dst.SupportedOutputFormats = new List<string>(src.SupportedOutputFormats);
+        dst.SupportedInputExtensions = new List<string>(src.SupportedInputExtensions);
+        dst.LogDirectory = src.LogDirectory;
+        dst.LogLevelConsole = src.LogLevelConsole;
+        dst.LogLevelFile = src.LogLevelFile;
+    }
+
+    public void Dispose()
+    {
+        _locationHandler?.Dispose();
+        _locationHandler = null;
+        _handlerRegistered = false;
     }
 
     protected async Task TestConnection()
@@ -76,12 +259,14 @@ public partial class Config : ComponentBase
         isTestingConnection = true;
         testConnectionResult = null;
         StateHasChanged();
-        
+
         try
         {
             using var client = LlmClientFactory.CreateClient(AppConfig, AppConfig.ModelCheckTimeoutSeconds);
             availableModels = await client.GetAvailableModelsAsync();
             AppConfig.SaveTestedProvider(AppConfig.Provider, AppConfig.ApiUrl, AppConfig.ApiKey, availableModels);
+            // SaveTestedProvider muta el config → refrescamos el baseline.
+            _baselineJson = SerializeForCompare(AppConfig);
             NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Carga y Registro Exitoso", Detail = $"Servidor '{AppConfig.Provider}' verificado con {availableModels.Count} modelos y registrado para usar en OCR, Traducción y Revisión." });
             testConnectionResult = "Conexión exitosa";
         }
@@ -127,7 +312,11 @@ public partial class Config : ComponentBase
 
             saveMessage = "Configuración guardada correctamente!";
             NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Configuración guardada correctamente." });
-            
+
+            // Refrescar baseline: lo que está en el modelo YA está
+            // persistido en disco, así que el nuevo estado limpio.
+            _baselineJson = SerializeForCompare(AppConfig);
+
             await Task.Delay(3000);
             saveMessage = "";
             StateHasChanged();

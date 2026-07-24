@@ -42,6 +42,11 @@
                 <RadzenTabsItem Text="Prompts del Sistema" Icon="description">
                     <PromptsConfigTab @bind-OcrPromptText="ocrPromptText" @bind-TranslationPromptText="translationPromptText" @bind-ReviewPromptText="reviewPromptText" @bind-PromptImproverPromptText="promptImproverPromptText" />
                 </RadzenTabsItem>
+
+                <!-- Pestaña 7: Acerca de -->
+                <RadzenTabsItem Text="Acerca de" Icon="info">
+                    <AboutConfigTab />
+                </RadzenTabsItem>
             </Tabs>
         </RadzenTabs>
 

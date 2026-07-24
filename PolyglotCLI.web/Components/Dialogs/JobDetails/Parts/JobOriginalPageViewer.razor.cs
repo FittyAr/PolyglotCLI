@@ -68,16 +68,41 @@ public partial class JobOriginalPageViewer : ComponentBase
             return;
         }
 
+        // Race condition: el onload del <img> puede dispararse antes de que
+        // BlazorPanzoom termine de inicializar su handle JS interno
+        // (_jsPanzoomReference), lo que produce una NullReferenceException
+        // transitoria. Reintentamos una vez con un pequeño delay; si sigue
+        // fallando, la siguiente interacción del usuario (botón Restablecer,
+        // cambio de página) ya lo va a tener listo.
+        if (!await TryResetAsync())
+        {
+            await Task.Delay(100);
+            await TryResetAsync();
+        }
+    }
+
+    /// <summary>
+    /// Intenta resetear el panzoom. Devuelve true si tuvo éxito, false si
+    /// falló por una race condition con la inicialización JS de la librería.
+    /// </summary>
+    private async Task<bool> TryResetAsync()
+    {
+        if (_isDisposed || panzoomRef == null)
+            return true;
+
         try
         {
             await panzoomRef.ResetAsync();
+            return true;
         }
         catch (Exception ex)
         {
-            // ResetAsync puede fallar en el primer render antes de que el
-            // JS bundle de panzoom haya terminado de inicializar; lo ignoramos
-            // y dejamos que la próxima interacción del usuario lo configure.
-            Console.WriteLine($"Panzoom reset error: {ex.Message}");
+            // NRE típica: _jsPanzoomReference todavía es null. Otros errores
+            // también pueden ocurrir; los silenciamos todos porque el
+            // siguiente intento o la próxima interacción del usuario
+            // terminarán funcionando.
+            AppLogger.Debug($"Panzoom reset deferred (will retry): {ex.GetType().Name}: {ex.Message}");
+            return false;
         }
     }
 

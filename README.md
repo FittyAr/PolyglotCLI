@@ -129,9 +129,40 @@ Once started, navigate to the local server URL indicated in your console output 
    - **Providers & Models**: Configure API endpoints, models, temperatures, and keys for Ollama, LM Studio, OpenAI, Gemini, Anthropic, etc.
    - **Prompt Manager**: Fine-tune system prompts directly from the browser for OCR extraction, translation, and reviews.
    - **Formatting & Ranges**: Manage input file extensions and output directories.
+   - **About**: Project version, license, developer info, dependency credits and auto-update status.
+
+---
+
+## One-line install (Windows)
+
+If you just want to run PolyglotCLI on Windows without cloning the repo, open **PowerShell 5.1+** and run any of the lines below. The script downloads the latest release from GitHub, installs the prerequisites and runs the Inno Setup installer with the components you choose.
+
+```powershell
+# Full install (server + desktop) — interactive prompt
+irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/main/scripts/install-remote.ps1 | iex
+
+# Only the web server (headless / minimal)
+$env:POLYGLOT_INSTALL_MODE = "server";  irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/main/scripts/install-remote.ps1 | iex
+
+# Only the native desktop app
+$env:POLYGLOT_INSTALL_MODE = "desktop"; irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/main/scripts/install-remote.ps1 | iex
+
+# Full install, non-interactive (useful in CI / scripts)
+$env:POLYGLOT_INSTALL_MODE = "both"; $env:POLYGLOT_SILENT = "1"; irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/main/scripts/install-remote.ps1 | iex
+```
+
+Environment variables accepted by the installer:
+
+| Variable | Values | Default | Effect |
+|---|---|---|---|
+| `POLYGLOT_INSTALL_MODE` | `server` / `desktop` / `both` | (asks) | Which Inno Setup components to install |
+| `POLYGLOT_SILENT` | `1` | (off) | Skip all prompts; needs `POLYGLOT_INSTALL_MODE` |
+| `POLYGLOT_INSTALL_DIR` | any absolute path | `%ProgramFiles%\FittyAr\PolyglotCLI` | Override the install root |
+
+The installer respects an existing PolyglotCLI installation: if it's already present, the new run updates it in place and keeps your `config.json`, prompts, and component selection.
 
 ---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE). Copyright (c) 2026 FittyAr — see [fitty.ar](https://fitty.ar) and the [project page](https://fitty.ar/pages/polyglot-cli.html) for more info.

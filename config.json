@@ -60,5 +60,9 @@
   ],
   "LogDirectory": "logs",
   "LogLevelConsole": "Information",
-  "LogLevelFile": "Debug"
+  "LogLevelFile": "Debug",
+  "UpdateCheckEnabled": true,
+  "UpdateCheckIntervalHours": 6,
+  "LastUpdateCheckUtc": null,
+  "DismissedUpdateVersion": null
 }
