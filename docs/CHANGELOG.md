@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.1.2] - 2026-07-24
+
+### Added
+
+### Improved
+
+- Improved Job Details modal layout to be collapsible and fluidly resizable on smaller monitors.
+- Improved system translation, review, and OCR prompts with industry-standard terminology guidelines, formatting preservation (no-linting rules), local path mapping, and localized typographical punctuation.
+- Enhanced prompt engineering helper guides for users, adding structured glossary examples, regional localization instructions, and SEO considerations.
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed write permission errors when exporting jobs or saving configurations while running inside write-protected directories like Program Files. The outputs and modified configurations are now redirected to the safe user AppData directory.
+
+---
+
 ## [v1.1.1] - 2026-07-23
 
 ### Added
