@@ -1,0 +1,237 @@
+@using PolyglotCLI
+@using System.IO
+@using System.Collections.Generic
+@using System.Threading.Tasks
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject PolyglotCLI.AppConfig Config
+@inject IFolderPickerService FolderPickerService
+
+<RadzenCard style="background: rgba(17, 24, 39, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+    <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-mb-4" style="color: #ffffff; font-weight: bold;">
+        Selecciona las opciones para exportar y convertir el trabajo
+    </RadzenText>
+
+    <!-- Carpeta de Destino -->
+    <div class="rz-mb-4" style="margin-bottom: 20px;">
+        <RadzenText TextStyle="TextStyle.Caption" style="color: #94a3b8; display: block; margin-bottom: 6px;">Carpeta de Destino</RadzenText>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <RadzenTextBox @bind-Value="exportDirectory" class="rz-w-100" style="flex-grow: 1; background: rgba(10,15,26,0.8); border: 1px solid rgba(255,255,255,0.15); color: #ffffff;" />
+            @if (FolderPickerService.IsSupported)
+            {
+                <RadzenButton Icon="folder_open" ButtonStyle="ButtonStyle.Secondary" Click="@SelectFolder" Title="Seleccionar carpeta..." Style="flex-shrink: 0;" />
+            }
+        </div>
+    </div>
+
+    <!-- Formatos a Exportar -->
+    <div class="rz-mb-4" style="margin-bottom: 24px;">
+        <RadzenText TextStyle="TextStyle.Caption" style="color: #94a3b8; display: block; margin-bottom: 8px;">Formatos de Documento a Generar</RadzenText>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 16px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px;">
+            <div style="display: flex; align-items: center;">
+                <RadzenCheckBox @bind-Value="exportMd" Name="chkMd" />
+                <RadzenLabel Text="Markdown (.md)" Component="chkMd" Style="margin-left: 8px; color: #f8fafc; font-size: 0.95rem; cursor: pointer;" />
+            </div>
+
+            <div style="display: flex; align-items: center;">
+                <RadzenCheckBox @bind-Value="exportDocx" Name="chkDocx" />
+                <RadzenLabel Text="Word (.docx)" Component="chkDocx" Style="margin-left: 8px; color: #f8fafc; font-size: 0.95rem; cursor: pointer;" />
+            </div>
+
+            <div style="display: flex; align-items: center;">
+                <RadzenCheckBox @bind-Value="exportPdf" Name="chkPdf" />
+                <RadzenLabel Text="PDF (.pdf)" Component="chkPdf" Style="margin-left: 8px; color: #f8fafc; font-size: 0.95rem; cursor: pointer;" />
+            </div>
+
+            <div style="display: flex; align-items: center;">
+                <RadzenCheckBox @bind-Value="exportHtml" Name="chkHtml" />
+                <RadzenLabel Text="HTML (.html)" Component="chkHtml" Style="margin-left: 8px; color: #f8fafc; font-size: 0.95rem; cursor: pointer;" />
+            </div>
+
+            <div style="display: flex; align-items: center; grid-column: span 2;">
+                <RadzenCheckBox @bind-Value="exportOdt" Name="chkOdt" />
+                <RadzenLabel Text="OpenDocument Text (.odt)" Component="chkOdt" Style="margin-left: 8px; color: #f8fafc; font-size: 0.95rem; cursor: pointer;" />
+            </div>
+        </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px;">
+        <RadzenButton Text="Cancelar" Click="@(() => DialogService.Close(false))" ButtonStyle="ButtonStyle.Secondary" />
+        <RadzenButton Text="Exportar" Icon="save_alt" Click="@Export" ButtonStyle="ButtonStyle.Primary" IsBusy="@isProcessing" BusyText="Exportando..." />
+    </div>
+</RadzenCard>
+
+@code {
+    [Parameter]
+    public JobManifest Job { get; set; } = default!;
+
+    private string exportDirectory = "";
+    private bool exportMd = true;
+    private bool exportDocx = true;
+    private bool exportPdf = false;
+    private bool exportHtml = false;
+    private bool exportOdt = false;
+    private bool isProcessing = false;
+
+    protected override void OnInitialized()
+    {
+        exportDirectory = Config.AbsoluteOutputDirectory;
+        
+        // Inicializar checkboxes basados en la configuración por defecto
+        string currentFormats = (Config.OutputFormats ?? "").ToLowerInvariant();
+        exportDocx = currentFormats.Contains("docx");
+        exportPdf = currentFormats.Contains("pdf");
+        exportHtml = currentFormats.Contains("html");
+        exportOdt = currentFormats.Contains("odt") || currentFormats.Contains("odf");
+        exportMd = Config.SaveMarkdown;
+    }
+
+    private async Task SelectFolder()
+    {
+        string? selected = await FolderPickerService.PickFolderAsync();
+        if (!string.IsNullOrEmpty(selected))
+        {
+            exportDirectory = selected;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Export()
+    {
+        if (string.IsNullOrWhiteSpace(exportDirectory))
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Exportación",
+                Detail = "Por favor selecciona una carpeta de destino válida."
+            });
+            return;
+        }
+
+        var selectedFormatsList = new List<string>();
+        if (exportDocx) selectedFormatsList.Add("docx");
+        if (exportPdf) selectedFormatsList.Add("pdf");
+        if (exportHtml) selectedFormatsList.Add("html");
+        if (exportOdt) selectedFormatsList.Add("odt");
+
+        if (!exportMd && selectedFormatsList.Count == 0)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Exportación",
+                Detail = "Selecciona al menos un formato para la exportación."
+            });
+            return;
+        }
+
+        isProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            // Ejecutamos la tarea de exportación en segundo plano para no congelar la UI de Blazor
+            string errorMsg = await Task.Run(async () =>
+            {
+                try
+                {
+                    string jobsRoot = TranslationOrchestrator.GetJobsDirectory();
+                    string jobDir = Path.Combine(jobsRoot, Job.JobId);
+
+                    var tempConfig = new AppConfig
+                    {
+                        OutputDirectory = exportDirectory,
+                        TargetLanguage = Config.TargetLanguage,
+                        OutputFormats = string.Join(",", selectedFormatsList),
+                        SaveMarkdown = true // Siempre guardamos markdown temporalmente para poder convertir
+                    };
+
+                    var (count, errors) = JobExportService.ExportJobToMarkdown(jobDir, tempConfig);
+
+                    if (errors.Count > 0)
+                    {
+                        return $"Se exportaron {count} archivos pero hubo errores:\n" + string.Join("\n", errors);
+                    }
+
+                    if (count == 0)
+                    {
+                        return "No se encontraron datos para exportar en este trabajo.";
+                    }
+
+                    // Convertir formatos según corresponda
+                    if (selectedFormatsList.Count > 0)
+                    {
+                        string dataDir = Path.Combine(jobDir, "data");
+                        var files = Directory.GetFiles(dataDir, "*_data.json");
+
+                        foreach (var file in files)
+                        {
+                            string fileName = Path.GetFileNameWithoutExtension(file).Replace("_data", "");
+                            string translatedOut = Path.Combine(tempConfig.AbsoluteOutputDirectory, $"{fileName}_{tempConfig.TargetLanguage}.md");
+                            string originalOut = Path.Combine(tempConfig.AbsoluteOutputDirectory, $"{fileName}_original.md");
+
+                            string formatsToConvert = tempConfig.OutputFormats;
+
+                            if (File.Exists(translatedOut))
+                            {
+                                await OutputFormatConverter.ConvertToFormatsAsync(translatedOut, formatsToConvert);
+                            }
+                            if (File.Exists(originalOut))
+                            {
+                                await OutputFormatConverter.ConvertToFormatsAsync(originalOut, formatsToConvert);
+                            }
+
+                            // Si el usuario no desea conservar Markdown (.md), eliminar archivos intermedios
+                            if (!exportMd)
+                            {
+                                if (File.Exists(translatedOut)) File.Delete(translatedOut);
+                                if (File.Exists(originalOut)) File.Delete(originalOut);
+                            }
+                        }
+                    }
+                    
+                    return string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    return ex.Message;
+                }
+            });
+
+            if (!string.IsNullOrEmpty(errorMsg))
+            {
+                NotificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Exportación con Errores",
+                    Detail = errorMsg
+                });
+            }
+            else
+            {
+                NotificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Exportación Completada",
+                    Detail = $"Los archivos se guardaron con éxito en: {exportDirectory}"
+                });
+                DialogService.Close(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = ex.Message
+            });
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+}

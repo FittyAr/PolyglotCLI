@@ -160,53 +160,11 @@
 
     async Task ExportJob(JobManifest job)
     {
-        try
-        {
-            string jobDir = Path.Combine(TranslationOrchestrator.GetJobsDirectory(), job.JobId);
-            var (count, errors) = JobExportService.ExportJobToMarkdown(jobDir, Config);
-
-            if (errors.Count > 0)
-            {
-                await DialogService.Alert($"Se exportaron {count} archivos pero hubo errores:\n" + string.Join("\n", errors), "Exportación con Errores");
-                return;
-            }
-
-            if (count == 0)
-            {
-                await DialogService.Alert("No se encontraron datos para exportar en este trabajo.", "Exportación");
-                return;
-            }
-
-            // Realizar la conversión a los formatos configurados (por ejemplo DOCX) para cada archivo Markdown exportado
-            string dataDir = Path.Combine(jobDir, "data");
-            var files = Directory.GetFiles(dataDir, "*_data.json");
-
-            int convertedCount = 0;
-            foreach (var file in files)
-            {
-                string fileName = Path.GetFileNameWithoutExtension(file).Replace("_data", "");
-                string translatedOut = Path.Combine(Config.AbsoluteOutputDirectory, $"{fileName}_{Config.TargetLanguage}.md");
-                string originalOut = Path.Combine(Config.AbsoluteOutputDirectory, $"{fileName}_original.md");
-
-                string formatsToConvert = Config.OutputFormats ?? "docx";
-
-                if (File.Exists(translatedOut))
-                {
-                    await OutputFormatConverter.ConvertToFormatsAsync(translatedOut, formatsToConvert);
-                    convertedCount++;
-                }
-                if (File.Exists(originalOut))
-                {
-                    await OutputFormatConverter.ConvertToFormatsAsync(originalOut, formatsToConvert);
-                }
-            }
-
-            await DialogService.Alert($"¡Exportación exitosa! Se exportaron e ingresaron {count} archivos Markdown y se convirtieron sus formatos en: {Config.AbsoluteOutputDirectory}", "Exportación Completada");
-        }
-        catch (Exception ex)
-        {
-            await DialogService.Alert($"Error durante la exportación/conversión: {ex.Message}", "Error");
-        }
+        await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.ExportJobDialog>(
+            "Exportar y Convertir Documentos",
+            new Dictionary<string, object?> { { "Job", job } },
+            new DialogOptions { Width = "550px", Resizable = false, Draggable = true }
+        );
     }
 
     async Task DownloadJobPackage(JobManifest job)

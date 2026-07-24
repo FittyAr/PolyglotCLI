@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added an interactive export modal dialog that lets users customize the destination directory and select which document formats to generate using checkboxes.
+- Added IFolderPickerService to pick folders using native OS dialogs in desktop/MAUI mode.
+
 ### Improved
 
 ### Changed

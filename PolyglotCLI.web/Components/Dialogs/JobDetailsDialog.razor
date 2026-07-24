@@ -25,6 +25,10 @@
             padding: 12px 0 0 0 !important;
             height: 100% !important;
         }
+        .job-details-dialog-content .rz-tabview-panel[style*="display:none"],
+        .job-details-dialog-content .rz-tabview-panel[style*="display: none"] {
+            display: none !important;
+        }
         .job-details-dialog-content .rz-tabview-panel {
             flex-grow: 1 !important;
             min-height: 0 !important;
@@ -179,8 +183,8 @@
         </RadzenTabsItem>
 
         <RadzenTabsItem Text="Verificador de Páginas " Icon="find_in_page">
-            <RadzenRow class="rz-mt-3" Style="flex-grow: 1; min-height: 0; display: flex; height: 100%;">
-                <RadzenColumn Size="2" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+            <RadzenSplitter Orientation="Orientation.Horizontal" Style="flex-grow: 1; min-height: 0; height: 100%;" class="rz-mt-3">
+                <RadzenSplitterPane Size="25%" Min="15%" Max="50%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
                     <RadzenCard style="flex-grow: 1; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 12px; min-height: 0; height: 100%; padding: 12px !important;">
                         <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold;">1. Documentos</RadzenText>
                         @if (jsonDataFiles == null || jsonDataFiles.Count == 0)
@@ -220,8 +224,8 @@
                             </RadzenListBox>
                         }
                     </RadzenCard>
-                </RadzenColumn>
-                <RadzenColumn Size="10" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+                </RadzenSplitterPane>
+                <RadzenSplitterPane Size="75%" Min="50%" Max="85%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
                     <RadzenCard style="flex-grow: 1; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 12px !important;">
                         @if (selectedPageData != null)
                         {
@@ -333,13 +337,13 @@
                             </div>
                         }
                     </RadzenCard>
-                </RadzenColumn>
-            </RadzenRow>
+                </RadzenSplitterPane>
+            </RadzenSplitter>
         </RadzenTabsItem>
 
         <RadzenTabsItem Text="Archivos Generados (.md / .docx)" Icon="folder_open">
-            <RadzenRow class="rz-mt-3" Style="flex-grow: 1; min-height: 0; display: flex; height: 100%;">
-                <RadzenColumn Size="4" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+            <RadzenSplitter Orientation="Orientation.Horizontal" Style="flex-grow: 1; min-height: 0; height: 100%;" class="rz-mt-3">
+                <RadzenSplitterPane Size="25%" Min="15%" Max="50%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
                     <RadzenCard style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 12px !important;">
                         <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; flex-shrink: 0;">Archivos en el Directorio de Salida</RadzenText>
                         @if (outputFiles.Count == 0)
@@ -358,8 +362,8 @@
                             </RadzenListBox>
                         }
                     </RadzenCard>
-                </RadzenColumn>
-                <RadzenColumn Size="8" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+                </RadzenSplitterPane>
+                <RadzenSplitterPane Size="75%" Min="50%" Max="85%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
                     <RadzenCard style="flex-grow: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.15); min-height: 0; height: 100%; padding: 12px !important;">
                         <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; flex-shrink: 0;">
                             Previsualización: @(selectedOutputFileName ?? "Selecciona un archivo")
@@ -375,13 +379,13 @@
                             </div>
                         }
                     </RadzenCard>
-                </RadzenColumn>
-            </RadzenRow>
+                </RadzenSplitterPane>
+            </RadzenSplitter>
         </RadzenTabsItem>
 
         <RadzenTabsItem Text="Imágenes Extraídas (PDF)" Icon="image">
-            <RadzenRow class="rz-mt-3" Style="flex-grow: 1; min-height: 0; display: flex; height: 100%;">
-                <RadzenColumn Size="2" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+            <RadzenSplitter Orientation="Orientation.Horizontal" Style="flex-grow: 1; min-height: 0; height: 100%;" class="rz-mt-3">
+                <RadzenSplitterPane Size="25%" Min="15%" Max="50%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
                     <RadzenCard style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.15); padding: 8px; display: flex; flex-direction: column; min-height: 0; height: 100%;">
                         <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; font-size: 0.9rem; flex-shrink: 0;">Páginas (PNG)</RadzenText>
                         @if (tempImages.Count == 0)
@@ -400,8 +404,8 @@
                             </RadzenListBox>
                         }
                     </RadzenCard>
-                </RadzenColumn>
-                <RadzenColumn Size="10" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+                </RadzenSplitterPane>
+                <RadzenSplitterPane Size="75%" Min="50%" Max="85%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
                     <RadzenCard style="flex-grow: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.15); min-height: 0; height: 100%; padding: 12px !important;">
                         <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; width: 100%; flex-shrink: 0;">
                             Visor: @(selectedImageName ?? "Selecciona una página")
@@ -419,13 +423,13 @@
                             </div>
                         }
                     </RadzenCard>
-                </RadzenColumn>
-            </RadzenRow>
+                </RadzenSplitterPane>
+            </RadzenSplitter>
         </RadzenTabsItem>
 
         <RadzenTabsItem Text="Bitácora de Logs" Icon="article">
-            <RadzenRow class="rz-mt-3" Style="flex-grow: 1; min-height: 0; display: flex; height: 100%;">
-                <RadzenColumn Size="4" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+            <RadzenSplitter Orientation="Orientation.Horizontal" Style="flex-grow: 1; min-height: 0; height: 100%;" class="rz-mt-3">
+                <RadzenSplitterPane Size="25%" Min="15%" Max="50%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
                     <RadzenCard style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 12px !important;">
                         <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; flex-shrink: 0;">Archivos de Bitácora</RadzenText>
                         @if (logFiles.Count == 0)
@@ -444,8 +448,8 @@
                             </RadzenListBox>
                         }
                     </RadzenCard>
-                </RadzenColumn>
-                <RadzenColumn Size="8" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
+                </RadzenSplitterPane>
+                <RadzenSplitterPane Size="75%" Min="50%" Max="85%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
                     <RadzenCard style="flex-grow: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.15); min-height: 0; height: 100%; padding: 12px !important;">
                         <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2" style="font-weight: bold; flex-shrink: 0;">
                             Contenido: @(selectedLogFileName ?? "Selecciona un log")
@@ -461,8 +465,8 @@
                             </div>
                         }
                     </RadzenCard>
-                </RadzenColumn>
-            </RadzenRow>
+                </RadzenSplitterPane>
+            </RadzenSplitter>
         </RadzenTabsItem>
     </Tabs>
 </RadzenTabs>

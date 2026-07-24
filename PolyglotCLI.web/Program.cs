@@ -44,6 +44,7 @@ namespace PolyglotCLI.web
             // Servicio de empaquetado de trabajos, separado por modo de ejecución
             // (Web usa HTTP endpoints; MAUI usa file pickers nativos).
             builder.Services.AddScoped<IJobPackageHost, WebJobPackageHost>();
+            builder.Services.AddScoped<IFolderPickerService, WebFolderPickerService>();
 
             var app = builder.Build();
 

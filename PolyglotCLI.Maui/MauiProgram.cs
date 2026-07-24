@@ -47,6 +47,7 @@ namespace PolyglotCLI.Maui
 
 			// Servicio de empaquetado de trabajos específico de MAUI (file pickers nativos)
 			builder.Services.AddSingleton<IJobPackageHost, MauiJobPackageHost>();
+			builder.Services.AddSingleton<IFolderPickerService, MauiFolderPickerService>();
 
 #if DEBUG
 			builder.Services.AddBlazorWebViewDeveloperTools();
