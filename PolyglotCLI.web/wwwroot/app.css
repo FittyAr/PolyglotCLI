@@ -139,6 +139,24 @@ h1, h2, h3, h4, h5, h6, .rz-text {
     border: none !important;
 }
 
+/* Cropper.Blazor: el <img> interno hereda el tamaño del contenedor padre.
+   Sin esto la imagen queda con altura 0 y el visor aparece en negro. */
+img.polyglot-cropper {
+    max-height: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+}
+
+/* RadzenTextArea dentro de los RadzenTabs del diálogo:
+   garantizar que el <textarea> ocupe todo el alto disponible del panel,
+   ignorando el atributo rows del control. */
+.rz-tabview-panel textarea.rz-textarea {
+    height: 100% !important;
+    min-height: 0 !important;
+    resize: none !important;
+    box-sizing: border-box !important;
+}
+
 .rz-tabview-nav {
     background: rgba(10, 15, 26, 0.5) !important;
     border-bottom: 2px solid rgba(255, 255, 255, 0.08) !important;

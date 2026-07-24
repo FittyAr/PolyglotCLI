@@ -21,3 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Fixed broken image preview in the "Verificador de Páginas" tab by adding the required `max-height/max-width` CSS rules for the Cropper.Blazor image.
+- Fixed translation textarea height in the "Verificador de Páginas" tab so it fills the available vertical space instead of staying small.

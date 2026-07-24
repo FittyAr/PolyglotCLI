@@ -1,0 +1,10 @@
+/* Cropper.Blazor: el <img> interno que renderiza el componente hereda
+   el tamaño del contenedor padre. Sin estas reglas la imagen queda con
+   altura 0 y el visor aparece en negro.
+   ::deep escapa del scope de Razor para que la regla aplique al <img>
+   que está dentro del CropperComponent (otro componente). */
+::deep .polyglot-cropper {
+    max-height: 100%;
+    max-width: 100%;
+    display: block;
+}
