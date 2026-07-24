@@ -147,6 +147,155 @@ img.polyglot-cropper {
     display: block !important;
 }
 
+/* ── Job Details dialog: workbench layout ─────────────────────────────
+   Radzen sets .rz-dialog-content { flex: 0 1 auto }, so the body never
+   grows into the dialog height and leaves a dead band under the panels.
+   Force the content host to consume remaining height; the page verifier
+   stage (image + translation) is the focal surface. */
+.rz-dialog.job-details-dialog {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.rz-dialog.job-details-dialog > .rz-dialog-content,
+.rz-dialog.job-details-dialog > .job-details-dialog-content-host,
+.job-details-dialog-content-host {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding: 12px 16px 10px !important;
+}
+
+.job-details-dialog-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0%;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+.job-details-dialog-content .rz-tabview {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+}
+
+.job-details-dialog-content .rz-tabview-nav {
+    flex-shrink: 0 !important;
+}
+
+.job-details-dialog-content .rz-tabview-panels {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 6px 0 0 0 !important;
+    height: auto !important;
+    overflow: hidden !important;
+}
+
+.job-details-dialog-content .rz-tabview-panel[style*="display:none"],
+.job-details-dialog-content .rz-tabview-panel[style*="display: none"] {
+    display: none !important;
+}
+
+.job-details-dialog-content .rz-tabview-panel {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    overflow: hidden !important;
+}
+
+.job-details-dialog-content .rz-splitter {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+}
+
+.job-details-dialog-content .rz-splitter-pane {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+.job-details-dialog-content .rz-splitter .rz-row {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    align-items: stretch !important;
+    margin: 0 !important;
+}
+
+.job-details-dialog-content .rz-splitter .rz-col,
+.job-details-dialog-content .rz-splitter [class*="rz-col-"] {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    height: 100% !important;
+}
+
+.job-details-dialog-content .rz-splitter .rz-card {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Focal surface: page stage with Re-procesar + image/text */
+.page-verifier-stage {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    padding: 10px 12px !important;
+    background: rgba(0, 0, 0, 0.22) !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+
+.page-verifier-stage__toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.page-verifier-stage__title {
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.page-verifier-stage__body {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    display: flex !important;
+}
+
+/* Nested tabs inside the stage: denser chrome so image/text win height */
+.page-verifier-stage .rz-tabview-nav li a {
+    padding: 8px 12px !important;
+    font-size: 0.8rem !important;
+}
+
+.job-details-dialog-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 /* RadzenTextArea dentro de los RadzenTabs del diálogo:
    garantizar que el <textarea> ocupe todo el alto disponible del panel,
    ignorando el atributo rows del control. */

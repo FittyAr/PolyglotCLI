@@ -8,37 +8,8 @@
 @inject NotificationService NotificationService
 @inject PolyglotCLI.AppConfig Config
 
-<div class="job-details-dialog-content" style="display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;">
-    <style>
-        .job-details-dialog-content .rz-tabview {
-            display: flex !important;
-            flex-direction: column !important;
-            flex-grow: 1 !important;
-            min-height: 0 !important;
-            height: 100% !important;
-        }
-        .job-details-dialog-content .rz-tabview-panels {
-            flex-grow: 1 !important;
-            min-height: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            padding: 12px 0 0 0 !important;
-            height: 100% !important;
-        }
-        .job-details-dialog-content .rz-tabview-panel[style*="display:none"],
-        .job-details-dialog-content .rz-tabview-panel[style*="display: none"] {
-            display: none !important;
-        }
-        .job-details-dialog-content .rz-tabview-panel {
-            flex-grow: 1 !important;
-            min-height: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            height: 100% !important;
-        }
-    </style>
-
-    <RadzenPanel AllowCollapse="true" Collapsed="@isDetailsCollapsed" Collapse="@(() => isDetailsCollapsed = true)" Expand="@(() => isDetailsCollapsed = false)" class="rz-mb-4" Style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; flex-shrink: 0;">
+<div class="job-details-dialog-content">
+    <RadzenPanel AllowCollapse="true" Collapsed="@isDetailsCollapsed" Collapse="@(() => isDetailsCollapsed = true)" Expand="@(() => isDetailsCollapsed = false)" class="rz-mb-2" Style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; flex-shrink: 0;">
         <HeaderTemplate>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <RadzenIcon Icon="info" Style="font-size: 1.2rem; color: #6366f1;" />
@@ -69,7 +40,7 @@
         </ChildContent>
     </RadzenPanel>
 
-    <RadzenTabs RenderMode="TabRenderMode.Client" class="rz-m-0" Style="flex-grow: 1; display: flex; flex-direction: column; min-height: 0;">
+    <RadzenTabs RenderMode="TabRenderMode.Client" class="rz-m-0" Style="flex: 1 1 0%; display: flex; flex-direction: column; min-height: 0;">
     <Tabs>
         <RadzenTabsItem Text="Resumen y Progreso" Icon="assignment">
             <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-my-3" style="font-weight: bold;">Archivos del Trabajo</RadzenText>
@@ -183,9 +154,9 @@
         </RadzenTabsItem>
 
         <RadzenTabsItem Text="Verificador de Páginas " Icon="find_in_page">
-            <RadzenSplitter Orientation="Orientation.Horizontal" Style="flex-grow: 1; min-height: 0; height: 100%;" class="rz-mt-3">
+            <RadzenSplitter Orientation="Orientation.Horizontal" Style="flex: 1 1 0%; min-height: 0; height: 100%;">
                 <RadzenSplitterPane Size="25%" Min="15%" Max="50%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
-                    <RadzenCard style="flex-grow: 1; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 12px; min-height: 0; height: 100%; padding: 12px !important;">
+                    <RadzenCard style="flex: 1 1 0%; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 10px; min-height: 0; height: 100%; padding: 10px 12px !important;">
                         <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold;">1. Documentos</RadzenText>
                         @if (jsonDataFiles == null || jsonDataFiles.Count == 0)
                         {
@@ -226,11 +197,11 @@
                     </RadzenCard>
                 </RadzenSplitterPane>
                 <RadzenSplitterPane Size="75%" Min="50%" Max="85%" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
-                    <RadzenCard style="flex-grow: 1; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 12px !important;">
+                    <RadzenCard class="page-verifier-stage">
                         @if (selectedPageData != null)
                         {
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                <RadzenText TextStyle="TextStyle.Subtitle1" style="font-weight: bold; margin: 0;">
+                            <div class="page-verifier-stage__toolbar">
+                                <RadzenText TextStyle="TextStyle.Subtitle1" class="page-verifier-stage__title">
                                     Visualizando Página @selectedPageData.PageNumber de @(pageDataList?.Count ?? 0)
                                     @if (pendingTranslationEdits.Count > 0)
                                     {
@@ -241,21 +212,21 @@
                                 </RadzenText>
                                 <RadzenButton Text="Re-procesar esta página" Icon="autorenew" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" Click="@(() => ReprocessPage())" IsBusy="@isReprocessingPage" BusyText="Procesando..." />
                             </div>
-                                     <RadzenRow Gap="1rem" Style="flex-grow: 1; min-height: 0; display: flex; height: 100%;">
+                            <RadzenRow Gap="0.75rem" class="page-verifier-stage__body" Style="flex: 1 1 0%; min-height: 0; display: flex; height: 100%;">
                                 <RadzenColumn Size="6" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
-                                    <RadzenTabs RenderMode="TabRenderMode.Client" Style="flex-grow: 1; display: flex; flex-direction: column; min-height: 0; height: 100%;">
+                                    <RadzenTabs RenderMode="TabRenderMode.Client" Style="flex: 1 1 0%; display: flex; flex-direction: column; min-height: 0; height: 100%;">
                                         <Tabs>
                                             <RadzenTabsItem Text="Original (PDF / Imagen)" Icon="image">
-                                                <div style="position: relative; flex-grow: 1; display: flex; flex-direction: column; margin-top: 8px; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; background: #000; min-height: 0; height: 100%;">
+                                                <div style="position: relative; flex: 1 1 0%; display: flex; flex-direction: column; margin-top: 6px; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; overflow: hidden; background: #000; min-height: 0; height: 100%;">
                                                     @if (hasPageImage && !string.IsNullOrEmpty(pageImageBase64))
                                                     {
-                                                        <div style="display: flex; align-items: center; gap: 4px; padding: 6px 8px; background: rgba(15, 23, 42, 0.85); border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; position: relative; z-index: 10;">
+                                                        <div style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(15, 23, 42, 0.9); border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; position: relative; z-index: 10;">
                                                             <RadzenButton Icon="zoom_in" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall" Click="@ZoomInClick" Title="Acercar" Disabled="@(cropperRef == null)" />
                                                             <RadzenButton Icon="zoom_out" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall" Click="@ZoomOutClick" Title="Alejar" Disabled="@(cropperRef == null)" />
                                                             <RadzenButton Icon="restart_alt" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.ExtraSmall" Click="@ResetPageZoom" Title="Restablecer" Disabled="@(cropperRef == null)" />
-                                                            <span style="flex-grow: 1; color: #94a3b8; font-size: 0.75rem; margin-left: 8px;">Arrastra para mover · Rueda para zoom · Doble clic para acercar</span>
+                                                            <span style="flex-grow: 1; color: #94a3b8; font-size: 0.72rem; margin-left: 8px;">Arrastra · Rueda · Doble clic</span>
                                                         </div>
-                                                        <div style="flex-grow: 1; min-height: 0; background: #000; position: relative; height: 100%;">
+                                                        <div style="flex: 1 1 0%; min-height: 0; background: #000; position: relative; height: 100%;">
                                                             <CropperComponent @ref="cropperRef"
                                                                              Src="@($"data:image/png;base64,{pageImageBase64}")"
                                                                              Options="cropperOptions"
@@ -275,11 +246,11 @@
                                     </RadzenTabs>
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
-                                    <RadzenTabs RenderMode="TabRenderMode.Client" Style="flex-grow: 1; display: flex; flex-direction: column; min-height: 0; height: 100%;">
+                                    <RadzenTabs RenderMode="TabRenderMode.Client" Style="flex: 1 1 0%; display: flex; flex-direction: column; min-height: 0; height: 100%;">
                                         <Tabs>
                                             <RadzenTabsItem Text="Traducción" Icon="translate">
-                                                <div style="flex-grow: 1; display: flex; flex-direction: column; margin-top: 8px; min-height: 0; height: 100%;">
-                                                    <div style="display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 8px; flex-shrink: 0;">
+                                                <div style="flex: 1 1 0%; display: flex; flex-direction: column; margin-top: 6px; min-height: 0; height: 100%;">
+                                                    <div style="display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 6px; flex-shrink: 0;">
                                                         <RadzenButton Icon="@(isEditingTranslation ? "visibility" : "edit")"
                                                                       Text="@(isEditingTranslation ? "Vista previa" : "Editar")"
                                                                       ButtonStyle="ButtonStyle.Light"
@@ -288,11 +259,11 @@
                                                     </div>
                                                     @if (isEditingTranslation)
                                                     {
-                                                        <RadzenTextArea @bind-Value="selectedPageData.TranslatedText" style="flex-grow: 1; font-family: monospace; font-size: 0.9rem; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); padding: 12px; border-radius: 4px; resize: none; min-height: 0; height: 100%;" Change="@OnTranslationEdited" />
+                                                        <RadzenTextArea @bind-Value="selectedPageData.TranslatedText" style="flex: 1 1 0%; font-family: monospace; font-size: 0.9rem; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); padding: 12px; border-radius: 6px; resize: none; min-height: 0; height: 100%;" Change="@OnTranslationEdited" />
                                                     }
                                                     else
                                                     {
-                                                        <div style="flex-grow: 1; overflow-y: auto; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 12px; min-height: 0; height: 100%;">
+                                                        <div style="flex: 1 1 0%; overflow-y: auto; background: #0f172a; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 12px; min-height: 0; height: 100%;">
                                                             @if (!string.IsNullOrWhiteSpace(selectedPageData.TranslatedText))
                                                             {
                                                                 <RadzenMarkdown Text="@GetMarkdownForPreview(selectedPageData.TranslatedText)" />
@@ -306,19 +277,19 @@
                                                 </div>
                                             </RadzenTabsItem>
                                             <RadzenTabsItem Text="Texto Extraído (OCR)" Icon="description">
-                                                <div style="flex-grow: 1; display: flex; flex-direction: column; margin-top: 8px; min-height: 0; height: 100%;">
-                                                    <pre style="flex-grow: 1; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #94a3b8; white-space: pre-wrap; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; height: 100%; overflow-y: auto; min-height: 0;">@selectedPageData.OriginalText</pre>
+                                                <div style="flex: 1 1 0%; display: flex; flex-direction: column; margin-top: 6px; min-height: 0; height: 100%;">
+                                                    <pre style="flex: 1 1 0%; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #94a3b8; white-space: pre-wrap; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; height: 100%; overflow-y: auto; min-height: 0;">@selectedPageData.OriginalText</pre>
                                                 </div>
                                             </RadzenTabsItem>
                                             <RadzenTabsItem Text="Pensamiento (Reasoning)" Icon="psychology">
-                                                <div style="flex-grow: 1; display: flex; flex-direction: column; margin-top: 8px; min-height: 0; height: 100%;">
+                                                <div style="flex: 1 1 0%; display: flex; flex-direction: column; margin-top: 6px; min-height: 0; height: 100%;">
                                                     @if (!string.IsNullOrEmpty(selectedPageData.ThoughtText))
                                                     {
-                                                        <pre style="flex-grow: 1; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #f59e0b; white-space: pre-wrap; background: #0b0f19; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; height: 100%; overflow-y: auto; min-height: 0;">@selectedPageData.ThoughtText</pre>
+                                                        <pre style="flex: 1 1 0%; margin: 0; padding: 12px; font-family: monospace; font-size: 0.9rem; color: #f59e0b; white-space: pre-wrap; background: #0b0f19; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; height: 100%; overflow-y: auto; min-height: 0;">@selectedPageData.ThoughtText</pre>
                                                     }
                                                     else
                                                     {
-                                                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #b0bec5; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; background: #0b0f19; min-height: 0;">
+                                                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #b0bec5; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; background: #0b0f19; min-height: 0;">
                                                             No hay trazas de razonamiento (&lt;think&gt;) disponibles para esta página.
                                                         </div>
                                                     }
@@ -331,7 +302,7 @@
                         }
                         else
                         {
-                            <div style="display: flex; align-items: center; justify-content: center; flex-grow: 1; color: #b0bec5; flex-direction: column; gap: 8px; height: 100%; min-height: 0;">
+                            <div style="display: flex; align-items: center; justify-content: center; flex: 1 1 0%; color: #b0bec5; flex-direction: column; gap: 8px; height: 100%; min-height: 0;">
                                 <RadzenIcon Icon="find_in_page" Style="font-size: 3rem; color: #6366f1;" />
                                 <span>Selecciona un documento y una página del panel izquierdo para comenzar el análisis visual.</span>
                             </div>
@@ -471,7 +442,7 @@
     </Tabs>
 </RadzenTabs>
 
-<div class="rz-text-align-right rz-mt-4" style="flex-shrink: 0; margin-top: 12px !important;">
+<div class="job-details-dialog-footer">
     <RadzenButton Text="Cerrar" Click="@(() => DialogService.Close())" ButtonStyle="ButtonStyle.Secondary" />
 </div>
 </div>
@@ -540,7 +511,7 @@
     // indexado por PageNumber. Permite saber exactamente qué páginas se modificaron y
     // preservarlas frente a recargas del JSON (p. ej. reprocesar página).
     private Dictionary<int, string> pendingTranslationEdits = new Dictionary<int, string>();
-    private bool isDetailsCollapsed = false;
+    private bool isDetailsCollapsed = true;
 
     protected override void OnInitialized()
     {

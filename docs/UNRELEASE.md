@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Improved
 
+- Improved the job details dialog so the page verifier stage (Re-procesar + image/text) fills the dialog height instead of leaving empty space below.
+
 ### Changed
 
 ### Deprecated

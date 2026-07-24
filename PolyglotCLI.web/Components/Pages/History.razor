@@ -129,7 +129,15 @@
         await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.JobDetailsDialog>($"Detalles del Trabajo: {job.JobId}", new Dictionary<string, object?>
         {
             { "Job", job }
-        }, new DialogOptions { Width = "95vw", Height = "92vh", Resizable = true, Draggable = true });
+        }, new DialogOptions
+        {
+            Width = "95vw",
+            Height = "96vh",
+            Resizable = true,
+            Draggable = true,
+            CssClass = "job-details-dialog",
+            ContentCssClass = "job-details-dialog-content-host"
+        });
     }
 
     async Task DeleteJob(JobManifest job)
