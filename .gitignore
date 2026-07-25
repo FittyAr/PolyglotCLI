@@ -25,3 +25,11 @@ local-dotnet/
 # Build artifacts, publish output and installer staging
 artifacts/
 installer/dist/
+
+# Runtime config: el config.json contiene paths del usuario, modelo
+# default, prompt adicional personalizado, y (en Windows) API keys
+# cifradas con DPAPI. No es código: se genera en el primer arranque
+# de la app y se persiste en %AppData%\FittyAr\PolyglotCLI\config.json
+# (o en el project tree si POLYGLOTCLI_USE_PROJECT_CONFIG=1). El
+# template de referencia es config.example.json.
+config.json

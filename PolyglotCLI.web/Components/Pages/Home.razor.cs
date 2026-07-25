@@ -106,6 +106,29 @@ public partial class Home : ComponentBase, IDisposable
     {
         if (!string.IsNullOrEmpty(ResumeJobId) && !hasResumed && !isProcessing)
         {
+            // Defensa contra URL maliciosas: el ResumeJobId viene
+            // directo de la query string (?resumeJobId=...) y se
+            // concatena a un path de filesystem en el orchestrator.
+            // Si tiene path traversal (ej: '..\\..\\foo') o
+            // caracteres raros, lo descartamos acá y mostramos un
+            // mensaje claro. Sin esto, un link manipulado podría
+            // hacer que el orchestrator lea archivos fuera del
+            // jobs root.
+            if (!JobManifestService.IsValidJobId(ResumeJobId))
+            {
+                AppLogger.Warn(
+                    $"Home.razor: ResumeJobId inválido rechazado: '{ResumeJobId}'. " +
+                    $"Posible path traversal o URL manipulada.");
+                NotificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Warning,
+                    Summary = "ID de trabajo inválido",
+                    Detail = $"El identificador '{ResumeJobId}' no es válido. Volvé a la pantalla de Historial y reintentá desde ahí."
+                });
+                hasResumed = true; // Marcamos como procesado para no spamear.
+                return;
+            }
+
             hasResumed = true;
             // Esperar un momento breve para asegurar que el callback de logs esté registrado y el componente renderizado
             await Task.Delay(500);
