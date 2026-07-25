@@ -40,7 +40,7 @@
             || path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
             || path.EndsWith(".log", StringComparison.OrdinalIgnoreCase))
         {
-            selectedOutputFileContent = ArtifactsService.ReadTextFile(path);
+            selectedOutputFileContent = ArtifactsService.ReadTextFile(JobDir, path);
         }
         else
         {

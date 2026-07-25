@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -90,6 +91,7 @@ namespace PolyglotCLI.Update
                 // Buscar el asset del instalador: PolyglotCLI-*x64-setup.exe
                 string installerUrl = string.Empty;
                 long installerSize = 0;
+                string installerDigest = string.Empty;
                 if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var asset in assets.EnumerateArray())
@@ -97,11 +99,22 @@ namespace PolyglotCLI.Update
                         string name = asset.TryGetProperty("name", out var n) ? n.GetString() ?? string.Empty : string.Empty;
                         if (name.EndsWith("-x64-setup.exe", StringComparison.OrdinalIgnoreCase))
                         {
-                            installerUrl = asset.TryGetProperty("browser_download_url", out var b)
+                            string rawUrl = asset.TryGetProperty("browser_download_url", out var b)
                                 ? b.GetString() ?? string.Empty
                                 : string.Empty;
+                            // Defensa en profundidad: GitHub siempre devuelve
+                            // hosts propios, pero un JSON malformado o un proxy
+                            // comprometido podría apuntar a otro lado. Sólo
+                            // aceptamos HTTPS a dominios de GitHub.
+                            if (IsAllowedGitHubAssetUrl(rawUrl))
+                            {
+                                installerUrl = rawUrl;
+                            }
                             installerSize = asset.TryGetProperty("size", out var s) && s.TryGetInt64(out var sz)
                                 ? sz : 0;
+                            installerDigest = asset.TryGetProperty("digest", out var d)
+                                ? d.GetString() ?? string.Empty
+                                : string.Empty;
                             break;
                         }
                     }
@@ -125,6 +138,7 @@ namespace PolyglotCLI.Update
                     LatestVersion = latest,
                     InstallerDownloadUrl = installerUrl,
                     InstallerSizeBytes = installerSize,
+                    Digest = installerDigest,
                     ReleaseNotes = notes,
                     PublishedAt = published,
                     IsUpdateAvailable = isNewer && !string.IsNullOrEmpty(installerUrl),
@@ -145,6 +159,11 @@ namespace PolyglotCLI.Update
         /// Descarga el instalador a un archivo temporal único. Devuelve la
         /// ruta completa del archivo. El llamador es responsable de
         /// eliminarlo tras usarlo (o dejar que Windows limpie %TEMP%).
+        /// Si <see cref="UpdateInfo.Digest"/> está presente, se verifica
+        /// el SHA-256 del archivo descargado contra ese digest y, si no
+        /// coincide, se borra el archivo y se lanza excepción: nunca se
+        /// ejecuta como admin un binario que no pasó la verificación de
+        /// integridad.
         /// </summary>
         public async Task<string> DownloadInstallerAsync(
             UpdateInfo info,
@@ -154,11 +173,16 @@ namespace PolyglotCLI.Update
             if (info is null) throw new ArgumentNullException(nameof(info));
             if (string.IsNullOrEmpty(info.InstallerDownloadUrl))
                 throw new InvalidOperationException("La release no incluye un instalador .exe.");
+            if (!IsAllowedGitHubAssetUrl(info.InstallerDownloadUrl))
+                throw new InvalidOperationException("La URL del instalador no pertenece a un host de GitHub permitido.");
 
             string tempDir = Path.Combine(Path.GetTempPath(), "PolyglotCLI-Updates");
             Directory.CreateDirectory(tempDir);
 
-            string fileName = $"PolyglotCLI-{info.LatestVersion}-setup-{Guid.NewGuid():N}.exe";
+            // Sólo permitimos caracteres seguros en el nombre de archivo:
+            // la versión viene del JSON de GitHub y no debe filtrarse al FS.
+            string safeVersion = Regex.Replace(info.LatestVersion ?? string.Empty, @"[^A-Za-z0-9._-]", "_");
+            string fileName = $"PolyglotCLI-{safeVersion}-setup-{Guid.NewGuid():N}.exe";
             string outPath = Path.Combine(tempDir, fileName);
 
             using var req = new HttpRequestMessage(HttpMethod.Get, info.InstallerDownloadUrl);
@@ -189,8 +213,43 @@ namespace PolyglotCLI.Update
                     }
                 }
             }
+            await fs.FlushAsync(ct).ConfigureAwait(false);
             progress?.Report(1.0);
+
+            // Verificación de integridad: si GitHub publicó un digest
+            // sha256, el archivo tiene que coincidir. Si no, se borra
+            // y se aborta antes de cualquier Process.Start.
+            if (!string.IsNullOrEmpty(info.Digest))
+            {
+                string actual = await ComputeSha256Async(outPath, ct).ConfigureAwait(false);
+                if (!DigestMatches(info.Digest, actual))
+                {
+                    try { fs.Close(); File.Delete(outPath); } catch { /* best effort */ }
+                    throw new InvalidOperationException(
+                        $"El instalador descargado no pasó la verificación SHA-256. " +
+                        $"Esperado={info.Digest}, calculado=sha256:{actual}");
+                }
+            }
+
             return outPath;
+        }
+
+        private static async Task<string> ComputeSha256Async(string path, CancellationToken ct)
+        {
+            await using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+            using var sha = SHA256.Create();
+            byte[] hash = await sha.ComputeHashAsync(fs, ct).ConfigureAwait(false);
+            return Convert.ToHexString(hash).ToLowerInvariant();
+        }
+
+        private static bool DigestMatches(string expectedDigest, string actualHex)
+        {
+            // Formato publicado por GitHub: "sha256:<hex>". Aceptamos también
+            // el hex pelado para tolerar otras fuentes en el futuro.
+            string expectedHex = expectedDigest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
+                ? expectedDigest["sha256:".Length..]
+                : expectedDigest;
+            return string.Equals(expectedHex.Trim(), actualHex, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -235,6 +294,23 @@ namespace PolyglotCLI.Update
             };
             return Process.Start(psi) ?? throw new InvalidOperationException(
                 "No se pudo iniciar el instalador (Process.Start devolvió null).");
+        }
+
+        /// <summary>
+        /// Whitelist de hosts válidos para descargar el instalador. GitHub
+        /// usa <c>github.com</c> para el HTML y <c>objects.githubusercontent.com</c>
+        /// para los binarios. Cualquier otro host se descarta para evitar
+        /// que un release de GitHub comprometido o un MITM nos redirija a
+        /// un .exe malicioso que se ejecutará como admin.
+        /// </summary>
+        private static bool IsAllowedGitHubAssetUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return false;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+            if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return false;
+            string host = uri.Host;
+            return host.Equals("github.com", StringComparison.OrdinalIgnoreCase)
+                || host.Equals("objects.githubusercontent.com", StringComparison.OrdinalIgnoreCase);
         }
 
         // --- helpers ---

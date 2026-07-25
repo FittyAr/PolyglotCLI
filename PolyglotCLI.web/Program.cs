@@ -100,7 +100,12 @@ namespace PolyglotCLI.web
             {
                 try
                 {
-                    if (string.IsNullOrWhiteSpace(jobId) || jobId.Contains("..") || jobId.Contains('/') || jobId.Contains('\\'))
+                    // Whitelist positivo: solo letras, dígitos, guion bajo/medio/punto.
+                    // Antes se usaba Contains("..")/Contains('/')/Contains('\\'), que
+                    // deja pasar caracteres como NUL, o secuencias como "....//" que
+                    // algunos normalizadores de rutas toleran.
+                    if (string.IsNullOrWhiteSpace(jobId) || jobId.Length > 128 ||
+                        !System.Text.RegularExpressions.Regex.IsMatch(jobId, @"^[A-Za-z0-9._-]+$"))
                     {
                         return Results.BadRequest(new { error = "Invalid jobId" });
                     }

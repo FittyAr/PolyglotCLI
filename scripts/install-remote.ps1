@@ -115,10 +115,27 @@ if (-not $asset) {
     exit 1
 }
 
+# Defensa en profundidad: el host de descarga debe ser GitHub. Aunque el
+# JSON viene de api.github.com, validamos antes de bajar.
+$downloadUri = [Uri]$asset.browser_download_url
+if ($downloadUri.Scheme -ne "https" -or
+    -not ($downloadUri.Host -ieq "github.com" -or $downloadUri.Host -ieq "objects.githubusercontent.com")) {
+    Write-Err "La URL del instalador ($($downloadUri.Host)) no es un host de GitHub permitido. Abortando."
+    exit 1
+}
+
 $version      = $release.tag_name.TrimStart("v")
 $downloadUrl  = $asset.browser_download_url
 $installerName = $asset.name
 $sizeMb       = [math]::Round($asset.size / 1MB, 1)
+# Digest publicado por GitHub en el campo `digest` del asset
+# (formato "sha256:<hex>"). Si no viene, abortamos: sin verificación
+# de integridad no deberíamos ejecutar un binario como admin.
+$expectedDigest = $asset.digest
+if (-not $expectedDigest -or -not $expectedDigest.StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+    Write-Err "La release no incluye digest sha256 para el instalador. No se puede verificar la integridad. Abortando."
+    exit 1
+}
 
 Write-Ok "Ultima version: $version ($sizeMb MB)"
 Write-Host "    $downloadUrl" -ForegroundColor DarkGray
@@ -178,6 +195,21 @@ catch {
     exit 1
 }
 Write-Ok "Instalador descargado: $installerPath"
+
+# Verificar integridad contra el digest publicado por GitHub. Si no
+# coincide, borrar el .exe y abortar: no tiene sentido continuar.
+Write-Section "Verificando SHA-256 del instalador"
+$expectedHex = $expectedDigest.Substring("sha256:".Length).ToLowerInvariant()
+$actualHash  = Get-FileHash -Path $installerPath -Algorithm SHA256
+$actualHex   = $actualHash.Hash.ToLowerInvariant()
+if ($actualHex -ne $expectedHex) {
+    Write-Err "El instalador NO paso la verificacion de integridad."
+    Write-Err "  Esperado: sha256:$expectedHex"
+    Write-Err "  Obtenido: sha256:$actualHex"
+    Remove-Item -Path $installerPath -Force -ErrorAction SilentlyContinue
+    exit 1
+}
+Write-Ok "SHA-256 verificado correctamente."
 
 # --- 6. Ejecutar el instalador ---
 Write-Section "Iniciando instalador de PolyglotCLI"

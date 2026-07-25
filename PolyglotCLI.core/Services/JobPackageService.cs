@@ -183,6 +183,14 @@ namespace PolyglotCLI
                         "El manifest.json tiene un JobId inválido tras la normalización.");
                 }
 
+                // Defensa contra path traversal: cada SourceFilePath del
+                // manifest debe apuntar dentro del árbol extraído. Si un
+                // manifest malicioso incluye rutas absolutas a archivos del
+                // sistema (p.ej. C:\Users\...\config.json), se rechaza el
+                // paquete en vez de dejar que ReprocessPageAsync los abra
+                // cuando el usuario pulse "Re-procesar".
+                ValidateSourcePathsInside(manifest, extractedRoot);
+
                 effectiveJobId = ResolveTargetJobId(jobsRoot, originalJobId);
 
                 string finalDir = Path.Combine(jobsRoot, effectiveJobId);
@@ -289,6 +297,46 @@ namespace PolyglotCLI
                 counter++;
             }
             return suffixed;
+        }
+
+        /// <summary>
+        /// Verifica que todos los <c>SourceFilePath</c> del manifest
+        /// resuelven dentro de <paramref name="extractedRoot"/>. Lanza
+        /// <see cref="InvalidJobPackageException"/> ante la primera ruta
+        /// que apunte afuera (path absoluto, <c>..\..\..</c>, etc.) para
+        /// evitar que ReprocessPageAsync termine abriendo archivos del
+        /// usuario cuando el manifest proviene de un .zpg hostil.
+        /// </summary>
+        private static void ValidateSourcePathsInside(JobManifest manifest, string extractedRoot)
+        {
+            if (manifest.Files == null) return;
+            if (string.IsNullOrEmpty(extractedRoot)) return;
+            string root = Path.GetFullPath(extractedRoot);
+            foreach (var file in manifest.Files)
+            {
+                if (file == null) continue;
+                string raw = file.SourceFilePath ?? string.Empty;
+                if (string.IsNullOrEmpty(raw)) continue;
+                try
+                {
+                    string resolved = Path.GetFullPath(raw);
+                    bool inside =
+                        string.Equals(resolved, root, StringComparison.OrdinalIgnoreCase) ||
+                        resolved.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+                    if (!inside)
+                    {
+                        throw new InvalidJobPackageException(
+                            $"El manifest incluye SourceFilePath fuera del paquete: '{raw}'. " +
+                            "Rechazado por seguridad.");
+                    }
+                }
+                catch (InvalidJobPackageException) { throw; }
+                catch (Exception ex)
+                {
+                    throw new InvalidJobPackageException(
+                        $"SourceFilePath inválido en el manifest ('{raw}'): {ex.Message}");
+                }
+            }
         }
     }
 }

@@ -30,6 +30,6 @@
     private void HandleLogFileSelected(string path)
     {
         selectedLogFileName = Path.GetFileName(path);
-        selectedLogFileContent = ArtifactsService.ReadTextFile(path, "Error al leer los logs");
+        selectedLogFileContent = ArtifactsService.ReadTextFile(JobDir, path, "Error al leer los logs");
     }
 }

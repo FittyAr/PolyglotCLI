@@ -31,7 +31,7 @@
     private void HandleImageSelected(string path)
     {
         selectedImageName = Path.GetFileName(path);
-        string? content = ArtifactsService.ReadFileAsBase64(path);
+        string? content = ArtifactsService.ReadFileAsBase64(JobDir, path);
         if (content == null)
         {
             selectedImageBase64 = null;

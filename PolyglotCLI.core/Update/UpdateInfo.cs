@@ -33,6 +33,15 @@ namespace PolyglotCLI.Update
         public long InstallerSizeBytes { get; init; }
 
         /// <summary>
+        /// Digest SHA-256 del instalador publicado por GitHub en el campo
+        /// <c>assets[].digest</c> (formato <c>sha256:hex</c>). Vacío si la
+        /// release no incluye digest. Se usa en
+        /// <see cref="UpdateService.DownloadInstallerAsync"/> para verificar
+        /// la integridad del archivo antes de ejecutarlo como admin.
+        /// </summary>
+        public string Digest { get; init; } = string.Empty;
+
+        /// <summary>
         /// Notas de la release en Markdown. Vacías si la release no tiene.
         /// </summary>
         public string ReleaseNotes { get; init; } = string.Empty;
