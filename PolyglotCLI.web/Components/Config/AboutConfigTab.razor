@@ -1,10 +1,13 @@
 @using System.Reflection
 @using System.Runtime.Versioning
+@using Microsoft.JSInterop
 @using PolyglotCLI.Update
 @using PolyglotCLI.web.Services
 @inject IServiceProvider Services
 @inject NotificationService Notifier
 @inject DialogService DialogService
+@inject IJSRuntime JS
+@inject PolyglotCLI.AppConfig AppConfig
 
 @*
 Pestaña "About": muestra información del proyecto PolyglotCLI
@@ -166,6 +169,111 @@ Inno Setup / .exe).
                 <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="MiniMax" />
                 <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="Custom" />
             </div>
+        </RadzenFieldset>
+
+        @*
+            Ubicaciones de los archivos que la app escribe en disco.
+            Importante para soporte: si algo no funciona, el log + el
+            config son lo primero que hay que revisar.
+
+            El config.json incluye las API keys cifradas con DPAPI
+            (CurrentUser scope), así que NO se va a ver la key en
+            claro aunque abras el archivo a mano.
+        *@
+        <RadzenFieldset Text="Ubicaciones de archivos" class="rz-mt-4">
+            <RadzenText TextStyle="TextStyle.Body2" class="rz-mb-3" style="opacity: 0.8;">
+                Paths resueltos para esta instalación. El botón <strong>copiar</strong>
+                lleva el path al portapapeles para pegarlo en el Explorador de archivos.
+            </RadzenText>
+            <table class="rz-grid-table rz-w-100" style="font-size: 0.9rem;">
+                <tbody>
+                    <tr>
+                        <td style="opacity: 0.7; width: 30%; vertical-align: top; padding-top: 0.6rem;">
+                            Configuración
+                            <div style="opacity: 0.6; font-size: 0.78em;">config.json</div>
+                        </td>
+                        <td>
+                            <code style="word-break: break-all; user-select: all;">@ConfigPath</code>
+                            <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Light"
+                                          Variant="Variant.Text" Size="ButtonSize.Small"
+                                          Click="@(() => CopyToClipboard(ConfigPath, "Configuración"))"
+                                          class="rz-ml-2" title="Copiar path" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7; vertical-align: top; padding-top: 0.6rem;">
+                            Prompts del sistema
+                            <div style="opacity: 0.6; font-size: 0.78em;">5 archivos .md editables</div>
+                        </td>
+                        <td>
+                            <code style="word-break: break-all; user-select: all;">@PromptsPath</code>
+                            <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Light"
+                                          Variant="Variant.Text" Size="ButtonSize.Small"
+                                          Click="@(() => CopyToClipboard(PromptsPath, "Prompts"))"
+                                          class="rz-ml-2" title="Copiar path" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7; vertical-align: top; padding-top: 0.6rem;">
+                            Logs
+                            <div style="opacity: 0.6; font-size: 0.78em;">polyglot-*.log (rotación diaria)</div>
+                        </td>
+                        <td>
+                            <code style="word-break: break-all; user-select: all;">@LogsPath</code>
+                            <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Light"
+                                          Variant="Variant.Text" Size="ButtonSize.Small"
+                                          Click="@(() => CopyToClipboard(LogsPath, "Logs"))"
+                                          class="rz-ml-2" title="Copiar path" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7; vertical-align: top; padding-top: 0.6rem;">
+                            Salida
+                            <div style="opacity: 0.6; font-size: 0.78em;">traducciones y exports generados</div>
+                        </td>
+                        <td>
+                            <code style="word-break: break-all; user-select: all;">@OutputPath</code>
+                            <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Light"
+                                          Variant="Variant.Text" Size="ButtonSize.Small"
+                                          Click="@(() => CopyToClipboard(OutputPath, "Salida"))"
+                                          class="rz-ml-2" title="Copiar path" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="opacity: 0.7; vertical-align: top; padding-top: 0.6rem;">
+                            Jobs / Historial
+                            <div style="opacity: 0.6; font-size: 0.78em;">manifest.json, sources/, data/, outputs/ por job</div>
+                        </td>
+                        <td>
+                            <code style="word-break: break-all; user-select: all;">@JobsPath</code>
+                            <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Light"
+                                          Variant="Variant.Text" Size="ButtonSize.Small"
+                                          Click="@(() => CopyToClipboard(JobsPath, "Jobs"))"
+                                          class="rz-ml-2" title="Copiar path" />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <RadzenAlert AlertStyle="AlertStyle.Light" AllowClose="false" Variant="Variant.Flat"
+                         Icon="lock" class="rz-mt-3" style="font-size: 0.8rem;">
+                Las API keys dentro de <code>config.json</code> se guardan cifradas con
+                <strong>DPAPI</strong> (Windows, scope del usuario actual). Si copias el
+                archivo a otra máquina o usuario, las keys no se podrán descifrar.
+            </RadzenAlert>
+            @if (AppConfig?.LastMigrationUtc is DateTime migrationUtc)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Warning" AllowClose="false" Variant="Variant.Flat"
+                             Icon="history" class="rz-mt-3" style="font-size: 0.8rem;">
+                    <strong>Migración reciente</strong> (${migrationUtc.ToLocalTime():yyyy-MM-dd HH:mm} local).
+                    Se movieron los datos de la app desde el árbol legacy
+                    (<code>%AppData%\PolyglotCLI\</code>) al nuevo
+                    (<code>%AppData%\FittyAr\PolyglotCLI\</code>).
+                    <strong>El config.json anterior fue descartado por seguridad</strong>:
+                    si tenías API keys guardadas, tenés que re-ingresarlas desde la pestaña
+                    <em>General</em>. Los logs, el historial de jobs y los prompts editados
+                    sí se migraron.
+                </RadzenAlert>
+            }
         </RadzenFieldset>
 
         <RadzenFieldset Text="Créditos y enlaces" class="rz-mt-4">
@@ -1864,4 +1972,91 @@ Inno Setup / .exe).
 
 
     "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.";
+
+    // ─── Ubicaciones de archivos ───────────────────────────────────
+    // Estos getters resuelven los paths tal como los usa la app en
+    // esta corrida (no los defaults de la doc). Si cambiás el
+    // OutputDirectory o LogDirectory en la config, los valores de
+    // acá se actualizan al refrescar la pestaña.
+
+    private string ConfigPath =>
+        !string.IsNullOrEmpty(AppConfig?.LoadedFromPath)
+            ? AppConfig.LoadedFromPath
+            : AppConfig.GetDefaultConfigPath();
+
+    private string? _cachedPromptsPath;
+    private string PromptsPath =>
+        _cachedPromptsPath ??= new PromptLoader().PromptsDirectory;
+
+    private string LogsPath
+    {
+        get
+        {
+            if (AppConfig == null || string.IsNullOrEmpty(AppConfig.LogDirectory))
+                return string.Empty;
+            if (OperatingSystem.IsWindows())
+            {
+                // Estructura {desarrollador}\{programa}: debe matchear
+                // exactamente el path que usa AppLogger.Initialize
+                // (AppConfig.cs/AppLogger.cs). Si esto se desincroniza,
+                // el botón "Copiar" lleva al user a un directorio
+                // que no existe.
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                return Path.Combine(appData, "FittyAr", "PolyglotCLI", AppConfig.LogDirectory);
+            }
+            return Path.Combine(AppContext.BaseDirectory, AppConfig.LogDirectory);
+        }
+    }
+
+    private string OutputPath =>
+        AppConfig?.AbsoluteOutputDirectory ?? string.Empty;
+
+    private string JobsPath => TranslationOrchestrator.GetJobsDirectory();
+
+    /// <summary>
+    /// Copia un path al portapapeles del navegador. El callback puede
+    /// fallar si la pestaña no tiene foco o si el browser bloquea
+    /// el acceso programático al clipboard — en ese caso la
+    /// notificación informa y el path sigue visible en pantalla para
+    /// que el usuario lo seleccione a mano.
+    /// </summary>
+    private async Task CopyToClipboard(string? text, string label)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            Notifier.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Path vacío",
+                Detail = $"No hay un path de {label} para copiar.",
+                Duration = 3000
+            });
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            Notifier.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = $"{label} copiado al portapapeles",
+                Detail = text,
+                Duration = 3000
+            });
+        }
+        catch (Exception ex)
+        {
+            // El browser suele bloquear el acceso cuando la pestaña
+            // no tiene foco o si el usuario denegó permisos. No es
+            // un error real: el path sigue visible en pantalla.
+            Notifier.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "No se pudo copiar automáticamente",
+                Detail = $"Seleccioná el path manualmente. ({ex.GetType().Name})",
+                Duration = 4000
+            });
+        }
+    }
 }

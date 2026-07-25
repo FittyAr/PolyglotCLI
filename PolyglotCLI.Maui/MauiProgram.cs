@@ -18,7 +18,10 @@ namespace PolyglotCLI.Maui
 			try
 			{
 				string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-				string userDataFolder = System.IO.Path.Combine(localAppData, "PolyglotCLI", "WebView2");
+				// Estructura {desarrollador}\{programa}: el cache de
+				// WebView2 también vive bajo FittyAr\PolyglotCLI para
+				// no plantar la app directo en %LocalAppData%.
+				string userDataFolder = System.IO.Path.Combine(localAppData, "FittyAr", "PolyglotCLI", "WebView2");
 				if (!System.IO.Directory.Exists(userDataFolder))
 				{
 					System.IO.Directory.CreateDirectory(userDataFolder);

@@ -17,8 +17,11 @@ namespace PolyglotCLI
         {
             if (OperatingSystem.IsWindows())
             {
+                // Estructura {desarrollador}\{programa}: jobs bajo
+                // FittyAr\PolyglotCLI\jobs\ en lugar de plantar la
+                // app directo en AppData\Roaming.
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                return Path.Combine(appData, "PolyglotCLI", "jobs");
+                return Path.Combine(appData, "FittyAr", "PolyglotCLI", "jobs");
             }
             return Path.Combine(AppContext.BaseDirectory, "jobs");
         }

@@ -23,9 +23,34 @@
     </RadzenColumn>
     <RadzenColumn Size="6">
         <RadzenLabel Text="API Key" class="rz-mb-2" />
-        <RadzenTextBox @bind-Value="AppConfig.ApiKey"
-                       Placeholder="@(IsCloudProvider ? "sk-..." : "No requerida para proveedores locales")"
+        @*
+            Nunca mostramos la API Key en claro. Si ya hay una
+            guardada, renderizamos solo su versión enmascarada
+            (primeros 5 + … + últimos 5) y dejamos un input aparte
+            para que el usuario ingrese la nueva (vacío por default
+            = "no la cambio"). El botón "Eliminar" borra la key
+            persistida sin pedir reemplazo.
+        *@
+        @if (!string.IsNullOrEmpty(AppConfig.ApiKey))
+        {
+            <div class="api-key-display rz-mb-2"
+                 style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; background: var(--rz-input-background-color); border: 1px solid var(--rz-border-color); border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em;">
+                <span title="API Key almacenada (enmascarada)">@MaskedApiKey</span>
+                <RadzenButton Icon="delete_outline"
+                              ButtonStyle="ButtonStyle.Danger"
+                              Variant="Variant.Text"
+                              Size="ButtonSize.Small"
+                              Click="@ClearApiKey"
+                              Disabled="@(!IsCloudProvider)"
+                              title="Eliminar API Key almacenada"
+                              class="rz-ml-auto" />
+            </div>
+        }
+        <RadzenTextBox @bind-Value="newApiKey"
+                       Placeholder="@ApiKeyPlaceholder"
                        Disabled="@(!IsCloudProvider)"
+                       autocomplete="off"
+                       spellcheck="false"
                        class="rz-w-100" />
     </RadzenColumn>
 </RadzenRow>
@@ -81,6 +106,78 @@
     /// </summary>
     private bool IsCloudProvider =>
         LlmProviderHelper.RequiresApiKey(LlmProviderHelper.ParseProvider(AppConfig.Provider));
+
+    /// <summary>
+    /// Estado del input "nueva API Key". Vive solo en este componente;
+    /// si el usuario lo deja vacío al guardar, se conserva la API Key
+    /// ya persistida. Esto evita que el campo muestre la key en claro
+    /// (seguridad) y permite al usuario reemplazarla sin ver la
+    /// anterior completa.
+    /// </summary>
+    private string? newApiKey;
+
+    /// <summary>
+    /// Versión enmascarada de la API Key persistida, lista para
+    /// mostrar al usuario (primeros 5 + … + últimos 5).
+    /// </summary>
+    private string MaskedApiKey => SecureField.Mask(AppConfig.ApiKey);
+
+    /// <summary>
+    /// Placeholder del input: distinto según haya o no una key
+    /// persistida, para que el usuario sepa qué va a pasar si deja
+    /// el campo vacío.
+    /// </summary>
+    private string ApiKeyPlaceholder
+    {
+        get
+        {
+            if (!IsCloudProvider) return "No requerida para proveedores locales";
+            return string.IsNullOrEmpty(AppConfig.ApiKey)
+                ? "sk-..."
+                : "Ingresá una nueva API Key para reemplazar la actual";
+        }
+    }
+
+    /// <summary>
+    /// Borra la API Key persistida (botón "Eliminar" del display
+    /// enmascarado). Marca el AppConfig como dirty para que el
+    /// siguiente Save persista el cambio.
+    /// </summary>
+    private void ClearApiKey()
+    {
+        AppConfig.ApiKey = null;
+        newApiKey = null;
+    }
+
+    /// <summary>
+    /// Aplica la nueva API Key al <see cref="AppConfig"/> si el
+    /// usuario escribió algo. Lo llama el padre (Config.razor) justo
+    /// antes de <c>AppConfig.Save()</c>. Devuelve true si hubo un
+    /// cambio real.
+    /// </summary>
+    public bool ApplyToConfig()
+    {
+        if (string.IsNullOrWhiteSpace(newApiKey)) return false;
+        AppConfig.ApiKey = newApiKey.Trim();
+        newApiKey = null;
+        return true;
+    }
+
+    /// <summary>
+    /// True si el usuario escribió una nueva key en el input pero
+    /// todavía no guardó. El padre lo usa para el dirty tracking
+    /// (para que el modal de "cambios sin guardar" se dispare).
+    /// </summary>
+    public bool HasPendingNewKey => !string.IsNullOrWhiteSpace(newApiKey);
+
+    /// <summary>
+    /// Descarta el cambio pendiente (usado cuando el usuario elige
+    /// "Descartar" en el modal de cambios sin guardar).
+    /// </summary>
+    public void DiscardPendingChange()
+    {
+        newApiKey = null;
+    }
 
     /// <summary>
     /// Maneja el cambio del dropdown de Proveedor LLM. NO muta

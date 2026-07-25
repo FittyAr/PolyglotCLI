@@ -67,8 +67,11 @@ namespace PolyglotCLI
                 {
                     if (OperatingSystem.IsWindows())
                     {
+                        // Estructura {desarrollador}\{programa}: logs
+                        // bajo FittyAr\PolyglotCLI\logs\ en lugar
+                        // de plantar la app directo en AppData\Roaming.
                         string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                        logDir = Path.Combine(appData, "PolyglotCLI", config.LogDirectory);
+                        logDir = Path.Combine(appData, "FittyAr", "PolyglotCLI", config.LogDirectory);
                     }
                     else
                     {

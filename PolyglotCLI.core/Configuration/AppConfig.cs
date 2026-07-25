@@ -205,6 +205,26 @@ namespace PolyglotCLI
         [System.Text.Json.Serialization.JsonIgnore]
         public string? LoadedFromPath { get; set; }
 
+        /// <summary>
+        /// UTC en que la migración del árbol legacy
+        /// (<c>%AppData%\PolyglotCLI\</c> →
+        /// <c>%AppData%\FittyAr\PolyglotCLI\</c>) corrió por
+        /// última vez. Null si nunca migró. La UI lo usa para
+        /// mostrar un aviso en la pestaña About: las API keys del
+        /// config viejo se descartaron y hay que re-ingresarlas.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public DateTime? LastMigrationUtc { get; private set; }
+
+        /// <summary>
+        /// True si el caller quiere usar el config del project tree
+        /// (currentDir/baseDir) en lugar del canónico en %AppData%.
+        /// Útil para desarrollo. Se activa con la env var
+        /// <c>POLYGLOTCLI_USE_PROJECT_CONFIG=1</c>.
+        /// </summary>
+        public static bool UseProjectConfig =>
+            !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("POLYGLOTCLI_USE_PROJECT_CONFIG"));
+
         [System.Text.Json.Serialization.JsonIgnore]
         public string AbsoluteOutputDirectory => GetSafeOutputDirectory(OutputDirectory);
 
@@ -251,26 +271,53 @@ namespace PolyglotCLI
         {
             if (string.IsNullOrWhiteSpace(path))
             {
-                path = "output";
+                return GetDefaultOutputDirectory();
             }
 
             string fullPath = Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, path));
 
             if (IsPathInsideProgramFiles(fullPath))
             {
-                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                return Path.Combine(appData, "PolyglotCLI", "output");
+                return GetDefaultOutputDirectory();
             }
 
             return fullPath;
+        }
+
+        /// <summary>
+        /// Carpeta por defecto para salidas (markdown, docx, exports).
+        /// Siempre bajo {AppData}\FittyAr\PolyglotCLI\output\ para
+        /// mantener la convención {desarrollador}\{programa}.
+        /// </summary>
+        public static string GetDefaultOutputDirectory()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                return Path.Combine(appData, "FittyAr", "PolyglotCLI", "output");
+            }
+            return Path.Combine(AppContext.BaseDirectory, "output");
         }
 
         public static string GetDefaultConfigPath()
         {
             if (OperatingSystem.IsWindows())
             {
+                // Estructura {desarrollador}\{programa}: el árbol
+                // del usuario queda aislado bajo "FittyAr\PolyglotCLI"
+                // en lugar de plantar la app directo en AppData\Roaming.
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                string dir = Path.Combine(appData, "PolyglotCLI");
+                string dir = Path.Combine(appData, "FittyAr", "PolyglotCLI");
+                // Migración one-shot desde el árbol viejo
+                // (AppData\Roaming\PolyglotCLI) — preserva logs/jobs
+                // existentes y resetea config.json a un estado blanco.
+                // Solo aplica en AppData: si el caller está usando
+                // project config (POLYGLOTCLI_USE_PROJECT_CONFIG=1),
+                // no tocamos el árbol del usuario.
+                if (!UseProjectConfig)
+                {
+                    MigrateLegacyAppDataIfNeeded();
+                }
                 if (!Directory.Exists(dir))
                 {
                     Directory.CreateDirectory(dir);
@@ -278,6 +325,112 @@ namespace PolyglotCLI
                 return Path.Combine(dir, "config.json");
             }
             return Path.Combine(AppContext.BaseDirectory, "config.json");
+        }
+
+        /// <summary>
+        /// Migra los datos del usuario desde el árbol legacy
+        /// <c>%AppData%\PolyglotCLI\</c> al nuevo
+        /// <c>%AppData%\FittyAr\PolyglotCLI\</c>. Mueve todo el
+        /// contenido EXCEPTO <c>config.json</c> (que se descarta
+        /// intencionalmente para que el nuevo arranque con un
+        /// config "blanco" sin keys ni paths personalizados).
+        /// Idempotente: usa un archivo marker <c>.migrated</c> en
+        /// la nueva ubicación.
+        /// </summary>
+        /// <param name="appDataOverride">
+        /// Solo para tests: si se pasa, se usa como raíz en lugar
+        /// de <see cref="Environment.SpecialFolder.ApplicationData"/>.
+        /// En producción, dejar null.
+        /// </param>
+        public static void MigrateLegacyAppDataIfNeeded(string? appDataOverride = null)
+        {
+            if (!OperatingSystem.IsWindows()) return;
+
+            string appData = appDataOverride
+                ?? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string oldDir = Path.Combine(appData, "PolyglotCLI");
+            string newDir = Path.Combine(appData, "FittyAr", "PolyglotCLI");
+            string marker = Path.Combine(newDir, ".migrated");
+
+            // Idempotencia: si ya corrió, no hace nada.
+            if (File.Exists(marker)) return;
+
+            try
+            {
+                // Asegurar que el destino exista — incluso si no hay
+                // nada viejo, escribimos el marker así no volvemos a
+                // entrar acá en cada Load.
+                Directory.CreateDirectory(newDir);
+
+                if (Directory.Exists(oldDir))
+                {
+                    AppLogger.Info($"Migrando datos de {oldDir} → {newDir} (config.json se descarta a propósito).");
+
+                    // Mover todo lo del viejo al nuevo, EXCEPTO
+                    // config.json (que contiene info personal del
+                    // usuario: keys, paths, etc. — debe quedar
+                    // blanco en el destino).
+                    foreach (var srcPath in Directory.EnumerateFiles(oldDir, "*", SearchOption.AllDirectories))
+                    {
+                        string rel = Path.GetRelativePath(oldDir, srcPath);
+
+                        if (string.Equals(rel, "config.json", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Borrar el config viejo sin dejar backup
+                            // (por seguridad: contenía API keys).
+                            try { File.Delete(srcPath); }
+                            catch (Exception ex)
+                            {
+                                AppLogger.Warn($"Migración: no se pudo borrar config.json viejo: {ex.Message}");
+                            }
+                            continue;
+                        }
+
+                        string destPath = Path.Combine(newDir, rel);
+                        string? destDir = Path.GetDirectoryName(destPath);
+                        if (!string.IsNullOrEmpty(destDir)) Directory.CreateDirectory(destDir);
+                        try
+                        {
+                            // Si el destino ya existe (caso raro de
+                            // migración parcial previa), no pisamos.
+                            if (File.Exists(destPath)) continue;
+                            File.Move(srcPath, destPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            AppLogger.Warn($"Migración: no se pudo mover {rel}: {ex.Message}");
+                        }
+                    }
+
+                    // Limpiar subdirectorios vacíos del viejo.
+                    try
+                    {
+                        foreach (var dir in Directory.EnumerateDirectories(oldDir, "*", SearchOption.AllDirectories)
+                                                     .OrderByDescending(d => d.Length))
+                        {
+                            if (!Directory.EnumerateFileSystemEntries(dir).Any())
+                            {
+                                try { Directory.Delete(dir); } catch { /* best effort */ }
+                            }
+                        }
+                        if (Directory.Exists(oldDir) && !Directory.EnumerateFileSystemEntries(oldDir).Any())
+                        {
+                            try { Directory.Delete(oldDir); } catch { /* best effort */ }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.Warn($"Migración: limpieza del árbol viejo falló: {ex.Message}");
+                    }
+                }
+
+                // Marker: garantiza que no volvemos a migrar.
+                File.WriteAllText(marker, DateTime.UtcNow.ToString("O"));
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error($"Migración de AppData falló: {ex.Message}", ex);
+            }
         }
 
         public static AppConfig Load(string? configPath = null)
@@ -290,22 +443,29 @@ namespace PolyglotCLI
             }
             else
             {
-                // Prefer local project/workspace configuration in GetCurrentDirectory() or AppContext.BaseDirectory
+                // Orden de prioridad:
+                //   1. AppData (canónico para datos de usuario).
+                //   2. currentDir / baseDir (dev / legacy).
+                //
+                // Developers pueden setear POLYGLOTCLI_USE_PROJECT_CONFIG=1
+                // para invertir el orden y usar el config del project
+                // tree, ignorando AppData. Útil cuando se quiere
+                // iterar sobre el config sin tocar el del usuario.
                 string currentDirConfig = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
                 string baseDirConfig = Path.Combine(AppContext.BaseDirectory, "config.json");
                 string appDataConfig = GetDefaultConfigPath();
 
-                if (File.Exists(currentDirConfig) && !IsPathInsideProgramFiles(currentDirConfig))
+                if (!UseProjectConfig && File.Exists(appDataConfig))
+                {
+                    resolvedPath = appDataConfig;
+                }
+                else if (File.Exists(currentDirConfig) && !IsPathInsideProgramFiles(currentDirConfig))
                 {
                     resolvedPath = currentDirConfig;
                 }
                 else if (File.Exists(baseDirConfig) && !IsPathInsideProgramFiles(baseDirConfig))
                 {
                     resolvedPath = baseDirConfig;
-                }
-                else if (File.Exists(appDataConfig))
-                {
-                    resolvedPath = appDataConfig;
                 }
                 else if (File.Exists(baseDirConfig))
                 {
@@ -328,6 +488,7 @@ namespace PolyglotCLI
             {
                 config = new AppConfig();
                 config.LoadedFromPath = savePath;
+                config.LastMigrationUtc = ReadMigrationTimestamp();
                 return config;
             }
 
@@ -335,6 +496,11 @@ namespace PolyglotCLI
             {
                 string jsonString = File.ReadAllText(resolvedPath);
                 config = JsonSerializer.Deserialize<AppConfig>(jsonString) ?? new AppConfig();
+                // Descifra los campos sensibles (ApiKey, ProviderApiKeys[*],
+                // ProviderConfigs[*].ApiKey) que quedaron cifrados en el
+                // último Save. Si todavía no había ninguno cifrado
+                // (migración desde config antiguo), Unprotect es no-op.
+                SecureField.UnprotectInPlace(config);
             }
             catch (Exception ex)
             {
@@ -345,15 +511,50 @@ namespace PolyglotCLI
             }
 
             config.LoadedFromPath = savePath;
+            config.LastMigrationUtc = ReadMigrationTimestamp();
             return config;
+        }
+
+        /// <summary>
+        /// Lee el timestamp de la última migración del árbol legacy,
+        /// si existe. Null si nunca migró.
+        /// </summary>
+        public static DateTime? ReadMigrationTimestamp()
+        {
+            if (!OperatingSystem.IsWindows()) return null;
+            try
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string marker = Path.Combine(appData, "FittyAr", "PolyglotCLI", ".migrated");
+                if (!File.Exists(marker)) return null;
+                string text = File.ReadAllText(marker);
+                if (DateTime.TryParse(text, null,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+                {
+                    return dt;
+                }
+            }
+            catch
+            {
+                // No hacer nada: el marker es best-effort, no debe
+                // romper el Load.
+            }
+            return null;
         }
 
         public void Save(string? configPath = null)
         {
             configPath ??= LoadedFromPath ?? GetDefaultConfigPath();
 
+            // Ciframos los campos sensibles (ApiKey, ProviderApiKeys[*],
+            // ProviderConfigs[*].ApiKey) antes de serializar. El
+            // try/finally garantiza que el estado en memoria vuelva a
+            // quedar en claro aunque la escritura a disco falle: la
+            // app necesita los valores reales para hablar con el LLM.
             try
             {
+                SecureField.ProtectInPlace(this);
+
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string jsonString = JsonSerializer.Serialize(this, options);
                 // Escritura atómica: escribimos a un .tmp en la misma carpeta
@@ -379,6 +580,14 @@ namespace PolyglotCLI
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"Warning: Failed to save config.json. Error: {ex.Message}");
                 Console.ResetColor();
+            }
+            finally
+            {
+                // Devolver los campos sensibles a plaintext en memoria,
+                // independientemente de si la escritura a disco tuvo
+                // éxito. La app los necesita en claro para hablar con
+                // el LLM.
+                SecureField.UnprotectInPlace(this);
             }
         }
 

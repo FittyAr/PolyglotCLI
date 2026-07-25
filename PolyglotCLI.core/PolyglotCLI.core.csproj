@@ -20,6 +20,13 @@
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.78.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.78.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.Google" Version="1.78.0-alpha" />
+    <!--
+      Cifrado de API keys en config.json mediante DPAPI de Windows
+      (CurrentUser scope: la clave solo la puede descifrar el mismo
+      usuario en la misma máquina). En macOS/Linux usa los equivalentes
+      nativos del paquete (Keychain / libsecret).
+    -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
   </ItemGroup>
 
 </Project>

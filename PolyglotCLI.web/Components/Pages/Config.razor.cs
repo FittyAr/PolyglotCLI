@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Radzen;
 using PolyglotCLI;
+using PolyglotCLI.web.Components.Config;
 using PolyglotCLI.web.Components.Dialogs;
 
 namespace PolyglotCLI.web.Components.Pages;
@@ -35,11 +36,27 @@ public partial class Config : ComponentBase, IDisposable
     protected bool isTestingConnection = false;
     protected string? testConnectionResult = null;
 
+    // Referencia a la pestaña "General" para poder leer/escribir
+    // cambios que viven solo en el componente hijo (caso típico: la
+    // nueva API Key escrita en su input, que no se aplica a
+    // AppConfig hasta el Save). Sin este @ref no podríamos saber
+    // que hay cambios pendientes ni aplicarlos.
+    private GeneralConfigTab? generalTabRef;
+
     // Prompts files content
     protected string ocrPromptText = "";
     protected string translationPromptText = "";
     protected string reviewPromptText = "";
     protected string promptImproverPromptText = "";
+
+    // Snapshots del texto de prompts al momento del load. Sirven
+    // para detectar dirty en los prompts (IsDirty solo chequeaba
+    // el JSON de AppConfig — los prompts son un recurso aparte
+    // y se guardan en archivos .md via PromptLoader.Save*).
+    private string _ocrPromptBaseline = "";
+    private string _translationPromptBaseline = "";
+    private string _reviewPromptBaseline = "";
+    private string _promptImproverPromptBaseline = "";
 
     // ── Dirty tracking ────────────────────────────────────────────────
     // Serializamos el AppConfig al entrar a la página y cada vez que
@@ -66,6 +83,14 @@ public partial class Config : ComponentBase, IDisposable
             try { promptImproverPromptText = promptLoader.LoadPromptImproverPrompt(); } catch {}
         }
         catch {}
+
+        // Snapshots para detectar cambios en prompts (los prompts
+        // viven en archivos .md, no en el AppConfig JSON, así que
+        // el baseline JSON no los cubre).
+        _ocrPromptBaseline = ocrPromptText;
+        _translationPromptBaseline = translationPromptText;
+        _reviewPromptBaseline = reviewPromptText;
+        _promptImproverPromptBaseline = promptImproverPromptText;
 
         // Fetch models dynamically from LLM Provider
         try {
@@ -152,7 +177,24 @@ public partial class Config : ComponentBase, IDisposable
         if (_baselineJson is null)
             return false;
         var current = SerializeForCompare(AppConfig);
-        return !string.Equals(current, _baselineJson, StringComparison.Ordinal);
+        if (!string.Equals(current, _baselineJson, StringComparison.Ordinal))
+            return true;
+        // Aunque los campos persistidos no hayan cambiado, el input
+        // de "nueva API Key" en GeneralConfigTab puede tener algo
+        // pendiente. Esos cambios viven en el componente hijo y no
+        // aparecen en el AppConfig hasta ApplyToConfig().
+        if (generalTabRef?.HasPendingNewKey == true)
+            return true;
+        // Los prompts viven en archivos .md aparte (no en el JSON
+        // de AppConfig), así que también hay que chequearlos contra
+        // sus baselines. Si el user edita un prompt y navega away
+        // sin guardar, debe dispararse el modal de "cambios sin
+        // guardar".
+        if (ocrPromptText != _ocrPromptBaseline) return true;
+        if (translationPromptText != _translationPromptBaseline) return true;
+        if (reviewPromptText != _reviewPromptBaseline) return true;
+        if (promptImproverPromptText != _promptImproverPromptBaseline) return true;
+        return false;
     }
 
     private void ApplyBaseline()
@@ -184,6 +226,26 @@ public partial class Config : ComponentBase, IDisposable
             // como está y el usuario verá los cambios (peor escenario
             // aceptable).
         }
+        // También revertimos los buffers locales de los prompts:
+        try
+        {
+            var promptLoader = new PromptLoader();
+            try { ocrPromptText = promptLoader.LoadOcrPrompt(); } catch {}
+            try { translationPromptText = promptLoader.LoadTranslationPrompt(); } catch {}
+            try { reviewPromptText = promptLoader.LoadReviewPrompt(); } catch {}
+            try { promptImproverPromptText = promptLoader.LoadPromptImproverPrompt(); } catch {}
+        }
+        catch { }
+        // Reset baselines para que IsDirty no reporte los textos
+        // recién recargados como cambios pendientes.
+        _ocrPromptBaseline = ocrPromptText;
+        _translationPromptBaseline = translationPromptText;
+        _reviewPromptBaseline = reviewPromptText;
+        _promptImproverPromptBaseline = promptImproverPromptText;
+        // Descartar también cualquier cambio pendiente que viviera en
+        // componentes hijos (ej: la nueva API Key tipeada en
+        // GeneralConfigTab pero todavía no aplicada a AppConfig).
+        generalTabRef?.DiscardPendingChange();
     }
 
     private static string SerializeForCompare(PolyglotCLI.AppConfig cfg)
@@ -286,6 +348,12 @@ public partial class Config : ComponentBase, IDisposable
     {
         try
         {
+            // Si el usuario escribió una nueva API Key en el input
+            // de GeneralConfigTab, todavía no está en AppConfig (para
+            // no exponer la key anterior en claro). La aplicamos acá,
+            // justo antes de Save, que a su vez la cifra a DPAPI.
+            generalTabRef?.ApplyToConfig();
+
             args.SupportedOutputFormats = outputFormatsInput
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToList();
@@ -309,6 +377,14 @@ public partial class Config : ComponentBase, IDisposable
             {
                 AppLogger.Warn($"Failed to save some prompt files: {ex.Message}");
             }
+
+            // Reset baselines: lo que está en disco ahora coincide
+            // con lo que está en memoria, así que no hay cambios
+            // pendientes (incluyendo los prompts).
+            _ocrPromptBaseline = ocrPromptText;
+            _translationPromptBaseline = translationPromptText;
+            _reviewPromptBaseline = reviewPromptText;
+            _promptImproverPromptBaseline = promptImproverPromptText;
 
             saveMessage = "Configuración guardada correctamente!";
             NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Configuración guardada correctamente." });

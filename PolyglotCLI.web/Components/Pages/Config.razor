@@ -1,4 +1,5 @@
 @page "/config"
+@using PolyglotCLI.web.Components.Config
 
 <PageTitle>Configuración - PolyglotCLI</PageTitle>
 
@@ -10,7 +11,10 @@
             <Tabs>
                 <!-- Pestaña 1: General -->
                 <RadzenTabsItem Text="General" Icon="settings">
-                    <GeneralConfigTab AppConfig="@AppConfig" IsTestingConnection="@isTestingConnection" OnTestConnection="@TestConnection" />
+                    <GeneralConfigTab @ref="generalTabRef"
+                                      AppConfig="@AppConfig"
+                                      IsTestingConnection="@isTestingConnection"
+                                      OnTestConnection="@TestConnection" />
                 </RadzenTabsItem>
 
                 <!-- Pestaña 2: Avanzado -->
