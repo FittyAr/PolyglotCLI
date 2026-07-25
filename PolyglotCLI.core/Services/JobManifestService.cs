@@ -340,6 +340,41 @@ namespace PolyglotCLI
         }
 
         /// <summary>
+        /// Valida que un JobId sea un nombre de carpeta legítimo y
+        /// seguro. El JobId se guarda en el manifest.json y se
+        /// concatena a un path de filesystem en múltiples lugares
+        /// (cargar, borrar, exportar, reanudar, etc.). Si el manifest
+        /// fue editado a mano o viene de una fuente no confiable, el
+        /// JobId podría contener path traversal (ej: '..\\..\\foo')
+        /// o caracteres maliciosos. Esta función es la primera línea
+        /// de defensa: si devuelve false, ningún consumidor debería
+        /// tocar el filesystem con ese JobId.
+        /// </summary>
+        public static bool IsValidJobId(string? jobId)
+        {
+            if (string.IsNullOrWhiteSpace(jobId)) return false;
+
+            // No permitir '..' (path traversal).
+            if (jobId.Contains("..")) return false;
+
+            // No permitir separadores de path: el JobId es solo el
+            // nombre de la carpeta, no un sub-path. (Esto es lo que
+            // lo protege de "../foo", "foo/bar", "foo\bar", etc.)
+            if (jobId.Contains('/') || jobId.Contains('\\')) return false;
+
+            // No permitir NUL ni control chars.
+            foreach (char c in jobId)
+            {
+                if (c < 0x20) return false;
+            }
+
+            // Límite de longitud razonable.
+            if (jobId.Length > 200) return false;
+
+            return true;
+        }
+
+        /// <summary>
         /// Resuelve la ubicación real de la carpeta de un trabajo y
         /// reporta si hay inconsistencia entre el JobId y el nombre
         /// del directorio. Usar este método ANTES de cualquier
@@ -347,6 +382,11 @@ namespace PolyglotCLI
         /// exportar, reanudar, analizar, borrar) para que la UI
         /// pueda mostrarle al usuario el problema en vez de fallar
         /// con un error críptico o quedarse colgada.
+        ///
+        /// Si el JobId no es válido (path traversal, caracteres
+        /// raros), devuelve una resolución inconsistente con
+        /// ActualPath=null para que la UI aborte la operación en
+        /// vez de tocar el filesystem.
         /// </summary>
         public static JobDirectoryResolution TryResolveJobDirectory(string jobId)
         {
@@ -355,6 +395,14 @@ namespace PolyglotCLI
                 JobId = jobId,
                 ExpectedPath = Path.Combine(TranslationOrchestrator.GetJobsDirectory(), jobId)
             };
+
+            if (!IsValidJobId(jobId))
+            {
+                AppLogger.Warn(
+                    $"TryResolveJobDirectory: JobId inválido '{jobId}'. " +
+                    $"Rechazado (posible path traversal o manifest corrupto).");
+                return result; // ActualPath = null → IsConsistent = false
+            }
 
             if (Directory.Exists(result.ExpectedPath))
             {
@@ -432,6 +480,20 @@ namespace PolyglotCLI
                         var manifest = JobManifest.Load(manifestPath);
                         if (manifest != null && !string.IsNullOrEmpty(manifest.JobId))
                         {
+                            // Defensa contra manifests manipulados:
+                            // un JobId con path traversal ('..\\..\\foo')
+                            // o caracteres raros podría hacer que el
+                            // código escape del directorio de jobs al
+                            // construir paths. Si no pasa la validación,
+                            // descartamos el manifest y seguimos.
+                            if (!IsValidJobId(manifest.JobId))
+                            {
+                                AppLogger.Warn(
+                                    $"LoadPastJobs: manifest con JobId inválido '{manifest.JobId}' " +
+                                    $"en '{dir}'. Ignorando (posible path traversal o manifest corrupto).");
+                                continue;
+                            }
+
                             // Validación de consistencia: el JobId del
                             // manifest debería matchear con el nombre
                             // del directorio en disco. Si no coincide
