@@ -98,6 +98,11 @@
             content.Add(streamContent, "file", selectedFile.Name);
 
             using var request = new HttpRequestMessage(HttpMethod.Post, ApiUrl) { Content = content };
+            // Defensa contra CSRF: el servidor exige un Origin same-origin
+            // o un header X-Polyglot-Client whitelisted (ver IsTrustedImportClient
+            // en Program.cs). El HttpClient tipado de Blazor no setea Origin,
+            // así que mandamos la credencial explícita.
+            request.Headers.Add("X-Polyglot-Client", "blazor");
             using var response = await Http.SendAsync(request);
 
             string body = string.Empty;

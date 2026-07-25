@@ -28,7 +28,7 @@ namespace PolyglotCLI.Update
     ///   4. El proceso de PolyglotCLI debe cerrarse
     ///      (<c>/CLOSEAPPLICATIONS</c> lo cierra automáticamente).
     /// </summary>
-    public sealed class UpdateService
+    public sealed class UpdateService : IDisposable
     {
         /// <summary>
         /// Repositorio desde el que se consulta la última release.
@@ -45,7 +45,11 @@ namespace PolyglotCLI.Update
         public static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(8);
 
         private readonly HttpClient _http;
+        private readonly bool _ownsHttp;
         private readonly string _currentVersion;
+        private readonly Dictionary<string, string> _verifiedInstallers =
+            new(StringComparer.OrdinalIgnoreCase);
+        private bool _disposed;
 
         public UpdateService(string currentVersion, HttpClient? http = null)
         {
@@ -54,7 +58,16 @@ namespace PolyglotCLI.Update
             {
                 _currentVersion = _currentVersion[1..];
             }
-            _http = http ?? new HttpClient { Timeout = HttpTimeout };
+            if (http is not null)
+            {
+                _http = http;
+                _ownsHttp = false;
+            }
+            else
+            {
+                _http = new HttpClient { Timeout = HttpTimeout };
+                _ownsHttp = true;
+            }
         }
 
         /// <summary>
@@ -229,6 +242,10 @@ namespace PolyglotCLI.Update
                         $"El instalador descargado no pasó la verificación SHA-256. " +
                         $"Esperado={info.Digest}, calculado=sha256:{actual}");
                 }
+                // Recordar el (path, digest) verificado para que
+                // LaunchSilentInstaller pueda re-verificar antes de
+                // ejecutar el binario como admin (defensa contra TOCTOU).
+                _verifiedInstallers[outPath] = info.Digest;
             }
 
             return outPath;
@@ -266,6 +283,14 @@ namespace PolyglotCLI.Update
         /// Esto es intencional: la instalación de PolyglotCLI vive en
         /// <c>%ProgramFiles%</c> y requiere privilegios.
         /// </para>
+        /// <para>
+        /// Antes de lanzar el proceso, este método re-verifica el SHA-256
+        /// del archivo contra el digest registrado por
+        /// <see cref="DownloadInstallerAsync"/>. Esto cierra la ventana
+        /// TOCTOU entre la descarga y la ejecución: si otro proceso local
+        /// reemplazó el .exe en <c>%TEMP%</c>, el hash no coincide y se
+        /// aborta sin invocar <c>Process.Start</c>.
+        /// </para>
         /// </summary>
         /// <returns>El <see cref="Process"/> lanzado (no se espera a que
         /// termine; debe ser el proceso de PolyglotCLI el que termine con
@@ -276,6 +301,27 @@ namespace PolyglotCLI.Update
                 throw new ArgumentException("Ruta vacía.", nameof(installerPath));
             if (!File.Exists(installerPath))
                 throw new FileNotFoundException("Instalador no encontrado.", installerPath);
+
+            // Re-verificación TOCTOU. Si el digest nunca fue registrado
+            // (porque la release no traía uno, o porque el path no pasó
+            // por DownloadInstallerAsync de esta instancia) rechazamos:
+            // es más estricto que correr sin verificar.
+            if (!_verifiedInstallers.TryGetValue(installerPath, out var expectedDigest))
+            {
+                throw new InvalidOperationException(
+                    $"El instalador '{installerPath}' no fue verificado por DownloadInstallerAsync. " +
+                    "Por seguridad, sólo se ejecutan binarios que pasaron la verificación de digest en esta instancia.");
+            }
+
+            string actualHex = ComputeSha256Sync(installerPath);
+            if (!DigestMatches(expectedDigest, actualHex))
+            {
+                try { File.Delete(installerPath); } catch { /* best effort */ }
+                _verifiedInstallers.Remove(installerPath);
+                throw new InvalidOperationException(
+                    $"El instalador fue modificado después de la verificación. " +
+                    $"Esperado={expectedDigest}, calculado=sha256:{actualHex}");
+            }
 
             // Inno Setup: /VERYSILENT /SP- /CLOSEAPPLICATIONS /NORESTART
             // - /VERYSILENT: instala sin mostrar el wizard
@@ -292,8 +338,29 @@ namespace PolyglotCLI.Update
                 Verb = "runas",                     // fuerza elevación admin
                 WorkingDirectory = Path.GetDirectoryName(installerPath) ?? string.Empty
             };
-            return Process.Start(psi) ?? throw new InvalidOperationException(
+            var proc = Process.Start(psi) ?? throw new InvalidOperationException(
                 "No se pudo iniciar el instalador (Process.Start devolvió null).");
+            _verifiedInstallers.Remove(installerPath);
+            return proc;
+        }
+
+        private static string ComputeSha256Sync(string path)
+        {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: false);
+            using var sha = SHA256.Create();
+            byte[] hash = sha.ComputeHash(fs);
+            return Convert.ToHexString(hash).ToLowerInvariant();
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _verifiedInstallers.Clear();
+            if (_ownsHttp)
+            {
+                try { _http.Dispose(); } catch { /* best effort */ }
+            }
         }
 
         /// <summary>

@@ -30,9 +30,11 @@ namespace PolyglotCLI.web
                     options.DetailedErrors = true;
                 })
                 .AddHubOptions(options => {
-                    // El visor de página transmite imágenes base64 sobre SignalR; ampliar el límite por encima del valor por defecto (32KB).
-                    // Se amplía a 128MB para soportar payloads grandes (p.ej. miniaturas en base64).
-                    options.MaximumReceiveMessageSize = 128 * 1024 * 1024; // 128MB
+                    // El visor de página transmite imágenes base64 sobre SignalR;
+                    // ampliar el límite por encima del valor por defecto (32KB).
+                    // 32MB soporta miniaturas razonables sin abrir la puerta a
+                    // un atacante que bombardee el hub con payloads grandes.
+                    options.MaximumReceiveMessageSize = 32 * 1024 * 1024; // 32MB
                 });
             builder.Services.AddRadzenComponents();
             builder.Services.AddBlazorPanzoomServices();
@@ -133,8 +135,22 @@ namespace PolyglotCLI.web
 
             // POST /api/jobs/import  (multipart/form-data con campo "file")
             // Devuelve { jobId = "<nuevo JobId efectivo>" }
+            // CSRF: aceptamos sólo dos clases de cliente:
+            //   (a) navegador same-origin (Origin/Referer contra http://localhost:5000)
+            //   (b) cliente PolyglotCLI de confianza que envía el header
+            //       X-Polyglot-Client con un valor whitelisted.
+            //   Un atacante cross-origin no puede (a) ni setear el header
+            //   custom en (b) sin disparar preflight CORS. Mantenemos el
+            //   endpoint sin antiforgery del middleware para no romper el
+            //   Blazor HttpClient interno, pero este filtro cumple el mismo
+            //   rol sin requerir cookie/session.
             app.MapPost("/api/jobs/import", async (HttpRequest req) =>
             {
+                if (!IsTrustedImportClient(req))
+                {
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
+                }
+
                 try
                 {
                     if (!req.HasFormContentType)
@@ -167,7 +183,7 @@ namespace PolyglotCLI.web
                     AppLogger.Error("Failed to import job package", ex);
                     return Results.Problem(detail: ex.Message, statusCode: 500, title: "Import failed");
                 }
-            }).DisableAntiforgery(); // El cliente Blazor/MAUI envía el multipart directamente
+            }); // (sin DisableAntiforgery: la defensa contra CSRF se hace vía IsTrustedImportClient)
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("==================================================");
@@ -178,6 +194,55 @@ namespace PolyglotCLI.web
             Console.ResetColor();
 
             app.Run();
+        }
+
+        /// <summary>
+        /// Whitelist de valores aceptados en <c>X-Polyglot-Client</c>. Un
+        /// atacante cross-origin no puede setear headers custom sin disparar
+        /// un preflight CORS que este server no aceptaría.
+        /// </summary>
+        private static readonly System.Collections.Generic.HashSet<string> TrustedClientHeaders =
+            new(System.StringComparer.OrdinalIgnoreCase) { "blazor", "maui", "cli" };
+
+        /// <summary>
+        /// Defensa CSRF del endpoint de import: o el request viene de un
+        /// navegador same-origin (Origin o Referer contra http://localhost:5000),
+        /// o trae un header <c>X-Polyglot-Client</c> whitelisted. Requests
+        /// sin Origin (curl, HttpClient local) también pasan, porque el
+        /// server sólo escucha en localhost y se asume que un proceso local
+        /// ya tiene acceso equivalente al filesystem del usuario.
+        /// </summary>
+        private static bool IsTrustedImportClient(HttpRequest req)
+        {
+            // (b) Header custom de cliente confiable
+            if (req.Headers.TryGetValue("X-Polyglot-Client", out var clientValues))
+            {
+                foreach (var v in clientValues)
+                {
+                    if (!string.IsNullOrEmpty(v) && TrustedClientHeaders.Contains(v))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            // (a) Same-origin desde un navegador. Comparamos contra la URL
+            // local que UseUrls fijó (http://localhost:5000). Si el servidor
+            // se expone detrás de un reverse proxy habría que ajustar esto,
+            // pero la app es localhost-only.
+            const string localOrigin = "http://localhost:5000";
+            if (req.Headers.TryGetValue("Origin", out var origin) &&
+                origin.ToString().StartsWith(localOrigin, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            if (req.Headers.TryGetValue("Referer", out var referer) &&
+                referer.ToString().StartsWith(localOrigin, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }

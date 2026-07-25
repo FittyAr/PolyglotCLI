@@ -24,6 +24,18 @@ public partial class JobTranslatedPageViewer : ComponentBase
     private static string GetMarkdownForPreview(string? text)
     {
         if (string.IsNullOrEmpty(text)) return string.Empty;
-        return text.Replace("&nbsp;", " ");
+        // RadzenMarkdown se renderiza en un iframe con srcdoc: el texto
+        // que le pasamos NO pasa por el escape automático de Blazor, así
+        // que un usuario (o un manifest importado) podría inyectar HTML
+        // arbitrario, incluyendo <script>. Para mantener la utilidad del
+        // preview (cursivas, negritas, enlaces en sintaxis markdown) pero
+        // neutralizar cualquier etiqueta HTML, escapamos los caracteres
+        // que delimitan tags. El caracter < usado en comparaciones tipo
+        // "1 < 2" se verá como "1 &lt; 2", que es el comportamiento
+        // esperado en un visor markdown seguro.
+        return text
+            .Replace("&nbsp;", " ")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;");
     }
 }
