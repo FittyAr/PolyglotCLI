@@ -634,7 +634,15 @@ namespace PolyglotCLI
                 // ProviderConfigs[*].ApiKey) que quedaron cifrados en el
                 // último Save. Si todavía no había ninguno cifrado
                 // (migración desde config antiguo), Unprotect es no-op.
+                //
+                // CA1416: SecureField está marcado [SupportedOSPlatform
+                // ("windows")] (usa DPAPI), pero UnprotectInPlace degrada
+                // a no-op en otras plataformas vía los catch internos de
+                // Unprotect — el comportamiento es seguro en todos los
+                // OS, así que suprimimos el warning.
+#pragma warning disable CA1416
                 SecureField.UnprotectInPlace(config);
+#pragma warning restore CA1416
             }
             catch (Exception ex)
             {
@@ -708,7 +716,14 @@ namespace PolyglotCLI
             {
             try
             {
+                // CA1416: ver nota en Load(). SecureField está marcado
+                // [SupportedOSPlatform("windows")] pero los métodos
+                // internos degradan en no-Windows (Protect devuelve
+                // plaintext, Unprotect devuelve null) — el comportamiento
+                // es seguro en todos los OS.
+#pragma warning disable CA1416
                 SecureField.ProtectInPlace(this);
+#pragma warning restore CA1416
 
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string jsonString = JsonSerializer.Serialize(this, options);
@@ -742,7 +757,10 @@ namespace PolyglotCLI
                 // independientemente de si la escritura a disco tuvo
                 // éxito. La app los necesita en claro para hablar con
                 // el LLM.
+                // CA1416: ver nota arriba.
+#pragma warning disable CA1416
                 SecureField.UnprotectInPlace(this);
+#pragma warning restore CA1416
             }
             } // lock (_saveLock)
         }

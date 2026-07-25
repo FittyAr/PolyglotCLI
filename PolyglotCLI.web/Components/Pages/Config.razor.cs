@@ -237,11 +237,17 @@ public partial class Config : ComponentBase, IDisposable
         }
         catch { }
         // Reset baselines para que IsDirty no reporte los textos
-        // recién recargados como cambios pendientes.
-        _ocrPromptBaseline = ocrPromptText;
-        _translationPromptBaseline = translationPromptText;
-        _reviewPromptBaseline = reviewPromptText;
-        _promptImproverPromptBaseline = promptImproverPromptText;
+        // recién recargados como cambios pendientes. El ?? "" es por
+        // el nullable analysis: el code-gen de Blazor para el @bind
+        // del PromptsConfigTab deja al field con flow "posiblemente
+        // null" en este punto aunque el setter recibe string no
+        // nullable. Aceptar la degradación silenciosa a "" (vs tirar
+        // NullReferenceException) matchea el comportamiento de
+        // SaveOcrPrompt más abajo, que también usa ?? "".
+        _ocrPromptBaseline = ocrPromptText ?? "";
+        _translationPromptBaseline = translationPromptText ?? "";
+        _reviewPromptBaseline = reviewPromptText ?? "";
+        _promptImproverPromptBaseline = promptImproverPromptText ?? "";
         // Descartar también cualquier cambio pendiente que viviera en
         // componentes hijos (ej: la nueva API Key tipeada en
         // GeneralConfigTab pero todavía no aplicada a AppConfig).
@@ -392,11 +398,12 @@ public partial class Config : ComponentBase, IDisposable
 
             // Reset baselines: lo que está en disco ahora coincide
             // con lo que está en memoria, así que no hay cambios
-            // pendientes (incluyendo los prompts).
-            _ocrPromptBaseline = ocrPromptText;
-            _translationPromptBaseline = translationPromptText;
-            _reviewPromptBaseline = reviewPromptText;
-            _promptImproverPromptBaseline = promptImproverPromptText;
+            // pendientes (incluyendo los prompts). Ver nota sobre
+            // ?? "" en ApplyBaseline.
+            _ocrPromptBaseline = ocrPromptText ?? "";
+            _translationPromptBaseline = translationPromptText ?? "";
+            _reviewPromptBaseline = reviewPromptText ?? "";
+            _promptImproverPromptBaseline = promptImproverPromptText ?? "";
 
             saveMessage = "Configuración guardada correctamente!";
             NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Configuración guardada correctamente." });
