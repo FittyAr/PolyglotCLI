@@ -351,12 +351,28 @@ namespace PolyglotCLI
         public void Save(string? configPath = null)
         {
             configPath ??= LoadedFromPath ?? GetDefaultConfigPath();
-            
+
             try
             {
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string jsonString = JsonSerializer.Serialize(this, options);
-                File.WriteAllText(configPath, jsonString);
+                // Escritura atómica: escribimos a un .tmp en la misma carpeta
+                // y luego File.Replace (que es atómico en Windows/NTFS). Si el
+                // proceso se corta a mitad de un File.WriteAllText clásico, el
+                // config.json quedaría corrupto y el próximo Load cae a
+                // defaults. Con .tmp + Replace, o se ve la versión vieja o
+                // se ve la nueva, nunca un archivo trunco.
+                string dir = Path.GetDirectoryName(configPath) ?? ".";
+                string tmpPath = Path.Combine(dir, $".{Path.GetFileName(configPath)}.{Guid.NewGuid():N}.tmp");
+                File.WriteAllText(tmpPath, jsonString);
+                if (File.Exists(configPath))
+                {
+                    File.Replace(tmpPath, configPath, destinationBackupFileName: null);
+                }
+                else
+                {
+                    File.Move(tmpPath, configPath);
+                }
             }
             catch (Exception ex)
             {

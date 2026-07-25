@@ -205,28 +205,33 @@ namespace PolyglotCLI.Update
             resp.EnsureSuccessStatusCode();
 
             long? total = resp.Content.Headers.ContentLength;
-            await using var net = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            await using var fs = new FileStream(outPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
 
-            byte[] buf = new byte[81920];
-            long read = 0;
-            int n;
-            int lastPct = -1;
-            while ((n = await net.ReadAsync(buf, ct).ConfigureAwait(false)) > 0)
+            // Escribimos en dos fases: primero un FileStream dedicado a la
+            // descarga (FileShare.None para que nadie toque el .exe mientras
+            // baja), y después liberamos ese handle antes de hashear.
+            await using (var net = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
+            await using (var fs = new FileStream(outPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
             {
-                await fs.WriteAsync(buf.AsMemory(0, n), ct).ConfigureAwait(false);
-                read += n;
-                if (total is long t && t > 0 && progress is not null)
+                byte[] buf = new byte[81920];
+                long read = 0;
+                int n;
+                int lastPct = -1;
+                while ((n = await net.ReadAsync(buf, ct).ConfigureAwait(false)) > 0)
                 {
-                    int pct = (int)Math.Min(99, read * 100 / t);
-                    if (pct != lastPct)
+                    await fs.WriteAsync(buf.AsMemory(0, n), ct).ConfigureAwait(false);
+                    read += n;
+                    if (total is long t && t > 0 && progress is not null)
                     {
-                        lastPct = pct;
-                        progress.Report(pct / 100.0);
+                        int pct = (int)Math.Min(99, read * 100 / t);
+                        if (pct != lastPct)
+                        {
+                            lastPct = pct;
+                            progress.Report(pct / 100.0);
+                        }
                     }
                 }
+                await fs.FlushAsync(ct).ConfigureAwait(false);
             }
-            await fs.FlushAsync(ct).ConfigureAwait(false);
             progress?.Report(1.0);
 
             // Verificación de integridad: si GitHub publicó un digest
@@ -237,7 +242,7 @@ namespace PolyglotCLI.Update
                 string actual = await ComputeSha256Async(outPath, ct).ConfigureAwait(false);
                 if (!DigestMatches(info.Digest, actual))
                 {
-                    try { fs.Close(); File.Delete(outPath); } catch { /* best effort */ }
+                    try { File.Delete(outPath); } catch { /* best effort */ }
                     throw new InvalidOperationException(
                         $"El instalador descargado no pasó la verificación SHA-256. " +
                         $"Esperado={info.Digest}, calculado=sha256:{actual}");

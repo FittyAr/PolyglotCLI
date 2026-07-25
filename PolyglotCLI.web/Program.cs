@@ -69,10 +69,11 @@ namespace PolyglotCLI.web
             if (!app.Environment.IsDevelopment())
             {
                 app.UseExceptionHandler("/Error", createScopeForErrors: true);
-                app.UseHsts();
             }
+            // Nota: el server escucha en http://localhost:5000 (UseUrls arriba),
+            // por lo que UseHsts y UseHttpsRedirection no surten efecto. Si en
+            // el futuro se expone HTTPS, hay que reactivar ambos.
             app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-            app.UseHttpsRedirection();
             app.UseAntiforgery();
 
             // UseStaticFiles con un proveedor de MIME types extendido:

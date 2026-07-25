@@ -67,8 +67,16 @@ namespace PolyglotCLI.web.Services
                 {
                     var info = await _update.CheckForUpdateAsync(stoppingToken).ConfigureAwait(false);
                     LastCheck = info;
-                    _config.LastUpdateCheckUtc = DateTime.UtcNow;
-                    _config.Save();
+                    // Sólo persistir si la marca de tiempo realmente cambió:
+                    // evita reescribir config.json cada 6h cuando nada cambió,
+                    // y combinado con la escritura atómica de AppConfig.Save
+                    // blinda contra un corte a mitad de archivo.
+                    var newStamp = DateTime.UtcNow;
+                    if (_config.LastUpdateCheckUtc != newStamp)
+                    {
+                        _config.LastUpdateCheckUtc = newStamp;
+                        _config.Save();
+                    }
 
                     if (info.CheckSucceeded && info.IsUpdateAvailable &&
                         info.LatestVersion != _config.DismissedUpdateVersion)
@@ -103,8 +111,12 @@ namespace PolyglotCLI.web.Services
         {
             var info = await _update.CheckForUpdateAsync(ct).ConfigureAwait(false);
             LastCheck = info;
-            _config.LastUpdateCheckUtc = DateTime.UtcNow;
-            _config.Save();
+            var newStamp = DateTime.UtcNow;
+            if (_config.LastUpdateCheckUtc != newStamp)
+            {
+                _config.LastUpdateCheckUtc = newStamp;
+                _config.Save();
+            }
             if (info.CheckSucceeded && info.IsUpdateAvailable)
             {
                 OnUpdateAvailable?.Invoke(info);

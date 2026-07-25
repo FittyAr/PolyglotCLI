@@ -1,5 +1,8 @@
 using System;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
 using PolyglotCLI;
@@ -197,6 +200,173 @@ namespace PolyglotCLI.test
             var ex = await Assert.ThrowsAsync<InvalidJobPackageException>(async () =>
                 await JobPackageService.ImportJobPackageAsync(input, _jobsRoot));
             Assert.Contains("manifest.json", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // ---- Defensa contra SourceFilePath traversal en el manifest importado ----
+        // ReprocessPageAsync abre SourceFilePath directamente (File.ReadAllBytes /
+        // PdfPageRenderer.RenderPageToPng). Si un manifest importado trae rutas
+        // absolutas a archivos del usuario, un click en "Re-procesar" las abre.
+        // ImportJobPackageAsync ahora rechaza el paquete si algún SourceFilePath
+        // queda fuera de la carpeta extraída.
+
+        [Fact]
+        public async Task ImportJobPackageAsync_RejectsManifestWithAbsoluteSourceFilePath()
+        {
+            string manifest = @"{
+                ""JobId"": ""abs_path_job"",
+                ""Status"": ""Completed"",
+                ""CreatedAt"": ""2026-01-01T00:00:00Z"",
+                ""LastUpdatedAt"": ""2026-01-01T00:00:00Z"",
+                ""TargetLanguage"": ""Spanish"",
+                ""Mode"": ""text"",
+                ""OutputDirectory"": ""out"",
+                ""PageRange"": ""all"",
+                ""Transcribe"": true,
+                ""Translate"": true,
+                ""Verify"": false,
+                ""GenerateDoc"": false,
+                ""Files"": [
+                    {
+                        ""SourceFilePath"": ""C:\\Users\\Victim\\Documents\\secrets.pdf"",
+                        ""OriginalFileName"": ""secrets.pdf"",
+                        ""NormalizedFileName"": ""secrets.pdf"",
+                        ""CopiedFilePath"": ""C:\\Users\\Victim\\Documents\\secrets.pdf"",
+                        ""TargetLanguage"": ""Spanish"",
+                        ""Completed"": true,
+                        ""Pages"": []
+                    }
+                ]
+            }";
+
+            string zipPath = Path.Combine(_tempRoot, "abs-path.zip");
+            using (var fs = File.Create(zipPath))
+            using (var archive = new ZipArchive(fs, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                var entry = archive.CreateEntry("abs_path_job/manifest.json", CompressionLevel.Optimal);
+                using (var writer = new StreamWriter(entry.Open()))
+                {
+                    writer.Write(manifest);
+                }
+                var data = archive.CreateEntry("abs_path_job/data/secrets_data.json", CompressionLevel.Optimal);
+                using (var dw = new StreamWriter(data.Open()))
+                {
+                    dw.Write("[]");
+                }
+            }
+
+            await using var input = File.OpenRead(zipPath);
+            var ex = await Assert.ThrowsAsync<InvalidJobPackageException>(async () =>
+                await JobPackageService.ImportJobPackageAsync(input, _jobsRoot));
+            Assert.Contains("fuera del paquete", ex.Message, StringComparison.OrdinalIgnoreCase);
+            // El paquete debe haber sido rechazado: no debe existir el dir.
+            Assert.False(Directory.Exists(Path.Combine(_jobsRoot, "abs_path_job")));
+        }
+
+        [Fact]
+        public async Task ImportJobPackageAsync_RejectsManifestWithTraversalSourceFilePath()
+        {
+            string manifest = @"{
+                ""JobId"": ""traversal_job"",
+                ""Status"": ""Completed"",
+                ""CreatedAt"": ""2026-01-01T00:00:00Z"",
+                ""LastUpdatedAt"": ""2026-01-01T00:00:00Z"",
+                ""TargetLanguage"": ""Spanish"",
+                ""Mode"": ""text"",
+                ""OutputDirectory"": ""out"",
+                ""PageRange"": ""all"",
+                ""Transcribe"": true,
+                ""Translate"": true,
+                ""Verify"": false,
+                ""GenerateDoc"": false,
+                ""Files"": [
+                    {
+                        ""SourceFilePath"": ""..\\..\\..\\Windows\\System32\\drivers\\etc\\hosts"",
+                        ""OriginalFileName"": ""hosts"",
+                        ""NormalizedFileName"": ""hosts"",
+                        ""CopiedFilePath"": ""x"",
+                        ""TargetLanguage"": ""Spanish"",
+                        ""Completed"": true,
+                        ""Pages"": []
+                    }
+                ]
+            }";
+
+            string zipPath = Path.Combine(_tempRoot, "traversal.zip");
+            using (var fs = File.Create(zipPath))
+            using (var archive = new ZipArchive(fs, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                var entry = archive.CreateEntry("traversal_job/manifest.json", CompressionLevel.Optimal);
+                using (var writer = new StreamWriter(entry.Open()))
+                {
+                    writer.Write(manifest);
+                }
+                var data = archive.CreateEntry("traversal_job/data/hosts_data.json", CompressionLevel.Optimal);
+                using (var dw = new StreamWriter(data.Open()))
+                {
+                    dw.Write("[]");
+                }
+            }
+
+            await using var input = File.OpenRead(zipPath);
+            var ex = await Assert.ThrowsAsync<InvalidJobPackageException>(async () =>
+                await JobPackageService.ImportJobPackageAsync(input, _jobsRoot));
+            Assert.Contains("fuera del paquete", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.False(Directory.Exists(Path.Combine(_jobsRoot, "traversal_job")));
+        }
+
+        [Fact]
+        public async Task ImportJobPackageAsync_AcceptsManifestWithRelativeSourceFilePath()
+        {
+            // Path relativo al top-level prefix está OK: es el caso normal
+            // que ExportJobPackage produce.
+            string manifest = @"{
+                ""JobId"": ""relpath_job"",
+                ""Status"": ""Completed"",
+                ""CreatedAt"": ""2026-01-01T00:00:00Z"",
+                ""LastUpdatedAt"": ""2026-01-01T00:00:00Z"",
+                ""TargetLanguage"": ""Spanish"",
+                ""Mode"": ""text"",
+                ""OutputDirectory"": ""out"",
+                ""PageRange"": ""all"",
+                ""Transcribe"": true,
+                ""Translate"": true,
+                ""Verify"": false,
+                ""GenerateDoc"": false,
+                ""Files"": [
+                    {
+                        ""SourceFilePath"": ""sources\\relpath.pdf"",
+                        ""OriginalFileName"": ""relpath.pdf"",
+                        ""NormalizedFileName"": ""relpath.pdf"",
+                        ""CopiedFilePath"": ""sources\\relpath.pdf"",
+                        ""TargetLanguage"": ""Spanish"",
+                        ""Completed"": true,
+                        ""Pages"": []
+                    }
+                ]
+            }";
+
+            string zipPath = Path.Combine(_tempRoot, "relpath.zip");
+            using (var fs = File.Create(zipPath))
+            using (var archive = new ZipArchive(fs, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                var entry = archive.CreateEntry("relpath_job/manifest.json", CompressionLevel.Optimal);
+                using (var writer = new StreamWriter(entry.Open()))
+                {
+                    writer.Write(manifest);
+                }
+                var data = archive.CreateEntry("relpath_job/data/relpath_data.json", CompressionLevel.Optimal);
+                using (var dw = new StreamWriter(data.Open()))
+                {
+                    dw.Write("[]");
+                }
+            }
+
+            string targetRoot = Path.Combine(_tempRoot, "relpath-target");
+            Directory.CreateDirectory(targetRoot);
+
+            await using var input = File.OpenRead(zipPath);
+            string restoredId = await JobPackageService.ImportJobPackageAsync(input, targetRoot);
+            Assert.Equal("relpath_job", restoredId);
         }
     }
 }
