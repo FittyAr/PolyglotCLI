@@ -458,7 +458,8 @@ namespace PolyglotCLI.test
                 AppConfig.MigrateLegacyAppDataIfNeeded(fakeAppData);
 
                 // Assert:
-                // 1. config.json se borró (es la excepción documentada).
+                // 1. config.json se borró (es la excepción documentada,
+                //    vía SecureDeleteFile).
                 Assert.False(File.Exists(Path.Combine(oldDir, "config.json")));
 
                 // 2. El archivo libre se movió.
@@ -470,18 +471,33 @@ namespace PolyglotCLI.test
                 // warning y siguió).
                 Assert.True(File.Exists(Path.Combine(oldDir, "logs", "locked.log")));
 
-                // 4. El marker se escribió igual (la migración se
-                // considera completada a pesar del fallo parcial).
-                Assert.True(File.Exists(Path.Combine(newDir, ".migrated")));
+                // 4. El marker NO se escribió: el fallo parcial hace
+                // que el próximo Load re-intente. Esto cambia el
+                // comportamiento anterior (que escribía el marker
+                // igual) para no dejar al usuario con datos en dos
+                // árboles sin posibilidad de recovery.
+                Assert.False(File.Exists(Path.Combine(newDir, ".migrated")));
 
                 // 5. jobs/abc/manifest.json se movió. El viejo
                 // jobs/abc/ debe haber sido limpiado por el bloque
                 // de "limpiar subdirectorios vacíos".
                 Assert.True(File.Exists(Path.Combine(newDir, "jobs", "abc", "manifest.json")));
 
-                // Cerrar el handle antes de hacer cleanup.
+                // 6. El lock file .migrating se limpió (sino el
+                // próximo Load no podría re-intentar).
+                Assert.False(File.Exists(Path.Combine(newDir, ".migrating")));
+
+                // Cerrar el handle y re-intentar la migración. Esta
+                // vez tiene que completar y escribir el marker.
                 lockedHandle.Dispose();
                 lockedHandle = null;
+                AppConfig.MigrateLegacyAppDataIfNeeded(fakeAppData);
+
+                // 7. Después de liberar el lock y re-intentar: el
+                // marker se escribió, el archivo locked se movió.
+                Assert.True(File.Exists(Path.Combine(newDir, ".migrated")));
+                Assert.True(File.Exists(Path.Combine(newDir, "logs", "locked.log")));
+                Assert.False(File.Exists(Path.Combine(oldDir, "logs", "locked.log")));
             }
             finally
             {
@@ -627,12 +643,90 @@ namespace PolyglotCLI.test
         {
             if (!OperatingSystem.IsWindows()) return;
 
-            // Con el marker que ya escribió la suite en este run,
-            // no podemos asumir null. Probamos el método con un
-            // path aislado.
-            // (Este test no es crítico — está cubierto por el
-            // hecho de que el método no rompe si no hay marker.)
-            Assert.NotNull(AppConfig.ReadMigrationTimestamp); // sanity: el método existe
+            // Sin marker en el dir aislado, ReadMigrationTimestamp
+            // debe devolver null (no el timestamp de la máquina del
+            // dev que corre la suite, ni tirar excepción).
+            string fakeAppData = Path.Combine(Path.GetTempPath(), $"appdata_{Guid.NewGuid()}");
+            try
+            {
+                Assert.Null(AppConfig.ReadMigrationTimestamp(fakeAppData));
+            }
+            finally
+            {
+                if (Directory.Exists(fakeAppData)) Directory.Delete(fakeAppData, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void LastMigrationUtc_ReturnsParsedTimestamp_WhenMarkerExists()
+        {
+            if (!OperatingSystem.IsWindows()) return;
+
+            // Marker con un timestamp conocido: el método debe
+            // devolver exactamente ese DateTime parseado en modo
+            // roundtrip.
+            string fakeAppData = Path.Combine(Path.GetTempPath(), $"appdata_{Guid.NewGuid()}");
+            string markerDir = Path.Combine(fakeAppData, "FittyAr", "PolyglotCLI");
+            try
+            {
+                Directory.CreateDirectory(markerDir);
+                DateTime stamp = new DateTime(2026, 7, 25, 14, 30, 0, DateTimeKind.Utc);
+                File.WriteAllText(Path.Combine(markerDir, ".migrated"), stamp.ToString("O"));
+
+                DateTime? got = AppConfig.ReadMigrationTimestamp(fakeAppData);
+
+                Assert.NotNull(got);
+                Assert.Equal(stamp, got!.Value);
+            }
+            finally
+            {
+                if (Directory.Exists(fakeAppData)) Directory.Delete(fakeAppData, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void UseProjectConfig_RejectsArbitraryValues_AcceptsExplicitOnes()
+        {
+            // El flag es un downgrade de seguridad: sólo valores
+            // explícitos ("1" / "true") lo activan. Esto evita
+            // activaciones accidentales (e.g. set POLYGLOTCLI_USE_PROJECT_CONFIG= 0
+            // por error).
+            string envName = "POLYGLOTCLI_USE_PROJECT_CONFIG";
+            string? original = Environment.GetEnvironmentVariable(envName);
+            try
+            {
+                Environment.SetEnvironmentVariable(envName, null);
+                Assert.False(AppConfig.UseProjectConfig);
+
+                Environment.SetEnvironmentVariable(envName, "");
+                Assert.False(AppConfig.UseProjectConfig);
+
+                Environment.SetEnvironmentVariable(envName, "0");
+                Assert.False(AppConfig.UseProjectConfig);
+
+                Environment.SetEnvironmentVariable(envName, "no");
+                Assert.False(AppConfig.UseProjectConfig);
+
+                Environment.SetEnvironmentVariable(envName, "yes");
+                Assert.False(AppConfig.UseProjectConfig);
+
+                Environment.SetEnvironmentVariable(envName, "1");
+                Assert.True(AppConfig.UseProjectConfig);
+
+                Environment.SetEnvironmentVariable(envName, "true");
+                Assert.True(AppConfig.UseProjectConfig);
+
+                Environment.SetEnvironmentVariable(envName, "TRUE");
+                Assert.True(AppConfig.UseProjectConfig);
+
+                // Con espacios alrededor: trim() y match.
+                Environment.SetEnvironmentVariable(envName, "  1  ");
+                Assert.True(AppConfig.UseProjectConfig);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(envName, original);
+            }
         }
     }
 }

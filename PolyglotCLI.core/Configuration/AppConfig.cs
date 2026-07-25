@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace PolyglotCLI
@@ -220,10 +221,24 @@ namespace PolyglotCLI
         /// True si el caller quiere usar el config del project tree
         /// (currentDir/baseDir) en lugar del canónico en %AppData%.
         /// Útil para desarrollo. Se activa con la env var
-        /// <c>POLYGLOTCLI_USE_PROJECT_CONFIG=1</c>.
+        /// <c>POLYGLOTCLI_USE_PROJECT_CONFIG</c> con valor "1" o
+        /// "true" (case-insensitive). Activar este flag es un
+        /// <strong>downgrade de seguridad</strong>: un
+        /// <c>config.json</c> plantado en el directorio de trabajo
+        /// va a ganar por sobre el config del usuario. La UI muestra
+        /// un banner cuando está activo.
         /// </summary>
-        public static bool UseProjectConfig =>
-            !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("POLYGLOTCLI_USE_PROJECT_CONFIG"));
+        public static bool UseProjectConfig
+        {
+            get
+            {
+                string? v = Environment.GetEnvironmentVariable("POLYGLOTCLI_USE_PROJECT_CONFIG");
+                if (string.IsNullOrEmpty(v)) return false;
+                v = v.Trim();
+                return string.Equals(v, "1", StringComparison.Ordinal)
+                    || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
+            }
+        }
 
         [System.Text.Json.Serialization.JsonIgnore]
         public string AbsoluteOutputDirectory => GetSafeOutputDirectory(OutputDirectory);
@@ -351,15 +366,63 @@ namespace PolyglotCLI
             string oldDir = Path.Combine(appData, "PolyglotCLI");
             string newDir = Path.Combine(appData, "FittyAr", "PolyglotCLI");
             string marker = Path.Combine(newDir, ".migrated");
+            // Lock file: evita que dos procesos corran la migración
+            // en paralelo. Mientras exista, otro Load() ve que la
+            // migración está en curso y sale. Lo abrimos con
+            // FileShare.None para que sea exclusivo en Windows.
+            string lockPath = Path.Combine(newDir, ".migrating");
 
             // Idempotencia: si ya corrió, no hace nada.
             if (File.Exists(marker)) return;
 
+            // Lock atómico: intentar crear .migrating. Si ya existe
+            // (otro proceso está migrando), salimos silenciosamente —
+            // cuando el otro termine escribirá .migrated y el próximo
+            // Load verá el marker.
             try
             {
-                // Asegurar que el destino exista — incluso si no hay
-                // nada viejo, escribimos el marker así no volvemos a
-                // entrar acá en cada Load.
+                Directory.CreateDirectory(newDir);
+                using (new FileStream(lockPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    // Sólo seguimos si pudimos tomar el lock.
+                    PerformMigration(oldDir, newDir, marker);
+                }
+            }
+            catch (IOException)
+            {
+                // .migrating ya existe: otro proceso está migrando.
+                // No es error, sólo salimos.
+                return;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error($"Migración de AppData falló: {ex.Message}", ex);
+            }
+            finally
+            {
+                // Limpiar el lock file siempre (exista o no el
+                // marker). Si PerformMigration escribió el marker,
+                // la próxima entrada sale por el check de marker; si
+                // no lo escribió (fallo parcial), el próximo Load va
+                // a re-intentar.
+                try { if (File.Exists(lockPath)) File.Delete(lockPath); }
+                catch { /* best effort */ }
+            }
+        }
+
+        /// <summary>
+        /// Lógica interna de la migración, separada para que el caller
+        /// (MigrateLegacyAppDataIfNeeded) maneje el lock file. Trackea
+        /// cuántos archivos fallaron al moverse: si alguno falló, no
+        /// escribe el marker, así el próximo Load re-intenta.
+        /// </summary>
+        private static void PerformMigration(string oldDir, string newDir, string marker)
+        {
+            int moveFailures = 0;
+            int secureDeleteFailures = 0;
+
+            try
+            {
                 Directory.CreateDirectory(newDir);
 
                 if (Directory.Exists(oldDir))
@@ -376,12 +439,22 @@ namespace PolyglotCLI
 
                         if (string.Equals(rel, "config.json", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Borrar el config viejo sin dejar backup
-                            // (por seguridad: contenía API keys).
-                            try { File.Delete(srcPath); }
+                            // Borrado seguro: sobreescribimos con
+                            // bytes aleatorios (3 pases) antes del
+                            // Delete. File.Delete sólo quita la
+                            // entrada del filesystem — los datos
+                            // quedarían en el disco, recuperables
+                            // con herramientas forenses. En SSD es
+                            // best-effort por wear-leveling, pero
+                            // sube la barra sobre el default.
+                            try
+                            {
+                                SecureDeleteFile(srcPath);
+                            }
                             catch (Exception ex)
                             {
-                                AppLogger.Warn($"Migración: no se pudo borrar config.json viejo: {ex.Message}");
+                                secureDeleteFailures++;
+                                AppLogger.Warn($"Migración: no se pudo borrar config.json viejo de forma segura: {ex.Message}");
                             }
                             continue;
                         }
@@ -398,6 +471,7 @@ namespace PolyglotCLI
                         }
                         catch (Exception ex)
                         {
+                            moveFailures++;
                             AppLogger.Warn($"Migración: no se pudo mover {rel}: {ex.Message}");
                         }
                     }
@@ -423,14 +497,74 @@ namespace PolyglotCLI
                         AppLogger.Warn($"Migración: limpieza del árbol viejo falló: {ex.Message}");
                     }
                 }
-
-                // Marker: garantiza que no volvemos a migrar.
-                File.WriteAllText(marker, DateTime.UtcNow.ToString("O"));
             }
             catch (Exception ex)
             {
                 AppLogger.Error($"Migración de AppData falló: {ex.Message}", ex);
+                // Re-tiramos para que el caller no escriba el marker.
+                throw;
             }
+
+            // Sólo escribimos el marker si NO hubo fallos. Si algo
+            // falló, el próximo Load re-intenta (lock file + marker
+            // se borran en el finally del caller).
+            if (moveFailures > 0)
+            {
+                AppLogger.Warn($"Migración: {moveFailures} archivo(s) no se pudieron mover. Se re-intentará en el próximo arranque.");
+                return;
+            }
+            if (secureDeleteFailures > 0)
+            {
+                AppLogger.Warn($"Migración: {secureDeleteFailures} archivo(s) no se pudieron borrar de forma segura. Se re-intentará en el próximo arranque.");
+                return;
+            }
+
+            // Marker: garantiza que no volvemos a migrar.
+            File.WriteAllText(marker, DateTime.UtcNow.ToString("O"));
+        }
+
+        /// <summary>
+        /// Sobreescribe el archivo con bytes aleatorios (3 pases) y
+        /// luego lo borra. Best-effort en SSD por wear-leveling: los
+        /// datos pueden seguir siendo recuperables a nivel físico,
+        /// pero el File.Delete normal deja los datos literalmente
+        /// intactos en el bloque. Esto al menos fuerza al filesystem
+        /// a re-escribir las páginas.
+        /// </summary>
+        private static void SecureDeleteFile(string path)
+        {
+            const int passes = 3;
+            const int bufferSize = 4096;
+
+            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None))
+            {
+                long len = fs.Length;
+                if (len == 0)
+                {
+                    // Archivo vacío: nada que sobreescribir, sólo
+                    // borrar.
+                    fs.Close();
+                    File.Delete(path);
+                    return;
+                }
+
+                var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+                var buf = new byte[bufferSize];
+                for (int p = 0; p < passes; p++)
+                {
+                    fs.Position = 0;
+                    long remaining = len;
+                    while (remaining > 0)
+                    {
+                        int chunk = (int)Math.Min(remaining, buf.Length);
+                        rng.GetBytes(buf, 0, chunk);
+                        fs.Write(buf, 0, chunk);
+                        remaining -= chunk;
+                    }
+                    fs.Flush(flushToDisk: true);
+                }
+            }
+            File.Delete(path);
         }
 
         public static AppConfig Load(string? configPath = null)
@@ -519,12 +653,18 @@ namespace PolyglotCLI
         /// Lee el timestamp de la última migración del árbol legacy,
         /// si existe. Null si nunca migró.
         /// </summary>
-        public static DateTime? ReadMigrationTimestamp()
+        /// <param name="appDataOverride">
+        /// Solo para tests: si se pasa, se usa como raíz en lugar
+        /// de <see cref="Environment.SpecialFolder.ApplicationData"/>.
+        /// En producción, dejar null.
+        /// </param>
+        public static DateTime? ReadMigrationTimestamp(string? appDataOverride = null)
         {
             if (!OperatingSystem.IsWindows()) return null;
             try
             {
-                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string appData = appDataOverride
+                    ?? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
                 string marker = Path.Combine(appData, "FittyAr", "PolyglotCLI", ".migrated");
                 if (!File.Exists(marker)) return null;
                 string text = File.ReadAllText(marker);
@@ -542,6 +682,17 @@ namespace PolyglotCLI
             return null;
         }
 
+        // Lock de escritura: el bloque try/finally de Save() deja
+        // AppConfig.ApiKey y los ProviderApiKeys / ProviderConfigs[*]
+        // .ApiKey CIFRADOS en memoria entre ProtectInPlace y
+        // UnprotectInPlace. Sin este lock, una llamada concurrente
+        // (típico en Blazor Server con un AppConfig singleton) desde
+        // otro thread podría leer esos valores cifrados y mandarlos
+        // al LLM como "API key" → 401. Static para que un lock
+        // tomado en una instancia también proteja a las demás (son
+        // singletons en DI, pero igual).
+        private static readonly object _saveLock = new();
+
         public void Save(string? configPath = null)
         {
             configPath ??= LoadedFromPath ?? GetDefaultConfigPath();
@@ -551,6 +702,10 @@ namespace PolyglotCLI
             // try/finally garantiza que el estado en memoria vuelva a
             // quedar en claro aunque la escritura a disco falle: la
             // app necesita los valores reales para hablar con el LLM.
+            // El lock evita que otro thread lea los valores cifrados
+            // durante la ventana de serialización.
+            lock (_saveLock)
+            {
             try
             {
                 SecureField.ProtectInPlace(this);
@@ -589,6 +744,7 @@ namespace PolyglotCLI
                 // el LLM.
                 SecureField.UnprotectInPlace(this);
             }
+            } // lock (_saveLock)
         }
 
         public void Reload()

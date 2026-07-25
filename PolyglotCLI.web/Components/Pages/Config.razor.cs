@@ -324,6 +324,18 @@ public partial class Config : ComponentBase, IDisposable
 
         try
         {
+            // Si el usuario tipeó una nueva API key en el input de
+            // GeneralConfigTab pero todavía no guardó, está en el
+            // buffer `newApiKey` (no en AppConfig). Sin aplicar el
+            // cambio acá, el test usaría la key vieja y el
+            // SaveTestedProvider persistiría esa misma key vieja —
+            // perdiendo el cambio del usuario si cierra la página
+            // sin Guardar.
+            if (generalTabRef?.HasPendingNewKey == true)
+            {
+                generalTabRef.ApplyToConfig();
+            }
+
             using var client = LlmClientFactory.CreateClient(AppConfig, AppConfig.ModelCheckTimeoutSeconds);
             availableModels = await client.GetAvailableModelsAsync();
             AppConfig.SaveTestedProvider(AppConfig.Provider, AppConfig.ApiUrl, AppConfig.ApiKey, availableModels);

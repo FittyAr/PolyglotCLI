@@ -274,6 +274,30 @@ Inno Setup / .exe).
                     sí se migraron.
                 </RadzenAlert>
             }
+            @*
+                Aviso de downgrade de seguridad: la env var
+                POLYGLOTCLI_USE_PROJECT_CONFIG (cualquier valor "1" /
+                "true") revierte la prioridad de carga del config a
+                currentDir > baseDir > appData. Si está activa y el
+                usuario corre la app desde un directorio que contiene
+                un config.json controlado por un atacante, ese config
+                va a ganar por sobre el del usuario. Solo se usa para
+                iteración en dev.
+            *@
+            @if (PolyglotCLI.AppConfig.UseProjectConfig)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" Variant="Variant.Flat"
+                             Icon="warning" class="rz-mt-3" style="font-size: 0.8rem;">
+                    <strong>Modo dev activo</strong> — la variable de entorno
+                    <code>POLYGLOTCLI_USE_PROJECT_CONFIG</code> está definida, así que
+                    PolyglotCLI va a preferir un <code>config.json</code> del directorio
+                    actual sobre el de <code>%AppData%</code>. <strong>No se recomienda en
+                    producción</strong>: cualquier <code>config.json</code> plantado en la
+                    carpeta desde la que se corra la app va a ganar. Desactivala con
+                    <code>set POLYGLOTCLI_USE_PROJECT_CONFIG=</code> (cmd) o
+                    <code>Remove-Item Env:POLYGLOTCLI_USE_PROJECT_CONFIG</code> (PowerShell).
+                </RadzenAlert>
+            }
         </RadzenFieldset>
 
         <RadzenFieldset Text="Créditos y enlaces" class="rz-mt-4">
