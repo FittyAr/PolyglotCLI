@@ -5,7 +5,35 @@
 
 <RadzenCard class="rz-my-4">
     <RadzenText TextStyle="TextStyle.H4" class="rz-mb-4">Configuración de la Aplicación</RadzenText>
-    
+
+    @* Avisos globales (vivos arriba de las pestañas, no atados a
+       la pestaña "Acerca de"). Cada uno tiene su X: cerrarlo
+       persiste el flag correspondiente en config.json para que
+       no vuelva a salir en próximos arranques. *@
+    @if (AppConfig?.LastMigrationUtc is DateTime migrationUtc && !AppConfig.DismissedMigrationNotice)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning" AllowClose="true" Close="@DismissMigrationNotice"
+                     Variant="Variant.Flat" Icon="history" class="rz-mb-3" style="font-size: 0.85rem;">
+            <strong>Migración reciente</strong> (@migrationUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") local).
+            Se movieron los datos de la app desde el árbol legacy
+            (<code>%AppData%\PolyglotCLI\</code>) al nuevo
+            (<code>%AppData%\FittyAr\PolyglotCLI\</code>).
+            <strong>El config.json anterior fue descartado por seguridad</strong>:
+            si tenías API keys guardadas, tenés que re-ingresarlas desde la pestaña
+            <em>General</em>. Los logs, el historial de jobs y los prompts editados
+            sí se migraron.
+        </RadzenAlert>
+    }
+    @if (AppConfig is not null && !AppConfig.DismissedDpapiNotice)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Light" AllowClose="true" Close="@DismissDpapiNotice"
+                     Variant="Variant.Flat" Icon="lock" class="rz-mb-3" style="font-size: 0.85rem;">
+            Las API keys dentro de <code>config.json</code> se guardan cifradas con
+            <strong>DPAPI</strong> (Windows, scope del usuario actual). Si copias el
+            archivo a otra máquina o usuario, las keys no se podrán descifrar.
+        </RadzenAlert>
+    }
+
     <RadzenTemplateForm Data="@AppConfig" Submit="@(async (PolyglotCLI.AppConfig args) => await SaveConfig(args))">
         <RadzenTabs>
             <Tabs>

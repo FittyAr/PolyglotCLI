@@ -64,5 +64,7 @@
   "UpdateCheckEnabled": true,
   "UpdateCheckIntervalHours": 6,
   "LastUpdateCheckUtc": null,
-  "DismissedUpdateVersion": null
+  "DismissedUpdateVersion": null,
+  "DismissedMigrationNotice": true,
+  "DismissedDpapiNotice": true
 }

@@ -322,6 +322,35 @@ public partial class Config : ComponentBase, IDisposable
         await LoadModelsFromServer();
     }
 
+    /// <summary>
+    /// Cierra el aviso de migración (botón X del RadzenAlert).
+    /// Persistimos el flag en config.json para que el banner no
+    /// vuelva a aparecer en próximos arranques: la migración ya
+    /// pasó una vez, no hace falta recordarla eternamente.
+    /// Refrescamos el baseline JSON para que el guard de
+    /// "cambios sin guardar" no se dispare por cerrar un banner.
+    /// </summary>
+    private void DismissMigrationNotice()
+    {
+        AppConfig.DismissedMigrationNotice = true;
+        AppConfig.Save();
+        _baselineJson = SerializeForCompare(AppConfig);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Cierra el aviso informativo sobre el cifrado DPAPI (botón X).
+    /// Persistimos el flag en config.json. Mismo razonamiento que
+    /// <see cref="DismissMigrationNotice"/> sobre el baseline.
+    /// </summary>
+    private void DismissDpapiNotice()
+    {
+        AppConfig.DismissedDpapiNotice = true;
+        AppConfig.Save();
+        _baselineJson = SerializeForCompare(AppConfig);
+        StateHasChanged();
+    }
+
     protected async Task LoadModelsFromServer()
     {
         isTestingConnection = true;

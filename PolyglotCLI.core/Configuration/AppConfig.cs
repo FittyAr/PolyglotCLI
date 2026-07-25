@@ -218,6 +218,23 @@ namespace PolyglotCLI
         public DateTime? LastMigrationUtc { get; private set; }
 
         /// <summary>
+        /// Si el usuario cerró (X) el aviso de migración en la
+        /// pantalla de Configuración. Persistido para que el
+        /// banner no vuelva a aparecer en próximos arranques:
+        /// la migración ya pasó una vez, no tiene sentido
+        /// recordarla eternamente.
+        /// </summary>
+        public bool DismissedMigrationNotice { get; set; } = false;
+
+        /// <summary>
+        /// Si el usuario cerró (X) el aviso informativo sobre
+        /// el cifrado DPAPI de las API keys. Persistido para
+        /// que el banner no le aparezca en cada ingreso a la
+        /// pantalla de Configuración.
+        /// </summary>
+        public bool DismissedDpapiNotice { get; set; } = false;
+
+        /// <summary>
         /// True si el caller quiere usar el config del project tree
         /// (currentDir/baseDir) en lugar del canónico en %AppData%.
         /// Útil para desarrollo. Se activa con la env var

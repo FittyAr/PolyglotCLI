@@ -136,3 +136,37 @@ main {
     .header-nav-btn--active ::deep .rz-button:hover {
         background: rgba(99, 102, 241, 0.32) !important;
     }
+
+/* ── Footer ──────────────────────────────────────────────────────────
+   Antes el "Hecho con ❤" vivía como un RadzenAlert azul enorme en
+   la pestaña About. Se movió al footer global, en texto plano y
+   gris azulado suave, para que sea un detalle y no un banner. */
+
+.footer-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+
+.footer-credit {
+    color: #cbd5e1;
+    font-weight: 500;
+}
+
+.footer-love {
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+.footer-heart {
+    /* El "♥" hereda el color del span padre (gris azulado). Antes
+       el corazón venía envuelto en un RadzenAlert.Info (azul vivo
+       #0ea5e9) que rompía la línea estética del footer. Lo dejamos
+       sutil: el mismo gris que el texto, sin color de marca. */
+    color: inherit;
+    margin: 0 0.15rem;
+}
