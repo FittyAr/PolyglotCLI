@@ -1,0 +1,97 @@
+@inject DialogService DialogService
+
+@*
+    Dialog que se muestra cuando el usuario intenta TRABAJAR con un
+    job (ver detalles, exportar, reanudar, analizar) pero la carpeta
+    del trabajo no existe en disco. Esto suele pasar cuando el
+    usuario renombró/movió la carpeta a mano fuera de PolyglotCLI
+    (ej: durante pruebas, '20260710_223809' → '20260710_223809_old').
+
+    Es DIFERENTE del OrphanJobDialog (que es para Delete): acá el
+    usuario quiere USAR el job, no eliminarlo. Las opciones son:
+      - "Abrir carpeta renombrada en el Explorador" → le ayudamos
+        al usuario a ver qué pasó. Puede renombrarla de vuelta.
+      - "Cancelar" → no hace nada.
+*@
+
+<RadzenStack Gap="1rem">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <RadzenIcon Icon="find_in_page" Style="font-size: 2rem; color: #fbbf24;" />
+        <RadzenText TextStyle="TextStyle.Body1" style="margin: 0;">
+            <strong>No se puede @(ActionName.ToLower()) el trabajo</strong>
+        </RadzenText>
+    </div>
+
+    <div style="white-space: pre-line; font-size: 0.9rem; line-height: 1.5;">
+        La carpeta del trabajo <code>@JobId</code> no existe en disco.
+    </div>
+
+    <RadzenCard Variant="Variant.Flat" class="rz-p-3"
+                Style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem;">
+        <div style="margin-bottom: 0.5rem;">
+            <strong style="color: #fbbf24;">Causas posibles:</strong>
+        </div>
+        <ul style="margin: 0; padding-left: 1.2rem; line-height: 1.5;">
+            <li>La carpeta fue <strong>renombrada manualmente</strong> fuera de PolyglotCLI (ej: agregar sufijo <code>_old</code>, <code>_backup</code>)</li>
+            <li>La carpeta fue <strong>movida</strong> a otra ubicación</li>
+            <li>La carpeta fue <strong>borrada</strong> por otra herramienta (limpieza de disco, antivirus, etc.)</li>
+        </ul>
+    </RadzenCard>
+
+    <div style="font-size: 0.85rem; line-height: 1.5;">
+        <strong style="color: #cbd5e1;">Ruta esperada:</strong>
+        <code style="display: block; margin-top: 0.25rem; padding: 0.4rem; background: rgba(0,0,0,0.3); border-radius: 4px; word-break: break-all; font-size: 0.78rem;">@ExpectedPath</code>
+    </div>
+
+    @if (SimilarDirs.Count > 0)
+    {
+        <div style="font-size: 0.85rem; line-height: 1.5;">
+            <strong style="color: #86efac;">Carpetas con nombres similares encontradas:</strong>
+            <ul style="margin: 0.4rem 0 0 0; padding-left: 1.2rem; line-height: 1.5;">
+                @foreach (var sd in SimilarDirs.Take(5))
+                {
+                    <li>
+                        <code style="font-size: 0.78rem;">@System.IO.Path.GetFileName(sd)</code>
+                    </li>
+                }
+                @if (SimilarDirs.Count > 5)
+                {
+                    <li style="opacity: 0.7;">... y @(SimilarDirs.Count - 5) más</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" Variant="Variant.Flat"
+                 Icon="lightbulb" class="rz-mt-2" style="font-size: 0.8rem;">
+        <strong>Para arreglarlo:</strong> renombrá la carpeta a
+        <code>@JobId</code> (sacale el sufijo <code>_old</code> o lo
+        que le hayas puesto) y volvé a intentar la acción.
+    </RadzenAlert>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
+        <RadzenButton Text="Cancelar" Icon="close"
+                      ButtonStyle="ButtonStyle.Secondary"
+                      Click="@(() => DialogService.Close(null))" />
+        @if (SimilarDirs.Count > 0)
+        {
+            <RadzenButton Text="Abrir carpeta renombrada en el Explorador" Icon="folder_open"
+                          ButtonStyle="ButtonStyle.Primary"
+                          Click="@(() => DialogService.Close("open_explorer"))" />
+        }
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter]
+    public string JobId { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ActionName { get; set; } = "usar";
+
+    [Parameter]
+    public string ExpectedPath { get; set; } = string.Empty;
+
+    [Parameter]
+    public List<string> SimilarDirs { get; set; } = new();
+}

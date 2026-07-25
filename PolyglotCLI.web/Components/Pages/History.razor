@@ -5,6 +5,7 @@
 @inject NavigationManager NavigationManager
 @inject DialogService DialogService
 @inject IJobPackageHost JobPackageHost
+@using PolyglotCLI.web.Components.Dialogs
 
 <PageTitle>Historial de Trabajos - PolyglotCLI</PageTitle>
 
@@ -87,13 +88,22 @@
         };
     }
 
-    void ResumeJob(JobManifest job)
+    async Task ResumeJob(JobManifest job)
     {
+        // Validar que la carpeta del job exista antes de intentar
+        // reanudar. Si fue renombrada, mostrar el error informativo
+        // y abortar. Sin esto, Home.razor recibe el resumeJobId,
+        // busca la carpeta, no la encuentra y falla con un error
+        // críptico (o se cuelga mostrando el último job).
+        if (!await EnsureJobConsistent(job, "reanudar")) return;
+
         NavigationManager.NavigateTo($"/?resumeJobId={job.JobId}");
     }
 
     async Task AnalyzeErrors(JobManifest job)
     {
+        if (!await EnsureJobConsistent(job, "analizar")) return;
+
         selectedManifest = job;
         analysisResult = "Analizando errores con IA... por favor espera.";
         StateHasChanged();
@@ -126,6 +136,12 @@
 
     async Task ViewJobDetails(JobManifest job)
     {
+        // El JobDetailsDialog lee archivos del jobDir. Si la carpeta
+        // no existe, todos los sub-componentes (visor de páginas
+        // originales, logs, etc.) van a mostrar errores crípticos.
+        // Validamos ANTES de abrir el dialog.
+        if (!await EnsureJobConsistent(job, "ver los detalles")) return;
+
         await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.JobDetailsDialog>($"Detalles del Trabajo: {job.JobId}", new Dictionary<string, object?>
         {
             { "Job", job }
@@ -142,32 +158,337 @@
 
     async Task DeleteJob(JobManifest job)
     {
+        // ── LOG: entrada al handler ───────────────────────────────────
+        AppLogger.Info($"DeleteJob: handler called for job '{job.JobId}'.");
+
+        // 1) Confirmación
         bool? confirm = await DialogService.Confirm(
             $"¿Estás seguro de que deseas eliminar el trabajo '{job.JobId}' y toda su carpeta de datos del disco?",
             "Confirmar Eliminación",
             new ConfirmOptions { OkButtonText = "Eliminar", CancelButtonText = "Cancelar" });
 
-        if (confirm == true)
+        AppLogger.Info($"DeleteJob: DialogService.Confirm returned {(confirm.HasValue ? confirm.Value.ToString() : "null")}.");
+
+        if (confirm != true) return;
+
+        // 2) Resolvemos el path y validamos
+        string jobDir = Path.Combine(
+            TranslationOrchestrator.GetJobsDirectory(),
+            job.JobId);
+
+        AppLogger.Info($"DeleteJob: jobsRoot = {TranslationOrchestrator.GetJobsDirectory()}");
+        AppLogger.Info($"DeleteJob: jobDir   = {jobDir}");
+
+        // 3) DETECCIÓN DE INCONSISTENCIA: si el directorio no existe,
+        //    puede ser que el usuario lo haya renombrado/movido a mano.
+        //    En vez de fallar silenciosamente, mostramos un error
+        //    informativo con las carpetas similares que encontremos y
+        //    le damos la opción de limpiar el manifest huérfano.
+        if (!Directory.Exists(jobDir))
+        {
+            AppLogger.Warn(
+                $"DeleteJob: directorio no encontrado para JobId='{job.JobId}'. " +
+                $"Path esperado: {jobDir}");
+
+            // Buscar carpetas con nombres similares (por si fue
+            // renombrada a mano con sufijo _old, _backup, _copy, etc.)
+            var similarDirs = JobManifestService.FindSimilarJobDirectories(job.JobId);
+
+            string message =
+                $"La carpeta del trabajo '{job.JobId}' no existe en disco.\n\n" +
+                $"Ruta esperada: {jobDir}\n\n" +
+                $"Esto suele pasar cuando la carpeta fue renombrada, movida o " +
+                $"borrada manualmente fuera de PolyglotCLI (por ejemplo, " +
+                $"renombrar '{job.JobId}' → '{job.JobId}_old' durante pruebas).\n\n" +
+                $"El trabajo sigue apareciendo en la lista porque su manifest.json " +
+                $"todavía existe, pero está huérfano.";
+
+            if (similarDirs.Count > 0)
+            {
+                message += $"\n\nCarpetas con nombres similares encontradas:\n";
+                foreach (var sd in similarDirs.Take(5))
+                {
+                    message += $"  • {Path.GetFileName(sd)}\n";
+                }
+                if (similarDirs.Count > 5)
+                {
+                    message += $"  ... y {similarDirs.Count - 5} más\n";
+                }
+            }
+
+            // Preguntarle al usuario qué hacer. Cancel por default.
+            // Las opciones son:
+            //  - "Quitar de la lista" → orphan cleanup (no toca disco)
+            //  - "Eliminar del disco" → intentar borrar el directorio
+            //                            del JobId original (fallará
+            //                            porque no existe)
+            //  - "Cancelar" → no hacer nada
+            var choice = await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.OrphanJobDialog>(
+                "Trabajo huérfano detectado",
+                new Dictionary<string, object?>
+                {
+                    { "JobId", job.JobId },
+                    { "ExpectedPath", jobDir },
+                    { "SimilarDirs", similarDirs },
+                    { "Message", message }
+                },
+                new DialogOptions
+                {
+                    Width = "560px",
+                    Resizable = false,
+                    Draggable = true,
+                    CloseDialogOnEsc = true,
+                    CloseDialogOnOverlayClick = false
+                });
+
+            // El dialog devuelve un string:
+            //   "remove"  → quitar de la lista
+            //   "delete"  → intentar borrar (va a fallar porque no existe)
+            //   null      → cerrar / cancelar
+            if (string.Equals(choice as string, "remove", StringComparison.OrdinalIgnoreCase))
+            {
+                // Cleanup del manifest huérfano. NO tocamos disco.
+                // Simplemente recargamos la lista SIN este JobId. Como
+                // la carpeta ya no existe, el manifest tampoco se va
+                // a cargar (la próxima LoadPastJobs lo va a omitir).
+                // PERO: el manifest está adentro de la carpeta
+                // renombrada, así que todavía existe en algún lugar.
+                // Para sacarlo de la lista necesitamos una lista
+                // custom que excluya este JobId.
+                manifests = JobManifestService.LoadPastJobs()
+                    .Where(m => !string.Equals(m.JobId, job.JobId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                AppLogger.Info($"DeleteJob: orphan removed from list. Quedan {manifests.Count} jobs.");
+                await DialogService.Alert(
+                    $"El trabajo '{job.JobId}' fue removido de la lista.\n\n" +
+                    $"Nota: el manifest.json sigue existiendo en la carpeta renombrada " +
+                    $"(si la encontrás, podés borrarla a mano o renombrarla de vuelta " +
+                    $"a '{job.JobId}' para que vuelva a aparecer).",
+                    "Trabajo removido de la lista");
+                StateHasChanged();
+            }
+            else if (string.Equals(choice as string, "delete", StringComparison.OrdinalIgnoreCase))
+            {
+                await DialogService.Alert(
+                    $"No se puede eliminar '{job.JobId}' del disco porque la carpeta " +
+                    $"no existe. Si querés limpiar el manifest huérfano, elegí " +
+                    $"'Quitar de la lista' en su lugar.",
+                    "Carpeta no encontrada");
+            }
+
+            return; // No seguimos con el flujo normal de borrado.
+        }
+
+        AppLogger.Info($"DeleteJob: jobDir exists = True");
+
+        try
+        {
+            var files = Directory.GetFiles(jobDir, "*", SearchOption.AllDirectories);
+            AppLogger.Info($"DeleteJob: found {files.Length} file(s) inside '{jobDir}'.");
+        }
+        catch (Exception enumEx)
+        {
+            AppLogger.Warn($"DeleteJob: enumeración de archivos falló: {enumEx.Message}");
+        }
+
+        // 4) Progress dialog
+        var progressState = new ProgressState { Status = "Preparando eliminación..." };
+        var progressDialog = DialogService.OpenAsync<ProgressDialog>(
+            $"Eliminando trabajo {job.JobId}",
+            new Dictionary<string, object?>
+            {
+                { "State", progressState }
+            },
+            new DialogOptions
+            {
+                ShowTitle = true,
+                ShowClose = false,
+                Width = "440px"
+            });
+
+        bool deletedOk = false;
+        string? deleteError = null;
+        int totalFiles = 0;
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    if (!Directory.Exists(jobDir))
+                    {
+                        AppLogger.Info("DeleteJob: jobDir desapareció durante el borrado.");
+                        progressState.UpdateStatus("La carpeta del trabajo ya no existe.");
+                        deletedOk = true;
+                        return;
+                    }
+
+                    var files = Directory.GetFiles(jobDir, "*", SearchOption.AllDirectories).ToList();
+                    var dirs = Directory.GetDirectories(jobDir, "*", SearchOption.AllDirectories).ToList();
+                    totalFiles = files.Count;
+
+                    progressState.UpdateStatus(
+                        totalFiles == 0
+                            ? "Carpeta vacía, eliminando..."
+                            : $"Eliminando 0 / {totalFiles} archivo(s)...");
+
+                    int deleted = 0;
+                    foreach (var file in files)
+                    {
+                        try
+                        {
+                            File.Delete(file);
+                        }
+                        catch (Exception fileEx)
+                        {
+                            AppLogger.Warn($"DeleteJob: no se pudo borrar {file}: {fileEx.Message}");
+                        }
+                        deleted++;
+                        progressState.UpdateStatus($"Eliminando {deleted} / {totalFiles} archivo(s)...");
+                    }
+
+                    progressState.UpdateStatus("Eliminando carpetas vacías...");
+                    foreach (var dir in dirs.OrderByDescending(d => d.Length))
+                    {
+                        try
+                        {
+                            if (Directory.Exists(dir))
+                            {
+                                Directory.Delete(dir, recursive: false);
+                            }
+                        }
+                        catch (Exception dirEx)
+                        {
+                            AppLogger.Warn($"DeleteJob: no se pudo borrar carpeta {dir}: {dirEx.Message}");
+                        }
+                    }
+
+                    try
+                    {
+                        if (Directory.Exists(jobDir))
+                        {
+                            Directory.Delete(jobDir, recursive: false);
+                        }
+                    }
+                    catch (Exception rootEx)
+                    {
+                        AppLogger.Warn($"DeleteJob: no se pudo borrar la carpeta raíz {jobDir}: {rootEx.Message}");
+                    }
+
+                    AppLogger.Info($"DeleteJob: post-delete, jobDir exists = {Directory.Exists(jobDir)}");
+
+                    progressState.UpdateStatus("Actualizando lista de trabajos...");
+                    deletedOk = true;
+                }
+                catch (Exception ex)
+                {
+                    deleteError = ex.Message;
+                    AppLogger.Error($"DeleteJob: excepción en background task: {ex.Message}", ex);
+                }
+            });
+
+            manifests = JobManifestService.LoadPastJobs();
+            AppLogger.Info($"DeleteJob: manifests reload → {manifests.Count} job(s) en la lista.");
+        }
+        catch (Exception ex)
+        {
+            deleteError = ex.Message;
+            AppLogger.Error($"DeleteJob: excepción fuera del Task.Run: {ex.Message}", ex);
+        }
+        finally
+        {
+            DialogService.Close();
+        }
+
+        if (!deletedOk && !string.IsNullOrEmpty(deleteError))
+        {
+            await DialogService.Alert(
+                $"Error al eliminar la carpeta del trabajo: {deleteError}",
+                "Error");
+        }
+
+        AppLogger.Info($"DeleteJob: finished. deletedOk={deletedOk}, error={deleteError ?? "(none)"}");
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Validación centralizada de consistencia manifest↔disco.
+    /// TODA acción que toque archivos de la carpeta del job (ver,
+    /// exportar, reanudar, analizar, descargar) debe llamar a este
+    /// helper ANTES de hacer cualquier cosa. Si la carpeta no
+    /// existe (probable rename manual), muestra el
+    /// <see cref="InconsistentJobDialog"/> con la lista de
+    /// carpetas similares para que el usuario sepa qué pasó y
+    /// pueda arreglarlo.
+    ///
+    /// Devuelve true si se puede continuar, false si hay que
+    /// abortar la acción.
+    /// </summary>
+    async Task<bool> EnsureJobConsistent(JobManifest job, string actionName)
+    {
+        var resolution = JobManifestService.TryResolveJobDirectory(job.JobId);
+        if (resolution.IsConsistent) return true;
+
+        AppLogger.Warn(
+            $"EnsureJobConsistent: abortando '{actionName}' para JobId='{job.JobId}'. " +
+            $"Path esperado: {resolution.ExpectedPath}. " +
+            $"Carpetas similares encontradas: {resolution.SimilarDirectories.Count}.");
+
+        var choice = await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.InconsistentJobDialog>(
+            "Inconsistencia de trabajo",
+            new Dictionary<string, object?>
+            {
+                { "JobId", job.JobId },
+                { "ActionName", actionName },
+                { "ExpectedPath", resolution.ExpectedPath },
+                { "SimilarDirs", resolution.SimilarDirectories }
+            },
+            new DialogOptions
+            {
+                Width = "600px",
+                Resizable = false,
+                Draggable = true,
+                CloseDialogOnEsc = true,
+                CloseDialogOnOverlayClick = false
+            });
+
+        // Si el usuario pidió abrir la carpeta renombrada en el
+        // Explorador, lo ayudamos. Esto le da el contexto que
+        // necesita para renombrarla de vuelta a JobId.
+        if (string.Equals(choice as string, "open_explorer", StringComparison.OrdinalIgnoreCase) &&
+            resolution.SimilarDirectories.Count > 0)
         {
             try
             {
-                string jobDir = Path.Combine(TranslationOrchestrator.GetJobsDirectory(), job.JobId);
-                if (Directory.Exists(jobDir))
+                // Usamos Process.Start con explorer.exe y el path
+                // entre comillas. UseShellExecute=true es necesario
+                // en Windows para que Process.Start reconozca
+                // explorer.exe como verbo y abra la carpeta.
+                var psi = new System.Diagnostics.ProcessStartInfo
                 {
-                    Directory.Delete(jobDir, true);
-                }
-                LoadManifests();
-                StateHasChanged();
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{resolution.SimilarDirectories[0]}\"",
+                    UseShellExecute = true
+                };
+                System.Diagnostics.Process.Start(psi);
             }
             catch (Exception ex)
             {
-                await DialogService.Alert($"Error al eliminar la carpeta del trabajo: {ex.Message}", "Error");
+                AppLogger.Warn($"EnsureJobConsistent: no se pudo abrir el explorador: {ex.Message}");
             }
         }
+
+        return false; // En cualquier caso, la acción se aborta.
     }
 
     async Task ExportJob(JobManifest job)
     {
+        // ExportJobDialog lee archivos del jobDir. Sin validación
+        // previa, abriría el dialog y al confirmar daría error
+        // "No se encontraron datos para exportar" sin contexto.
+        if (!await EnsureJobConsistent(job, "exportar")) return;
+
         await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.ExportJobDialog>(
             "Exportar y Convertir Documentos",
             new Dictionary<string, object?> { { "Job", job } },
@@ -177,6 +498,11 @@
 
     async Task DownloadJobPackage(JobManifest job)
     {
+        // El package service lee archivos del jobDir para zipearlos.
+        // Si la carpeta no existe, falla con error críptico de
+        // IO. Validamos antes.
+        if (!await EnsureJobConsistent(job, "descargar")) return;
+
         try
         {
             string status = await JobPackageHost.ExportJobPackageAsync(job);

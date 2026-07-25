@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace PolyglotCLI
@@ -312,6 +313,105 @@ namespace PolyglotCLI
             }
         }
 
+        /// <summary>
+        /// Resultado de resolver la ubicación real de la carpeta de un
+        /// trabajo. Se usa para detectar inconsistencias entre el
+        /// JobId del manifest y el nombre del directorio en disco
+        /// (por ejemplo, cuando el usuario renombra la carpeta a
+        /// mano: '20260710_223809' → '20260710_223809_old').
+        ///
+        /// - <see cref="IsConsistent"/> es true si la carpeta está
+        ///   exactamente donde se espera.
+        /// - <see cref="ActualPath"/> tiene el path real (puede ser
+        ///   null si no se encontró).
+        /// - <see cref="SimilarDirectories"/> lista otras carpetas en
+        ///   el jobs root que matchean parcialmente con el JobId
+        ///   (sirve para que la UI le sugiera al usuario dónde puede
+        ///   estar la carpeta renombrada).
+        /// </summary>
+        public class JobDirectoryResolution
+        {
+            public string JobId { get; init; } = string.Empty;
+            public string ExpectedPath { get; init; } = string.Empty;
+            public string? ActualPath { get; set; }
+            public List<string> SimilarDirectories { get; set; } = new();
+
+            public bool IsConsistent => ActualPath != null;
+        }
+
+        /// <summary>
+        /// Resuelve la ubicación real de la carpeta de un trabajo y
+        /// reporta si hay inconsistencia entre el JobId y el nombre
+        /// del directorio. Usar este método ANTES de cualquier
+        /// operación que toque archivos del trabajo (ver detalles,
+        /// exportar, reanudar, analizar, borrar) para que la UI
+        /// pueda mostrarle al usuario el problema en vez de fallar
+        /// con un error críptico o quedarse colgada.
+        /// </summary>
+        public static JobDirectoryResolution TryResolveJobDirectory(string jobId)
+        {
+            var result = new JobDirectoryResolution
+            {
+                JobId = jobId,
+                ExpectedPath = Path.Combine(TranslationOrchestrator.GetJobsDirectory(), jobId)
+            };
+
+            if (Directory.Exists(result.ExpectedPath))
+            {
+                result.ActualPath = result.ExpectedPath;
+            }
+            else
+            {
+                AppLogger.Warn(
+                    $"TryResolveJobDirectory: directorio no encontrado para JobId='{jobId}'. " +
+                    $"Path esperado: {result.ExpectedPath}. " +
+                    $"Posible rename manual o move externo. " +
+                    $"Todas las acciones sobre este job (ver, exportar, reanudar, borrar) van a fallar.");
+
+                // Buscar candidatos que matcheen parcialmente.
+                result.SimilarDirectories = FindSimilarJobDirectories(jobId);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Busca carpetas en el jobs root cuyo nombre matchea
+        /// parcialmente con el JobId. Útil para diagnosticar
+        /// renames manuales (sufijos como _old, _backup, _copy, etc).
+        /// Excluye el match exacto (que es el que ya sabemos que
+        /// no existe).
+        /// </summary>
+        public static List<string> FindSimilarJobDirectories(string jobId)
+        {
+            var similar = new List<string>();
+            try
+            {
+                string jobsDir = TranslationOrchestrator.GetJobsDirectory();
+                if (!Directory.Exists(jobsDir)) return similar;
+
+                foreach (var dir in Directory.GetDirectories(jobsDir))
+                {
+                    string name = Path.GetFileName(dir);
+                    if (string.Equals(name, jobId, StringComparison.OrdinalIgnoreCase))
+                        continue; // Excluir el match exacto (no existe)
+
+                    // Matchear si empieza con jobId o lo contiene
+                    // (cubre _old, _backup, _copy, (1), .bak, etc.).
+                    if (name.StartsWith(jobId, StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains(jobId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        similar.Add(dir);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn($"FindSimilarJobDirectories: error: {ex.Message}");
+            }
+            return similar;
+        }
+
         public static List<JobManifest> LoadPastJobs()
         {
             var pastJobs = new List<JobManifest>();
@@ -332,6 +432,29 @@ namespace PolyglotCLI
                         var manifest = JobManifest.Load(manifestPath);
                         if (manifest != null && !string.IsNullOrEmpty(manifest.JobId))
                         {
+                            // Validación de consistencia: el JobId del
+                            // manifest debería matchear con el nombre
+                            // del directorio en disco. Si no coincide
+                            // es probable que el usuario haya
+                            // renombrado la carpeta a mano
+                            // (ej: '20260710_223809' →
+                            // '20260710_223809_old'). En ese caso el
+                            // borrado desde la UI va a fallar porque
+                            // busca por el JobId viejo. Logueamos el
+                            // warning para diagnóstico y devolvemos
+                            // el manifest igual (la UI es la que tiene
+                            // que mostrarle al usuario el problema y
+                            // dejarlo decidir qué hacer).
+                            string dirName = Path.GetFileName(dir);
+                            if (!string.Equals(manifest.JobId, dirName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                AppLogger.Warn(
+                                    $"Inconsistencia manifest↔disco: el manifest en '{dir}' " +
+                                    $"tiene JobId='{manifest.JobId}' pero la carpeta se llama " +
+ $"'{dirName}'. Probable rename manual. El borrado por JobId va a fallar hasta que " +
+                                    $"se renombre la carpeta de vuelta o se actualice el manifest.");
+                            }
+
                             pastJobs.Add(manifest);
                         }
                     }

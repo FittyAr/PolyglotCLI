@@ -1,0 +1,64 @@
+@inject DialogService DialogService
+
+@*
+    Dialog que se muestra cuando DeleteJob detecta que el directorio
+    del trabajo no existe en disco. Esto suele pasar cuando el
+    usuario renombró/movió la carpeta a mano (por ejemplo, durante
+    pruebas: '20260710_223809' → '20260710_223809_old').
+
+    Devuelve un string:
+      - "remove"  → quitar de la lista (no toca disco)
+      - "delete"  → intentar borrar del disco (va a fallar porque
+                    el directorio no existe, pero dejamos la opción
+                    visible para que sea explícito el error)
+      - null      → cerrar / cancelar (no se hace nada)
+*@
+
+<RadzenStack Gap="1rem">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <RadzenIcon Icon="folder_off" Style="font-size: 2rem; color: #fbbf24;" />
+        <RadzenText TextStyle="TextStyle.Body1" style="margin: 0;">
+            <strong>Trabajo huérfano detectado</strong>
+        </RadzenText>
+    </div>
+
+    <div style="white-space: pre-line; font-size: 0.9rem; line-height: 1.5;">
+        @Message
+    </div>
+
+    <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" Variant="Variant.Flat"
+                 Icon="info" class="rz-mt-2" style="font-size: 0.8rem;">
+        <strong>¿Qué querés hacer?</strong>
+        <ul style="margin: 0.4rem 0 0 0; padding-left: 1.2rem;">
+            <li><strong>Quitar de la lista</strong>: deja la carpeta renombrada como está, pero el trabajo deja de aparecer en PolyglotCLI.</li>
+            <li><strong>Intentar eliminar del disco</strong>: va a fallar (la carpeta no existe), pero es útil para confirmar el error.</li>
+            <li><strong>Cancelar</strong>: no hace nada. La carpeta renombrada queda donde está.</li>
+        </ul>
+    </RadzenAlert>
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
+        <RadzenButton Text="Cancelar" Icon="close"
+                      ButtonStyle="ButtonStyle.Secondary"
+                      Click="@(() => DialogService.Close(null))" />
+        <RadzenButton Text="Intentar eliminar del disco" Icon="delete_outline"
+                      ButtonStyle="ButtonStyle.Warning"
+                      Click="@(() => DialogService.Close("delete"))" />
+        <RadzenButton Text="Quitar de la lista" Icon="remove_circle_outline"
+                      ButtonStyle="ButtonStyle.Primary"
+                      Click="@(() => DialogService.Close("remove"))" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter]
+    public string JobId { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ExpectedPath { get; set; } = string.Empty;
+
+    [Parameter]
+    public List<string> SimilarDirs { get; set; } = new();
+
+    [Parameter]
+    public string Message { get; set; } = string.Empty;
+}
