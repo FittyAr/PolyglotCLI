@@ -728,6 +728,68 @@ namespace PolyglotCLI.test
                 Environment.SetEnvironmentVariable(envName, original);
             }
         }
+
+        // ── StrictValidation (PR 4) ────────────────────────────
+
+        [Fact]
+        public void StrictValidation_DefaultsToFalse()
+        {
+            // Por default, StrictValidation es false para mantener
+            // retrocompat con installs existentes.
+            var config = new AppConfig();
+            Assert.False(config.StrictValidation);
+        }
+
+        [Fact]
+        public void ValidateAndLog_DoesNotThrow_WhenStrictDisabled_AndInputInvalid()
+        {
+            // PR 2: con StrictValidation=false (default), los
+            // inputs inválidos solo se loguean, no tiran excepción.
+            var config = new AppConfig
+            {
+                ApiUrl = "not a url",  // inválido
+                OutputDirectory = "..\\..\\evil",  // path traversal
+                StrictValidation = false
+            };
+
+            // No debe tirar. Si tira, el test falla.
+            // El log se emite pero no verificamos eso acá.
+            AppConfig.ValidateAndLog("test", config);
+        }
+
+        [Fact]
+        public void ValidateAndLog_Throws_WhenStrictEnabled_AndInputInvalid()
+        {
+            // PR 4: con StrictValidation=true, los inputs
+            // inválidos tiran InvalidOperationException.
+            var config = new AppConfig
+            {
+                ApiUrl = "not a url",  // inválido
+                OutputDirectory = "..\\..\\evil",  // path traversal
+                StrictValidation = true
+            };
+
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => AppConfig.ValidateAndLog("test", config));
+            Assert.Contains("StrictValidation", ex.Message);
+        }
+
+        [Fact]
+        public void ValidateAndLog_DoesNotThrow_WhenStrictEnabled_AndInputValid()
+        {
+            // Edge case: StrictValidation=true pero todos los
+            // campos son válidos → no debe tirar.
+            var config = new AppConfig
+            {
+                ApiUrl = "http://localhost:1234/v1",
+                OutputDirectory = "output",
+                LogDirectory = "logs",
+                DefaultModel = "qwen/qwen2.5-7b",
+                StrictValidation = true
+            };
+
+            AppConfig.ValidateAndLog("test", config);
+        }
     }
 }
 

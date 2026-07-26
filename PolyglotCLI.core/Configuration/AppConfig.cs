@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -234,6 +235,21 @@ namespace PolyglotCLI
         /// pantalla de Configuración.
         /// </summary>
         public bool DismissedDpapiNotice { get; set; } = false;
+
+        /// <summary>
+        /// PR 4 del input-validation-plan: si está activo, las
+        /// operaciones con input inválido NO proceden: el
+        /// usuario ve un error claro y debe corregir el
+        /// config antes de reintentar. Default <c>false</c>
+        /// para mantener retrocompat: por default, los inputs
+        /// inválidos solo se loguean como warning (PR 2) y la
+        /// UI muestra notifications informativas (PR 3).
+        ///
+        /// <para>Para activarlo: editar config.json y poner
+        /// <c>"StrictValidation": true</c>, o marcarlo en la
+        /// UI cuando esté disponible.</para>
+        /// </summary>
+        public bool StrictValidation { get; set; } = false;
 
         /// <summary>
         /// True si el caller quiere usar el config del project tree
@@ -721,12 +737,12 @@ namespace PolyglotCLI
 
         public void Save(string? configPath = null)
         {
-            // ── Validación defensiva (PR 2) ─────────────────────
+            // ── Validación defensiva (PR 2 + 4) ─────────────────
             // Validamos los campos user-controlled antes de
-            // persistir. Por ahora solo logueamos: NO rechazamos
-            // el save (mantener retrocompat con configs "raros
-            // pero válidos"). PR 4 (strict mode) puede llegar a
-            // tirar excepción si el flag está activo.
+            // persistir. Si StrictValidation está activo
+            // (PR 4), tira excepción cuando hay issues. Si no
+            // (PR 2, default), solo loguea: mantener
+            // retrocompat con configs "raros pero válidos".
             ValidateAndLog("AppConfig.Save", this);
 
             configPath ??= LoadedFromPath ?? GetDefaultConfigPath();
@@ -924,43 +940,51 @@ namespace PolyglotCLI
         /// rechaza el save: mantener retrocompat. El caller
         /// decide qué hacer (en general: seguir, y arreglar el
         /// config en el próximo Save manual del usuario).
+        ///
+        /// <para>PR 4: si <see cref="StrictValidation"/> está
+        /// activo, tira <see cref="InvalidOperationException"/>
+        /// con la lista de issues cuando hay alguno. Eso le
+        /// permite al power user activar "modo paranoico" sin
+        /// que se rompa el upgrade de nadie (default off).</para>
         /// </summary>
-        internal static void ValidateAndLog(string context, AppConfig cfg)
+        public static void ValidateAndLog(string context, AppConfig cfg)
         {
             if (cfg == null) return;
+
+            var issues = new List<string>();
 
             // ── URLs ──
             var urlResult = NetworkUrlValidator.SanitizeApiUrl(cfg.ApiUrl);
             if (!urlResult.IsValid)
             {
-                AppLogger.Warn(
-                    $"{context}: ApiUrl inválida: {urlResult.FirstError} " +
-                    $"(valor: '{cfg.ApiUrl}').");
+                var msg = $"ApiUrl inválida: {urlResult.FirstError} (valor: '{cfg.ApiUrl}')";
+                issues.Add(msg);
+                AppLogger.Warn($"{context}: {msg}");
             }
 
             // ── Paths ──
             var pathResult = FileSystemPathValidator.SanitizeDirectoryPath(cfg.OutputDirectory);
             if (!pathResult.IsValid)
             {
-                AppLogger.Warn(
-                    $"{context}: OutputDirectory inválida: {pathResult.FirstError} " +
-                    $"(valor: '{cfg.OutputDirectory}').");
+                var msg = $"OutputDirectory inválida: {pathResult.FirstError} (valor: '{cfg.OutputDirectory}')";
+                issues.Add(msg);
+                AppLogger.Warn($"{context}: {msg}");
             }
 
             pathResult = FileSystemPathValidator.SanitizeDirectoryPath(cfg.LastScanDirectory);
             if (!pathResult.IsValid)
             {
-                AppLogger.Warn(
-                    $"{context}: LastScanDirectory inválida: {pathResult.FirstError} " +
-                    $"(valor: '{cfg.LastScanDirectory}').");
+                var msg = $"LastScanDirectory inválida: {pathResult.FirstError} (valor: '{cfg.LastScanDirectory}')";
+                issues.Add(msg);
+                AppLogger.Warn($"{context}: {msg}");
             }
 
             pathResult = FileSystemPathValidator.SanitizeDirectoryPath(cfg.LogDirectory);
             if (!pathResult.IsValid)
             {
-                AppLogger.Warn(
-                    $"{context}: LogDirectory inválida: {pathResult.FirstError} " +
-                    $"(valor: '{cfg.LogDirectory}').");
+                var msg = $"LogDirectory inválida: {pathResult.FirstError} (valor: '{cfg.LogDirectory}')";
+                issues.Add(msg);
+                AppLogger.Warn($"{context}: {msg}");
             }
 
             // ── Model names ──
@@ -969,7 +993,9 @@ namespace PolyglotCLI
                 var modelResult = ModelNameValidator.SanitizeModelName(cfg.DefaultModel);
                 if (!modelResult.IsValid)
                 {
-                    AppLogger.Warn($"{context}: DefaultModel inválido: {modelResult.FirstError}");
+                    var msg = $"DefaultModel inválido: {modelResult.FirstError}";
+                    issues.Add(msg);
+                    AppLogger.Warn($"{context}: {msg}");
                 }
             }
             if (!string.IsNullOrEmpty(cfg.DefaultVisionModel))
@@ -977,7 +1003,9 @@ namespace PolyglotCLI
                 var modelResult = ModelNameValidator.SanitizeModelName(cfg.DefaultVisionModel);
                 if (!modelResult.IsValid)
                 {
-                    AppLogger.Warn($"{context}: DefaultVisionModel inválido: {modelResult.FirstError}");
+                    var msg = $"DefaultVisionModel inválido: {modelResult.FirstError}";
+                    issues.Add(msg);
+                    AppLogger.Warn($"{context}: {msg}");
                 }
             }
             if (!string.IsNullOrEmpty(cfg.ReviewModel))
@@ -985,26 +1013,44 @@ namespace PolyglotCLI
                 var modelResult = ModelNameValidator.SanitizeModelName(cfg.ReviewModel);
                 if (!modelResult.IsValid)
                 {
-                    AppLogger.Warn($"{context}: ReviewModel inválido: {modelResult.FirstError}");
+                    var msg = $"ReviewModel inválido: {modelResult.FirstError}";
+                    issues.Add(msg);
+                    AppLogger.Warn($"{context}: {msg}");
                 }
             }
 
             // ── Provider names ──
             var provResult = ModelNameValidator.SanitizeProviderName(cfg.Provider);
             if (!provResult.IsValid)
-                AppLogger.Warn($"{context}: Provider inválido: {provResult.FirstError}");
+            {
+                var msg = $"Provider inválido: {provResult.FirstError}";
+                issues.Add(msg);
+                AppLogger.Warn($"{context}: {msg}");
+            }
 
             provResult = ModelNameValidator.SanitizeProviderName(cfg.OcrProvider);
             if (!provResult.IsValid)
-                AppLogger.Warn($"{context}: OcrProvider inválido: {provResult.FirstError}");
+            {
+                var msg = $"OcrProvider inválido: {provResult.FirstError}";
+                issues.Add(msg);
+                AppLogger.Warn($"{context}: {msg}");
+            }
 
             provResult = ModelNameValidator.SanitizeProviderName(cfg.TranslationProvider);
             if (!provResult.IsValid)
-                AppLogger.Warn($"{context}: TranslationProvider inválido: {provResult.FirstError}");
+            {
+                var msg = $"TranslationProvider inválido: {provResult.FirstError}";
+                issues.Add(msg);
+                AppLogger.Warn($"{context}: {msg}");
+            }
 
             provResult = ModelNameValidator.SanitizeProviderName(cfg.ReviewProvider);
             if (!provResult.IsValid)
-                AppLogger.Warn($"{context}: ReviewProvider inválido: {provResult.FirstError}");
+            {
+                var msg = $"ReviewProvider inválido: {provResult.FirstError}";
+                issues.Add(msg);
+                AppLogger.Warn($"{context}: {msg}");
+            }
 
             // ── Prompts (length + control chars) ──
             if (!string.IsNullOrEmpty(cfg.AdditionalPrompt))
@@ -1012,9 +1058,9 @@ namespace PolyglotCLI
                 var promptResult = PromptValidator.SanitizePrompt(cfg.AdditionalPrompt);
                 if (!promptResult.IsValid)
                 {
-                    AppLogger.Warn(
-                        $"{context}: AdditionalPrompt inválido: {promptResult.FirstError}. " +
-                        $"Longitud actual: {cfg.AdditionalPrompt.Length}.");
+                    var msg = $"AdditionalPrompt inválido: {promptResult.FirstError}. Longitud actual: {cfg.AdditionalPrompt.Length}";
+                    issues.Add(msg);
+                    AppLogger.Warn($"{context}: {msg}");
                 }
             }
 
@@ -1022,18 +1068,28 @@ namespace PolyglotCLI
             if (cfg.TranslationTimeoutSeconds < NumericRangeValidator.MinTimeoutSeconds ||
                 cfg.TranslationTimeoutSeconds > NumericRangeValidator.MaxTimeoutSeconds)
             {
-                AppLogger.Warn(
-                    $"{context}: TranslationTimeoutSeconds fuera de rango " +
-                    $"({cfg.TranslationTimeoutSeconds}, esperado [{NumericRangeValidator.MinTimeoutSeconds}, " +
-                    $"{NumericRangeValidator.MaxTimeoutSeconds}]).");
+                var msg = $"TranslationTimeoutSeconds fuera de rango ({cfg.TranslationTimeoutSeconds}, esperado [{NumericRangeValidator.MinTimeoutSeconds}, {NumericRangeValidator.MaxTimeoutSeconds}])";
+                issues.Add(msg);
+                AppLogger.Warn($"{context}: {msg}");
             }
             if (cfg.MaxCharactersPerChunk < NumericRangeValidator.MinChunkSize ||
                 cfg.MaxCharactersPerChunk > NumericRangeValidator.MaxChunkSize)
             {
-                AppLogger.Warn(
-                    $"{context}: MaxCharactersPerChunk fuera de rango " +
-                    $"({cfg.MaxCharactersPerChunk}, esperado [{NumericRangeValidator.MinChunkSize}, " +
-                    $"{NumericRangeValidator.MaxChunkSize}]).");
+                var msg = $"MaxCharactersPerChunk fuera de rango ({cfg.MaxCharactersPerChunk}, esperado [{NumericRangeValidator.MinChunkSize}, {NumericRangeValidator.MaxChunkSize}])";
+                issues.Add(msg);
+                AppLogger.Warn($"{context}: {msg}");
+            }
+
+            // ── PR 4: strict mode ──────────────────────────────
+            // Si StrictValidation está activo, tirar excepción con
+            // la lista completa de issues. Por default (false)
+            // solo logueamos: el usuario decide si ignorar.
+            if (issues.Count > 0 && cfg.StrictValidation)
+            {
+                throw new InvalidOperationException(
+                    $"{context}: validación estricta (StrictValidation=true) " +
+                    $"rechazó la operación por {issues.Count} issue(s) en el config:\n  - " +
+                    string.Join("\n  - ", issues));
             }
         }
     }
