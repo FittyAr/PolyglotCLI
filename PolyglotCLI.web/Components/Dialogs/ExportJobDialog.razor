@@ -120,7 +120,13 @@
             {
                 Severity = NotificationSeverity.Error,
                 Summary = "Carpeta de destino inválida",
-                Detail = pathValidation.FirstError,
+                // FirstError es string? (nullable) y Detail es
+                // string (no-nullable en Radzen). Fallback
+                // defensivo: nunca debería verse porque si
+                // IsValid=false Errors siempre tiene al menos
+                // un elemento, pero el compilador no puede
+                // probarlo.
+                Detail = pathValidation.FirstError ?? "Error de validación desconocido",
                 Duration = 8_000
             });
             return;

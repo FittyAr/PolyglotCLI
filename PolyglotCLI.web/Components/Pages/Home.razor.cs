@@ -195,7 +195,13 @@ public partial class Home : ComponentBase, IDisposable
                 {
                     Severity = NotificationSeverity.Warning,
                     Summary = "Directorio inválido",
-                    Detail = pathValidation.FirstError
+                    // FirstError es string? (nullable) y Detail es
+                    // string (no-nullable en Radzen). El compilador
+                    // no puede probar que Errors.Count > 0 cuando
+                    // IsValid=false, así que usamos ?? con un
+                    // fallback defensivo. En la práctica nunca
+                    // debería verse.
+                    Detail = pathValidation.FirstError ?? "Error de validación desconocido"
                 });
                 return;
             }
