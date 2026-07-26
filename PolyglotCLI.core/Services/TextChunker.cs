@@ -22,9 +22,16 @@ namespace PolyglotCLI
             string[] lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
             var currentChunk = new StringBuilder();
 
+            // El separador entre líneas que AppendLine() emite depende
+            // del OS: en Windows es "\r\n" (2 chars), en Unix "\n" (1
+            // char). Usamos Environment.NewLine para reflejar el
+            // runtime real y dimensionar el budget correctamente.
+            string lineSeparator = Environment.NewLine;
+            int lineSeparatorLength = lineSeparator.Length;
+
             foreach (var line in lines)
             {
-                if (currentChunk.Length + line.Length + 1 > maxCharacters)
+                if (currentChunk.Length + line.Length + lineSeparatorLength > maxCharacters)
                 {
                     if (currentChunk.Length > 0)
                     {
@@ -40,7 +47,7 @@ namespace PolyglotCLI
                             currentChunk.Append(overlap);
                         }
                     }
-                    
+
                     // If a single line is longer than maxCharacters, chunk it by characters
                     if (line.Length > maxCharacters)
                     {
@@ -57,7 +64,7 @@ namespace PolyglotCLI
 
                 if (currentChunk.Length > 0)
                 {
-                    currentChunk.AppendLine();
+                    currentChunk.Append(lineSeparator);
                 }
                 currentChunk.Append(line);
             }

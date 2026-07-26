@@ -542,9 +542,11 @@ public partial class Home : ComponentBase, IDisposable
         try
         {
             int exitCode = await Task.Run(() => TranslationOrchestrator.ExecuteAsync(args, Config, TranslationSession.Cts.Token));
-            
-            if (TranslationSession.Cts.IsCancellationRequested)
+
+            if (TranslationSession.Cts.IsCancellationRequested || exitCode == 130)
             {
+                // 130 = SIGINT-style exit code del orchestrator cuando
+                // detecta cancellation. NO es un fallo.
                 AppLogger.WarnConsole("\n[SYSTEM] Traducción detenida por el usuario.");
             }
             else if (exitCode == 0)

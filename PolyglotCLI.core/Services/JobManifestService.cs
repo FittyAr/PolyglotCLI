@@ -313,7 +313,25 @@ namespace PolyglotCLI
                 }
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(dataList, options);
-                File.WriteAllText(dataJsonPath, json);
+                // Escritura atómica (mismo patrón que AppConfig.Save y
+                // JobManifest.Save): un .tmp + File.Replace en lugar de
+                // un File.WriteAllText directo. La data del job
+                // (TranslatedText, OriginalText por página) se graba
+                // una vez por página, así que la ventana de corrupción
+                // por corte a mitad de write es alta si no es atómico.
+                string tmpDir = string.IsNullOrEmpty(dir) ? "." : dir;
+                string tmpPath = Path.Combine(
+                    tmpDir,
+                    $".{Path.GetFileName(dataJsonPath)}.{Guid.NewGuid():N}.tmp");
+                File.WriteAllText(tmpPath, json);
+                if (File.Exists(dataJsonPath))
+                {
+                    File.Replace(tmpPath, dataJsonPath, destinationBackupFileName: null);
+                }
+                else
+                {
+                    File.Move(tmpPath, dataJsonPath);
+                }
             }
             catch (Exception ex)
             {

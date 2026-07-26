@@ -1,6 +1,7 @@
 @page "/history"
 @using PolyglotCLI
 @using System.IO
+@using System.Net
 @inject PolyglotCLI.AppConfig Config
 @inject NavigationManager NavigationManager
 @inject DialogService DialogService
@@ -57,7 +58,16 @@
 {
     <RadzenCard class="rz-mt-4">
         <RadzenText TextStyle="TextStyle.H6">Análisis de Errores - @selectedManifest.JobId</RadzenText>
-        <div class="virtual-console">@((MarkupString)analysisResult.Replace("\n", "<br/>"))</div>
+        @* XSS defense: analysisResult viene del LLM (PromptHelperService.
+           AnalyzeErrorsAsync), que recibe como input los OcrError /
+           TranslationError del manifest. Esos campos son user-controlled
+           (el LLM puede escribir cualquier cosa, o un manifest editado a
+           mano). Antes usábamos MarkupString + Replace("\n","<br/>") que
+           renderizaba HTML crudo — un error del tipo
+           "<script>alert(1)</script>" se ejecutaba en el browser.
+           Ahora escapamos el HTML y preservamos los saltos de línea con
+           `white-space: pre-wrap` (CSS ya en .virtual-console). *@
+        <div class="virtual-console">@SafeAnalysisHtml(analysisResult)</div>
         <RadzenButton Text="Cerrar" class="rz-mt-2" Click="@(() => analysisResult = null)" />
     </RadzenCard>
 }
@@ -67,6 +77,24 @@
     JobManifest? selectedManifest = null;
     string? analysisResult = null;
     bool IsImportInProgress = false;
+
+    /// <summary>
+    /// Escapa HTML en el resultado del LLM antes de renderizarlo.
+    /// Necesario porque <c>analysisResult</c> viene del LLM y los
+    /// errores del manifest que se le mandan son user-controlled:
+    /// un error del tipo <c>&lt;script&gt;alert(1)&lt;/script&gt;</c>
+    /// produciría XSS si se renderiza como MarkupString. Devolvemos
+    /// MarkupString con el contenido ya escapado para que el browser
+    /// muestre el texto literal (no ejecuta el script).
+    ///
+    /// <para>Los \n se preservan via CSS (white-space: pre-wrap en
+    /// .virtual-console).</para>
+    /// </summary>
+    private MarkupString SafeAnalysisHtml(string? raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return new MarkupString(string.Empty);
+        return new MarkupString(WebUtility.HtmlEncode(raw));
+    }
 
     protected override void OnInitialized()
     {

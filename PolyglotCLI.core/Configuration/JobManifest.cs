@@ -52,15 +52,36 @@ namespace PolyglotCLI
                 LastUpdatedAt = DateTime.Now;
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(this, options);
-                
+
                 // Ensure parent directory exists
                 string? dir = Path.GetDirectoryName(filePath);
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 {
                     Directory.CreateDirectory(dir);
                 }
-                
-                File.WriteAllText(filePath, json);
+
+                // Escritura atómica (mismo patrón que AppConfig.Save):
+                // escribimos a un .tmp en la misma carpeta y luego
+                // File.Replace, que es atómico en NTFS. Si el proceso
+                // se corta a mitad de un File.WriteAllText clásico, el
+                // manifest.json quedaría corrupto y la próxima carga
+                // del job perdería todo el progreso. Con .tmp + Replace
+                // o se ve la versión vieja o se ve la nueva, nunca un
+                // archivo trunco. Importante: el manifest se graba una
+                // vez por página procesada (alta frecuencia), por lo
+                // que la ventana de race es real.
+                string tmpPath = Path.Combine(
+                    dir ?? ".",
+                    $".{Path.GetFileName(filePath)}.{Guid.NewGuid():N}.tmp");
+                File.WriteAllText(tmpPath, json);
+                if (File.Exists(filePath))
+                {
+                    File.Replace(tmpPath, filePath, destinationBackupFileName: null);
+                }
+                else
+                {
+                    File.Move(tmpPath, filePath);
+                }
             }
             catch (Exception ex)
             {

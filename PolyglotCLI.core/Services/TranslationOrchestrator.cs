@@ -911,6 +911,25 @@ namespace PolyglotCLI
             AppLogger.Info("==================================================");
             return overallSuccess ? 0 : 1;
             }
+            catch (OperationCanceledException)
+            {
+                // El usuario canceló el trabajo: NO es un error del
+                // pipeline, no debemos marcar el manifest como "Failed"
+                // (sería confuso y ensucia las stats de "trabajos
+                // fallidos"). Estado "Cancelled" para que la UI pueda
+                // distinguir, y exit code 130 (convención Unix SIGINT).
+                try
+                {
+                    currentManifest.Status = "Cancelled";
+                    currentManifest.Save(manifestPath);
+                }
+                catch (Exception saveEx)
+                {
+                    AppLogger.Warn($"No se pudo persistir estado 'Cancelled' del manifest: {saveEx.Message}");
+                }
+                AppLogger.WarnConsole("\n[SYSTEM] Trabajo cancelado por el usuario.");
+                return 130;
+            }
             catch (Exception pipelineEx)
             {
                 currentManifest.Status = "Failed";
@@ -996,7 +1015,14 @@ namespace PolyglotCLI
             string ext = Path.GetExtension(sourceFilePath).ToLowerInvariant();
             string tempPath = Path.Combine(jobDir, "temp");
             string expectedPngPath = Path.Combine(tempPath, $"{fileNameWithoutExt}_page_{pageNumber}.png");
-            
+
+            // isImage: la página es visual (PNG cacheado previamente o
+            // el source ya es una imagen). No incluye .pdf porque un
+            // PDF nunca tiene extensión de imagen — la rama PDF
+            // siempre va por render→OCR. Antes era `isImage && ext==pdf`
+            // que era lógicamente contradictorio (isImage=false cuando
+            // ext==pdf), así que re-procesar un PDF saltaba OCR y caía
+            // a text extraction.
             bool isImage = File.Exists(expectedPngPath) ||
                            ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".tiff";
 
@@ -1004,7 +1030,7 @@ namespace PolyglotCLI
             {
                 try
                 {
-                    if (isImage && ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                    if (ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
                     {
                         byte[] pngBytes = pageRenderer.RenderPageToPng(sourceFilePath, pageNumber);
                         var ocrRes = await ocrService.PerformOcrAsync(pngBytes, pageNumber);
