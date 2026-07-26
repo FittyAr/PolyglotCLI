@@ -1678,7 +1678,15 @@ Inno Setup / .exe).
 
 
 
+            // IL3000: en single-file publish `Assembly.Location` siempre
+            // devuelve string.Empty. El check `IsNullOrEmpty(location)`
+            // de abajo ya cubre ese caso cayendo a
+            // AppContext.BaseDirectory, pero el analyzer sigue marcando
+            // el acceso. Suprimimos solo el get para no perder la
+            // senal en otros call-sites.
+#pragma warning disable IL3000
             var location = asm.Location;
+#pragma warning restore IL3000
 
 
 

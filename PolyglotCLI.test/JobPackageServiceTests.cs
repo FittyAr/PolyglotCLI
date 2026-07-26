@@ -107,7 +107,7 @@ namespace PolyglotCLI.test
         }
 
         [Fact]
-        public void ExportImport_RoundTrip_PreservesManifest()
+        public async Task ExportImport_RoundTrip_PreservesManifest()
         {
             string jobId = "roundtrip_job";
             string jobDir = CreateSyntheticJob(jobId);
@@ -121,7 +121,7 @@ namespace PolyglotCLI.test
             string targetRoot = Path.Combine(_tempRoot, "roundtrip-target");
             Directory.CreateDirectory(targetRoot);
 
-            string restoredId = JobPackageService.ImportJobPackageAsync(new MemoryStream(output.ToArray()), targetRoot).GetAwaiter().GetResult();
+            string restoredId = await JobPackageService.ImportJobPackageAsync(new MemoryStream(output.ToArray()), targetRoot);
 
             Assert.Equal(jobId, restoredId);
             string restoredDir = Path.Combine(targetRoot, restoredId);
@@ -130,7 +130,7 @@ namespace PolyglotCLI.test
         }
 
         [Fact]
-        public void ImportJobPackageAsync_RenamesOnConflict()
+        public async Task ImportJobPackageAsync_RenamesOnConflict()
         {
             string jobId = "conflict_job";
             string jobDir = CreateSyntheticJob(jobId);
@@ -144,11 +144,11 @@ namespace PolyglotCLI.test
             string targetRoot = Path.Combine(_tempRoot, "conflict-target");
             Directory.CreateDirectory(targetRoot);
 
-            string firstId = JobPackageService.ImportJobPackageAsync(new MemoryStream(output.ToArray()), targetRoot).GetAwaiter().GetResult();
+            string firstId = await JobPackageService.ImportJobPackageAsync(new MemoryStream(output.ToArray()), targetRoot);
             Assert.Equal(jobId, firstId);
             Assert.True(Directory.Exists(Path.Combine(targetRoot, jobId)));
 
-            string secondId = JobPackageService.ImportJobPackageAsync(new MemoryStream(output.ToArray()), targetRoot).GetAwaiter().GetResult();
+            string secondId = await JobPackageService.ImportJobPackageAsync(new MemoryStream(output.ToArray()), targetRoot);
 
             Assert.NotEqual(jobId, secondId);
             Assert.StartsWith(jobId, secondId);

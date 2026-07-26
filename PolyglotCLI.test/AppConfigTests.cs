@@ -5,6 +5,13 @@ using System.Text.Json;
 using Xunit;
 using PolyglotCLI;
 
+// CA1416: SecureField está marcado [SupportedOSPlatform("windows")] porque
+// usa DPAPI. Sus métodos degradan de forma segura en otras plataformas
+// (Protect devuelve plaintext con warning, Unprotect devuelve null), por
+// lo que son seguros de invocar desde un test que corre en net10.0 (sin
+// sufijo -windows). Mismo patrón que PolyglotCLI.core/Configuration/AppConfig.cs.
+#pragma warning disable CA1416
+
 namespace PolyglotCLI.test
 {
     public class AppConfigTests : IDisposable

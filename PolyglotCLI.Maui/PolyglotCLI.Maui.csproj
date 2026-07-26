@@ -52,11 +52,23 @@
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
         <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+
+        <!-- XA4301: bblanchon.PDFium.Android agrega <AndroidNativeLibrary> via su
+             .targets Y MAUI/Android también autodescubre libs en
+             runtimes/android-*. El primer entry gana (la build NO falla,
+             sólo avisa) pero ensucia la consola. Suprimimos sólo para
+             el target Android — en iOS/MacCatalyst/Windows no aplica. -->
+        <NoWarn Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">$(NoWarn);XA4301</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
-        <!-- App Icon -->
-        <MauiIcon Include="..\assets\icons\app.ico" />
+        <!-- App Icon (cross-platform SVG).
+             El build de Android genera mipmap/appicon y mipmap/appicon_round
+             a partir de estos SVGs. El .ico de assets\icons\app.ico sólo se
+             usa para el ejecutable de Windows (ApplicationIcon arriba) — no
+             sirve para MauiIcon porque Android no puede rasterizar un .ico
+             a las densidades xhdpi/xxhdpi/xxxhdpi que necesita. -->
+        <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
 
         <!-- Splash Screen -->
         <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
