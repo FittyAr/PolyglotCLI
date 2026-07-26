@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Radzen;
 using PolyglotCLI;
+using PolyglotCLI.Validation;
 using PolyglotCLI.web.Components.Dialogs;
 
 namespace PolyglotCLI.web.Components.Pages;
@@ -182,6 +183,20 @@ public partial class Home : ComponentBase, IDisposable
         {
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
             {
+                return;
+            }
+
+            // PR 3: validación del path antes de enumerar. Si tiene
+            // path traversal, mostramos un notification y abortamos.
+            var pathValidation = FileSystemPathValidator.SanitizeDirectoryPath(path);
+            if (!pathValidation.IsValid)
+            {
+                NotificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Warning,
+                    Summary = "Directorio inválido",
+                    Detail = pathValidation.FirstError
+                });
                 return;
             }
 

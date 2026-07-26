@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Radzen;
 using PolyglotCLI;
+using PolyglotCLI.Validation;
 using PolyglotCLI.web.Components.Config;
 using PolyglotCLI.web.Components.Dialogs;
 
@@ -266,6 +267,77 @@ public partial class Config : ComponentBase, IDisposable
         return JsonSerializer.Serialize(copy);
     }
 
+    /// <summary>
+    /// PR 3: valida el AppConfig antes de guardar y muestra
+    /// notifications Radzen por cada campo sospechoso. NO
+    /// bloquea el save — el usuario decide si ignora o corrige
+    /// (mantener retrocompat con configs "raros pero válidos").
+    /// </summary>
+    private void ShowValidationWarningsIfAny(PolyglotCLI.AppConfig args)
+    {
+        if (args == null) return;
+
+        // Acumulamos todos los issues y mostramos UN solo
+        // notification con la lista, en vez de spamear N
+        // notifications separadas. Más amigable.
+        var issues = new List<string>();
+
+        var urlResult = NetworkUrlValidator.SanitizeApiUrl(args.ApiUrl);
+        if (!urlResult.IsValid)
+            issues.Add($"URL del API: {urlResult.FirstError}");
+
+        var pathResult = FileSystemPathValidator.SanitizeDirectoryPath(args.OutputDirectory);
+        if (!pathResult.IsValid)
+            issues.Add($"Directorio de salida: {pathResult.FirstError}");
+
+        pathResult = FileSystemPathValidator.SanitizeDirectoryPath(args.LastScanDirectory);
+        if (!pathResult.IsValid)
+            issues.Add($"Último directorio escaneado: {pathResult.FirstError}");
+
+        pathResult = FileSystemPathValidator.SanitizeDirectoryPath(args.LogDirectory);
+        if (!pathResult.IsValid)
+            issues.Add($"Directorio de logs: {pathResult.FirstError}");
+
+        if (!string.IsNullOrEmpty(args.DefaultModel))
+        {
+            var modelResult = ModelNameValidator.SanitizeModelName(args.DefaultModel);
+            if (!modelResult.IsValid)
+                issues.Add($"Modelo default: {modelResult.FirstError}");
+        }
+        if (!string.IsNullOrEmpty(args.DefaultVisionModel))
+        {
+            var modelResult = ModelNameValidator.SanitizeModelName(args.DefaultVisionModel);
+            if (!modelResult.IsValid)
+                issues.Add($"Modelo de visión: {modelResult.FirstError}");
+        }
+        if (!string.IsNullOrEmpty(args.ReviewModel))
+        {
+            var modelResult = ModelNameValidator.SanitizeModelName(args.ReviewModel);
+            if (!modelResult.IsValid)
+                issues.Add($"Modelo de revisión: {modelResult.FirstError}");
+        }
+        if (!string.IsNullOrEmpty(args.AdditionalPrompt))
+        {
+            var promptResult = PromptValidator.SanitizePrompt(args.AdditionalPrompt);
+            if (!promptResult.IsValid)
+                issues.Add($"Prompt adicional: {promptResult.FirstError}");
+        }
+
+        if (issues.Count == 0) return;
+
+        // Mostrar un notification con la lista de issues
+        var summary = $"La configuración tiene {issues.Count} campo(s) que podrían dar problemas";
+        var detail = string.Join("\n", issues);
+
+        NotificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Warning,
+            Summary = summary,
+            Detail = detail,
+            Duration = 10_000  // 10 segundos para que el usuario alcance a leer
+        });
+    }
+
     private static void CopyInto(PolyglotCLI.AppConfig src, PolyglotCLI.AppConfig dst)
     {
         dst.Provider = src.Provider;
@@ -400,6 +472,12 @@ public partial class Config : ComponentBase, IDisposable
             // no exponer la key anterior en claro). La aplicamos acá,
             // justo antes de Save, que a su vez la cifra a DPAPI.
             generalTabRef?.ApplyToConfig();
+
+            // PR 3: validación user-facing. Mostramos
+            // notifications por cada campo sospechoso, pero NO
+            // bloqueamos el save (mantener retrocompat). El
+            // usuario decide si ignora o corrige.
+            ShowValidationWarningsIfAny(args);
 
             args.SupportedOutputFormats = outputFormatsInput
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
