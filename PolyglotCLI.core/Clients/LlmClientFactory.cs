@@ -1,4 +1,5 @@
 using System;
+using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
 {
@@ -70,6 +71,38 @@ namespace PolyglotCLI
             if (string.IsNullOrWhiteSpace(apiUrl))
             {
                 apiUrl = LlmProviderHelper.GetDefaultApiUrl(provider);
+            }
+
+            // Defensa SSRF: validar la URL antes de crear el
+            // HttpClient. Por ahora (PR 2) solo logueamos — no
+            // cambiamos el comportamiento para mantener
+            // retrocompat. Si la URL es inválida (no parsea,
+            // scheme != http/https, host vacío), PolyglotCLI
+            // probablemente va a fallar en la primera request de
+            // todas formas. Si es privada/loopback, logueamos
+            // como warning porque PolyglotCLI ES local-first
+            // por diseño (no es un error en sí).
+            //
+            // En PR 4 (strict mode) esto puede llegar a tirar
+            // excepción cuando el flag está activo.
+            var urlValidation = NetworkUrlValidator.SanitizeApiUrl(apiUrl);
+            if (!urlValidation.IsValid)
+            {
+                AppLogger.Warn(
+                    $"LlmClientFactory: ApiUrl inválida para provider '{provider}': " +
+                    $"{urlValidation.FirstError}. URL: '{apiUrl}'. " +
+                    $"PolyglotCLI probablemente va a fallar al primer request.");
+            }
+            else if (urlValidation.Value != null && NetworkUrlValidator.IsPrivateOrLocalhost(urlValidation.Value))
+            {
+                // No es un error (PolyglotCLI está hecho para correr
+                // contra LLMs locales), pero lo registramos para
+                // diagnóstico. Si en el futuro se quiere detectar
+                // SSRF accidental contra metadata services de cloud
+                // (169.254.169.254), este log ayuda a correlacionar.
+                AppLogger.Info(
+                    $"LlmClientFactory: ApiUrl '{apiUrl}' apunta a host privado/loopback. " +
+                    $"OK para uso local; sospechoso si el provider es público.");
             }
 
             return provider switch

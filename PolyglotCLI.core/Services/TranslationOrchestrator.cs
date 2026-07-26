@@ -68,6 +68,14 @@ namespace PolyglotCLI
             ActiveCancellationToken = cancellationToken;
             ActiveCancellationToken.ThrowIfCancellationRequested();
 
+            // Validación defensiva de las opciones finales (PR 2).
+            // Acá ya tenemos options con los overrides del manifest
+            // aplicados (si era resume), así que es el último
+            // punto para validar antes de kickoff. Logueamos
+            // warnings — NO rechazamos: el usuario quiere
+            // ejecutar el job aunque tenga campos "raros".
+            AppConfig.ValidateAndLog("TranslationOrchestrator.ExecuteAsync", config);
+
             // 0. Setup Job Directory
             string timestamp = !string.IsNullOrEmpty(options.ResumeJobId) ? options.ResumeJobId : DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string jobDir = Path.Combine(GetJobsDirectory(), timestamp);

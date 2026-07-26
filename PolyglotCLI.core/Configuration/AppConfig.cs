@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
 {
@@ -720,6 +721,14 @@ namespace PolyglotCLI
 
         public void Save(string? configPath = null)
         {
+            // ── Validación defensiva (PR 2) ─────────────────────
+            // Validamos los campos user-controlled antes de
+            // persistir. Por ahora solo logueamos: NO rechazamos
+            // el save (mantener retrocompat con configs "raros
+            // pero válidos"). PR 4 (strict mode) puede llegar a
+            // tirar excepción si el flag está activo.
+            ValidateAndLog("AppConfig.Save", this);
+
             configPath ??= LoadedFromPath ?? GetDefaultConfigPath();
 
             // Ciframos los campos sensibles (ApiKey, ProviderApiKeys[*],
@@ -905,6 +914,127 @@ namespace PolyglotCLI
             OutputFormats = string.Join(",", selectedFormats);
 
             Save();
+        }
+
+        /// <summary>
+        /// Helper estático de validación defensiva (PR 2 del plan
+        /// docs/input-validation-plan.md). Recorre los campos
+        /// user-controlled de <see cref="AppConfig"/> y loguea
+        /// warnings por cada uno que falle validación. NO
+        /// rechaza el save: mantener retrocompat. El caller
+        /// decide qué hacer (en general: seguir, y arreglar el
+        /// config en el próximo Save manual del usuario).
+        /// </summary>
+        internal static void ValidateAndLog(string context, AppConfig cfg)
+        {
+            if (cfg == null) return;
+
+            // ── URLs ──
+            var urlResult = NetworkUrlValidator.SanitizeApiUrl(cfg.ApiUrl);
+            if (!urlResult.IsValid)
+            {
+                AppLogger.Warn(
+                    $"{context}: ApiUrl inválida: {urlResult.FirstError} " +
+                    $"(valor: '{cfg.ApiUrl}').");
+            }
+
+            // ── Paths ──
+            var pathResult = FileSystemPathValidator.SanitizeDirectoryPath(cfg.OutputDirectory);
+            if (!pathResult.IsValid)
+            {
+                AppLogger.Warn(
+                    $"{context}: OutputDirectory inválida: {pathResult.FirstError} " +
+                    $"(valor: '{cfg.OutputDirectory}').");
+            }
+
+            pathResult = FileSystemPathValidator.SanitizeDirectoryPath(cfg.LastScanDirectory);
+            if (!pathResult.IsValid)
+            {
+                AppLogger.Warn(
+                    $"{context}: LastScanDirectory inválida: {pathResult.FirstError} " +
+                    $"(valor: '{cfg.LastScanDirectory}').");
+            }
+
+            pathResult = FileSystemPathValidator.SanitizeDirectoryPath(cfg.LogDirectory);
+            if (!pathResult.IsValid)
+            {
+                AppLogger.Warn(
+                    $"{context}: LogDirectory inválida: {pathResult.FirstError} " +
+                    $"(valor: '{cfg.LogDirectory}').");
+            }
+
+            // ── Model names ──
+            if (!string.IsNullOrEmpty(cfg.DefaultModel))
+            {
+                var modelResult = ModelNameValidator.SanitizeModelName(cfg.DefaultModel);
+                if (!modelResult.IsValid)
+                {
+                    AppLogger.Warn($"{context}: DefaultModel inválido: {modelResult.FirstError}");
+                }
+            }
+            if (!string.IsNullOrEmpty(cfg.DefaultVisionModel))
+            {
+                var modelResult = ModelNameValidator.SanitizeModelName(cfg.DefaultVisionModel);
+                if (!modelResult.IsValid)
+                {
+                    AppLogger.Warn($"{context}: DefaultVisionModel inválido: {modelResult.FirstError}");
+                }
+            }
+            if (!string.IsNullOrEmpty(cfg.ReviewModel))
+            {
+                var modelResult = ModelNameValidator.SanitizeModelName(cfg.ReviewModel);
+                if (!modelResult.IsValid)
+                {
+                    AppLogger.Warn($"{context}: ReviewModel inválido: {modelResult.FirstError}");
+                }
+            }
+
+            // ── Provider names ──
+            var provResult = ModelNameValidator.SanitizeProviderName(cfg.Provider);
+            if (!provResult.IsValid)
+                AppLogger.Warn($"{context}: Provider inválido: {provResult.FirstError}");
+
+            provResult = ModelNameValidator.SanitizeProviderName(cfg.OcrProvider);
+            if (!provResult.IsValid)
+                AppLogger.Warn($"{context}: OcrProvider inválido: {provResult.FirstError}");
+
+            provResult = ModelNameValidator.SanitizeProviderName(cfg.TranslationProvider);
+            if (!provResult.IsValid)
+                AppLogger.Warn($"{context}: TranslationProvider inválido: {provResult.FirstError}");
+
+            provResult = ModelNameValidator.SanitizeProviderName(cfg.ReviewProvider);
+            if (!provResult.IsValid)
+                AppLogger.Warn($"{context}: ReviewProvider inválido: {provResult.FirstError}");
+
+            // ── Prompts (length + control chars) ──
+            if (!string.IsNullOrEmpty(cfg.AdditionalPrompt))
+            {
+                var promptResult = PromptValidator.SanitizePrompt(cfg.AdditionalPrompt);
+                if (!promptResult.IsValid)
+                {
+                    AppLogger.Warn(
+                        $"{context}: AdditionalPrompt inválido: {promptResult.FirstError}. " +
+                        $"Longitud actual: {cfg.AdditionalPrompt.Length}.");
+                }
+            }
+
+            // ── Numeric ranges (clamp warnings) ──
+            if (cfg.TranslationTimeoutSeconds < NumericRangeValidator.MinTimeoutSeconds ||
+                cfg.TranslationTimeoutSeconds > NumericRangeValidator.MaxTimeoutSeconds)
+            {
+                AppLogger.Warn(
+                    $"{context}: TranslationTimeoutSeconds fuera de rango " +
+                    $"({cfg.TranslationTimeoutSeconds}, esperado [{NumericRangeValidator.MinTimeoutSeconds}, " +
+                    $"{NumericRangeValidator.MaxTimeoutSeconds}]).");
+            }
+            if (cfg.MaxCharactersPerChunk < NumericRangeValidator.MinChunkSize ||
+                cfg.MaxCharactersPerChunk > NumericRangeValidator.MaxChunkSize)
+            {
+                AppLogger.Warn(
+                    $"{context}: MaxCharactersPerChunk fuera de rango " +
+                    $"({cfg.MaxCharactersPerChunk}, esperado [{NumericRangeValidator.MinChunkSize}, " +
+                    $"{NumericRangeValidator.MaxChunkSize}]).");
+            }
         }
     }
 }

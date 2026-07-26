@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
 {
@@ -38,7 +39,14 @@ namespace PolyglotCLI
             if (!string.IsNullOrEmpty(options.ResumeJobId) && File.Exists(manifestPath))
             {
                 currentManifest = JobManifest.Load(manifestPath);
-                
+
+                // Validación defensiva (PR 2). El manifest es
+                // data user-controlled (el usuario puede editarlo
+                // a mano). Logueamos warnings por cada campo
+                // sospechoso pero NO rechazamos la carga: el
+                // usuario probablemente quiere reanudar el job
+                // aunque tenga campos "raros".
+                ValidateManifestAndLog("JobManifestService.LoadOrInitializeManifest", currentManifest);
                 string jobConfigPath = Path.Combine(jobDir, "config.json");
                 if (File.Exists(jobConfigPath))
                 {
@@ -578,6 +586,79 @@ namespace PolyglotCLI
                 }
             }
             return sbErr.ToString();
+        }
+
+        /// <summary>
+        /// Validación defensiva de un <see cref="JobManifest"/>
+        /// (PR 2 del plan). Recorre los campos user-controlled
+        /// y loguea warnings. NO rechaza la carga: mantener
+        /// retrocompat. El caller decide qué hacer.
+        /// </summary>
+        internal static void ValidateManifestAndLog(string context, JobManifest? manifest)
+        {
+            if (manifest == null) return;
+
+            // ── Paths ──
+            var pathResult = FileSystemPathValidator.SanitizeDirectoryPath(manifest.OutputDirectory);
+            if (!pathResult.IsValid)
+            {
+                AppLogger.Warn(
+                    $"{context}: JobManifest.OutputDirectory inválida: " +
+                    $"{pathResult.FirstError} (valor: '{manifest.OutputDirectory}').");
+            }
+
+            // ── Model names ──
+            if (!string.IsNullOrEmpty(manifest.ModelName))
+            {
+                var modelResult = ModelNameValidator.SanitizeModelName(manifest.ModelName);
+                if (!modelResult.IsValid)
+                    AppLogger.Warn($"{context}: JobManifest.ModelName inválido: {modelResult.FirstError}");
+            }
+            if (!string.IsNullOrEmpty(manifest.VisionModelName))
+            {
+                var modelResult = ModelNameValidator.SanitizeModelName(manifest.VisionModelName);
+                if (!modelResult.IsValid)
+                    AppLogger.Warn($"{context}: JobManifest.VisionModelName inválido: {modelResult.FirstError}");
+            }
+
+            // ── Prompts ──
+            if (!string.IsNullOrEmpty(manifest.AdditionalPrompt))
+            {
+                var promptResult = PromptValidator.SanitizePrompt(manifest.AdditionalPrompt);
+                if (!promptResult.IsValid)
+                {
+                    AppLogger.Warn(
+                        $"{context}: JobManifest.AdditionalPrompt inválido: " +
+                        $"{promptResult.FirstError}. Longitud: {manifest.AdditionalPrompt.Length}.");
+                }
+            }
+
+            // ── File paths dentro del manifest ──
+            // Cada archivo del job tiene su propio path que
+            // va a File.Copy / File.ReadAllText. Si está
+            // contaminado (path traversal), el code path que
+            // use ese file va a tener problemas.
+            foreach (var fileM in manifest.Files)
+            {
+                if (string.IsNullOrEmpty(fileM.SourceFilePath)) continue;
+
+                var fileResult = FileSystemPathValidator.SanitizeFileName(
+                    Path.GetFileName(fileM.SourceFilePath));
+                if (!fileResult.IsValid)
+                {
+                    AppLogger.Warn(
+                        $"{context}: JobManifest.Files[].SourceFilePath tiene nombre inválido: " +
+                        $"{fileResult.FirstError} (path: '{fileM.SourceFilePath}').");
+                }
+
+                // Path completo: chequea traversal
+                if (FileSystemPathValidator.ContainsPathTraversal(fileM.SourceFilePath))
+                {
+                    AppLogger.Warn(
+                        $"{context}: JobManifest.Files[].SourceFilePath contiene path traversal: " +
+                        $"'{fileM.SourceFilePath}'. Posible manifest malicioso o corrupto.");
+                }
+            }
         }
     }
 }
