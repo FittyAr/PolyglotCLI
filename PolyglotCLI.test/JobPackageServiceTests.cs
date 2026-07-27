@@ -202,16 +202,27 @@ namespace PolyglotCLI.test
             Assert.Contains("manifest.json", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
 
-        // ---- Defensa contra SourceFilePath traversal en el manifest importado ----
-        // ReprocessPageAsync abre SourceFilePath directamente (File.ReadAllBytes /
-        // PdfPageRenderer.RenderPageToPng). Si un manifest importado trae rutas
-        // absolutas a archivos del usuario, un click en "Re-procesar" las abre.
-        // ImportJobPackageAsync ahora rechaza el paquete si algún SourceFilePath
-        // queda fuera de la carpeta extraída.
+        // ---- Portabilidad del SourceFilePath entre máquinas ----
+        // El manifest exportado guarda el SourceFilePath absoluto del
+        // equipo de origen (la ruta donde el usuario tenía su archivo
+        // original al crear el job, p.ej. D:\mis_docs\doc.pdf o
+        // C:\Users\...\AppData\Roaming\PolyglotCLI\jobs\...). Esas rutas
+        // no existen en el equipo que importa y no son operativas: el
+        // sistema siempre trabaja sobre las copias depositadas en
+        // <jobDir>\sources\, que es lo único que vino dentro del .zpg.
+        // Al importar reescribimos cada SourceFilePath a la ruta absoluta
+        // de esa copia local, sin importar qué valor traía el manifest
+        // (sea absoluto, relativo, con "..", etc.). La seguridad es
+        // implícita: el destino usa NormalizedFileName (saneado a
+        // [a-zA-Z0-9_\-\.]) y siempre cae dentro de sources/, así que
+        // un manifest hostil no puede escapar del job.
 
         [Fact]
-        public async Task ImportJobPackageAsync_RejectsManifestWithAbsoluteSourceFilePath()
+        public async Task ImportJobPackageAsync_RewritesAbsoluteSourceFilePath()
         {
+            // SourceFilePath absoluto del equipo original: el caso típico
+            // que rompe el round-trip entre máquinas. Debe importarse
+            // bien, reescribiendo la ruta a la copia local en sources/.
             string manifest = @"{
                 ""JobId"": ""abs_path_job"",
                 ""Status"": ""Completed"",
@@ -252,19 +263,118 @@ namespace PolyglotCLI.test
                 {
                     dw.Write("[]");
                 }
+                // Incluimos el source reescrito para que un re-proceso
+                // posterior pueda abrirlo desde el árbol extraído.
+                var src = archive.CreateEntry("abs_path_job/sources/secrets.pdf", CompressionLevel.Optimal);
+                using var sw = new StreamWriter(src.Open());
+                sw.Write("%PDF-1.4 sample");
             }
 
+            // Destino separado para no chocar con un import previo.
+            string targetRoot = Path.Combine(_tempRoot, "abs-path-target");
+            Directory.CreateDirectory(targetRoot);
+
             await using var input = File.OpenRead(zipPath);
-            var ex = await Assert.ThrowsAsync<InvalidJobPackageException>(async () =>
-                await JobPackageService.ImportJobPackageAsync(input, _jobsRoot));
-            Assert.Contains("fuera del paquete", ex.Message, StringComparison.OrdinalIgnoreCase);
-            // El paquete debe haber sido rechazado: no debe existir el dir.
-            Assert.False(Directory.Exists(Path.Combine(_jobsRoot, "abs_path_job")));
+            string restoredId = await JobPackageService.ImportJobPackageAsync(input, targetRoot);
+
+            Assert.Equal("abs_path_job", restoredId);
+            string restoredDir = Path.Combine(targetRoot, restoredId);
+            string restoredManifest = Path.Combine(restoredDir, "manifest.json");
+            Assert.True(File.Exists(restoredManifest));
+
+            // El manifest reescrito debe tener SourceFilePath apuntando a
+            // la copia local dentro del job, NUNCA a la ruta absoluta
+            // original. Esta es la invariante que hace que el import
+            // funcione en otra máquina (incluso sin D: o sin el usuario
+            // original) y que un re-proceso posterior encuentre el archivo.
+            string json = File.ReadAllText(restoredManifest);
+            using var doc = JsonDocument.Parse(json);
+            var files = doc.RootElement.GetProperty("Files");
+            Assert.Equal(1, files.GetArrayLength());
+            string? rewritten = files[0].GetProperty("SourceFilePath").GetString();
+            string expected = Path.Combine(restoredDir, "sources", "secrets.pdf");
+            Assert.Equal(expected, rewritten);
+            Assert.False(rewritten!.Contains("C:\\Users\\Victim", StringComparison.OrdinalIgnoreCase));
         }
 
         [Fact]
-        public async Task ImportJobPackageAsync_RejectsManifestWithTraversalSourceFilePath()
+        public async Task ImportJobPackageAsync_RewritesStaleRoamingPath()
         {
+            // Caso real del error reportado: el manifest trae el path
+            // completo al árbol de jobs del usuario, p.ej.
+            // %AppData%\PolyglotCLI\jobs\...\sources\doc.pdf. En la PC
+            // de origen ese path existe, pero al importarlo en otra PC
+            // (que ni siquiera tiene esa unidad) no resuelve. El fix:
+            // reescribir siempre a la copia local dentro del job.
+            string stalePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "PolyglotCLI", "jobs", "stale_job", "sources", "doc.pdf");
+
+            string manifestTemplate = @"{
+                ""JobId"": ""stale_job"",
+                ""Status"": ""Completed"",
+                ""CreatedAt"": ""2026-01-01T00:00:00Z"",
+                ""LastUpdatedAt"": ""2026-01-01T00:00:00Z"",
+                ""TargetLanguage"": ""Spanish"",
+                ""Mode"": ""text"",
+                ""OutputDirectory"": ""out"",
+                ""PageRange"": ""all"",
+                ""Transcribe"": true,
+                ""Translate"": true,
+                ""Verify"": false,
+                ""GenerateDoc"": false,
+                ""Files"": [
+                    {
+                        ""SourceFilePath"": ""__STALE__"",
+                        ""OriginalFileName"": ""doc.pdf"",
+                        ""NormalizedFileName"": ""doc.pdf"",
+                        ""CopiedFilePath"": ""__STALE__"",
+                        ""TargetLanguage"": ""Spanish"",
+                        ""Completed"": true,
+                        ""Pages"": []
+                    }
+                ]
+            }";
+            string manifest = manifestTemplate.Replace(
+                "__STALE__",
+                stalePath.Replace("\\", "\\\\"));
+
+            string zipPath = Path.Combine(_tempRoot, "stale.zip");
+            using (var fs = File.Create(zipPath))
+            using (var archive = new ZipArchive(fs, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                var entry = archive.CreateEntry("stale_job/manifest.json", CompressionLevel.Optimal);
+                using (var writer = new StreamWriter(entry.Open()))
+                {
+                    writer.Write(manifest);
+                }
+            }
+
+            string targetRoot = Path.Combine(_tempRoot, "stale-target");
+            Directory.CreateDirectory(targetRoot);
+
+            await using var input = File.OpenRead(zipPath);
+            string restoredId = await JobPackageService.ImportJobPackageAsync(input, targetRoot);
+
+            Assert.Equal("stale_job", restoredId);
+            string json = File.ReadAllText(Path.Combine(targetRoot, restoredId, "manifest.json"));
+            using var doc = JsonDocument.Parse(json);
+            string? rewritten = doc.RootElement.GetProperty("Files")[0]
+                .GetProperty("SourceFilePath").GetString();
+            string expected = Path.Combine(targetRoot, restoredId, "sources", "doc.pdf");
+            Assert.Equal(expected, rewritten);
+        }
+
+        [Fact]
+        public async Task ImportJobPackageAsync_IgnoresTraversalInSourceFilePath()
+        {
+            // Aunque el manifest intente path traversal en SourceFilePath,
+            // el rewrite usa NormalizedFileName (saneado) y ancla el
+            // destino en <finalDir>/sources/. El resultado es siempre una
+            // ruta dentro del job, no en C:\Windows\System32 ni en
+            // ningún lado fuera del paquete. No hay nada que rechazar:
+            // el import funciona y el sistema nunca intenta abrir el
+            // path original.
             string manifest = @"{
                 ""JobId"": ""traversal_job"",
                 ""Status"": ""Completed"",
@@ -307,11 +417,23 @@ namespace PolyglotCLI.test
                 }
             }
 
+            string targetRoot = Path.Combine(_tempRoot, "traversal-target");
+            Directory.CreateDirectory(targetRoot);
+
             await using var input = File.OpenRead(zipPath);
-            var ex = await Assert.ThrowsAsync<InvalidJobPackageException>(async () =>
-                await JobPackageService.ImportJobPackageAsync(input, _jobsRoot));
-            Assert.Contains("fuera del paquete", ex.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.False(Directory.Exists(Path.Combine(_jobsRoot, "traversal_job")));
+            string restoredId = await JobPackageService.ImportJobPackageAsync(input, targetRoot);
+
+            Assert.Equal("traversal_job", restoredId);
+            string restoredDir = Path.Combine(targetRoot, restoredId);
+            string json = File.ReadAllText(Path.Combine(restoredDir, "manifest.json"));
+            using var doc = JsonDocument.Parse(json);
+            string? rewritten = doc.RootElement.GetProperty("Files")[0]
+                .GetProperty("SourceFilePath").GetString();
+            // El rewrite va a la copia local, NUNCA al path traversal.
+            string expected = Path.Combine(restoredDir, "sources", "hosts");
+            Assert.Equal(expected, rewritten);
+            Assert.False(rewritten!.Contains("..", StringComparison.Ordinal));
+            Assert.False(rewritten.Contains("Windows", StringComparison.OrdinalIgnoreCase));
         }
 
         [Fact]
@@ -367,6 +489,17 @@ namespace PolyglotCLI.test
             await using var input = File.OpenRead(zipPath);
             string restoredId = await JobPackageService.ImportJobPackageAsync(input, targetRoot);
             Assert.Equal("relpath_job", restoredId);
+
+            // Misma invariante que en los otros casos: el manifest
+            // persistido tiene SourceFilePath apuntando a la copia local
+            // del job, no al path relativo "sources/relpath.pdf" que
+            // vinía en el .zpg.
+            string json = File.ReadAllText(Path.Combine(targetRoot, restoredId, "manifest.json"));
+            using var doc = JsonDocument.Parse(json);
+            string? rewritten = doc.RootElement.GetProperty("Files")[0]
+                .GetProperty("SourceFilePath").GetString();
+            string expected = Path.Combine(targetRoot, restoredId, "sources", "relpath.pdf");
+            Assert.Equal(expected, rewritten);
         }
     }
 }

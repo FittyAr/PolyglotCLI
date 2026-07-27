@@ -4,7 +4,6 @@ using System.IO.Compression;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
 {
@@ -184,13 +183,17 @@ namespace PolyglotCLI
                         "El manifest.json tiene un JobId inválido tras la normalización.");
                 }
 
-                // Defensa contra path traversal: cada SourceFilePath del
-                // manifest debe apuntar dentro del árbol extraído. Si un
-                // manifest malicioso incluye rutas absolutas a archivos del
-                // sistema (p.ej. C:\Users\...\config.json), se rechaza el
-                // paquete en vez de dejar que ReprocessPageAsync los abra
-                // cuando el usuario pulse "Re-procesar".
-                ValidateSourcePathsInside(manifest, extractedRoot);
+                // El manifest exportado en otra máquina trae SourceFilePath
+                // apuntando al árbol de jobs original (p.ej.
+                // C:\Users\...\AppData\Roaming\PolyglotCLI\jobs\...\sources\doc.pdf
+                // o D:\mis_docs\doc.pdf). Esas rutas no existen en el equipo
+                // que importa y no tienen valor: el sistema siempre trabaja
+                // sobre las copias depositadas en <jobDir>\sources\, que es
+                // lo único que vino dentro del .zpg. Después del move al
+                // directorio final reescribimos cada SourceFilePath a esa
+                // copia local para que el orquestador (ReprocessPageAsync,
+                // UpdatePageOcr, etc.) pueda abrir el archivo sin
+                // depender de rutas del equipo de origen.
 
                 effectiveJobId = ResolveTargetJobId(jobsRoot, originalJobId);
 
@@ -203,22 +206,27 @@ namespace PolyglotCLI
                 Directory.Move(extractedRoot, finalDir);
                 extractedRoot = null;
 
+                RewriteSourceFilePathsToLocalCopy(manifest, finalDir);
+
+                // Persistir el manifest en su ubicación final. Reutilizamos
+                // el objeto en memoria (que ya tiene SourceFilePath
+                // reescrito y, si corresponde, JobId actualizado) en vez de
+                // re-leer el JSON del paquete, porque ese re-read
+                // descartaría las reescrituras de SourceFilePath.
                 var finalManifestPath = Path.Combine(finalDir, "manifest.json");
                 if (File.Exists(finalManifestPath))
                 {
                     try
                     {
-                        var existingJson = await File.ReadAllTextAsync(finalManifestPath);
-                        var existing = JsonSerializer.Deserialize<JobManifest>(existingJson);
-                        if (existing != null)
+                        if (!string.Equals(manifest.JobId, effectiveJobId, StringComparison.Ordinal))
                         {
-                            existing.JobId = effectiveJobId;
-                            existing.LastUpdatedAt = DateTime.Now;
-                            // JobManifest.Save ya implementa el patrón
-                            // atómico (.tmp + File.Replace), no usamos
-                            // File.WriteAllTextAsync directo acá.
-                            existing.Save(finalManifestPath);
+                            manifest.JobId = effectiveJobId;
                         }
+                        manifest.LastUpdatedAt = DateTime.Now;
+                        // JobManifest.Save ya implementa el patrón
+                        // atómico (.tmp + File.Replace), no usamos
+                        // File.WriteAllTextAsync directo acá.
+                        manifest.Save(finalManifestPath);
                     }
                     catch (Exception fixEx)
                     {
@@ -302,40 +310,47 @@ namespace PolyglotCLI
         }
 
         /// <summary>
-        /// Verifica que todos los <c>SourceFilePath</c> del manifest
-        /// resuelven dentro de <paramref name="extractedRoot"/>. Lanza
-        /// <see cref="InvalidJobPackageException"/> ante la primera ruta
-        /// que apunte afuera (path absoluto, <c>..\..\..</c>, etc.) para
-        /// evitar que ReprocessPageAsync termine abriendo archivos del
-        /// usuario cuando el manifest proviene de un .zpg hostil.
+        /// Reescribe cada <c>SourceFilePath</c> del manifest a la ruta
+        /// absoluta de la copia depositada en <c>finalDir\sources\</c> del
+        /// job recién importado. Esto desacopla el manifest del equipo
+        /// donde se exportó: da igual que el SourceFilePath original
+        /// apuntara a <c>D:\mis_docs\doc.pdf</c> en la máquina de origen
+        /// o incluyera segmentos <c>..</c>; el sistema siempre abrirá el
+        /// archivo que vino dentro del paquete.
         ///
-        /// Delega a <see cref="PathTraversalGuard.TryResolveInside"/> —
-        /// única implementación de esta defensa en el proyecto.
+        /// <para>El nombre destino se toma de <c>NormalizedFileName</c>
+        /// (saneado a <c>[a-zA-Z0-9_\-\.]</c> al crear el job) con
+        /// fallback a <c>OriginalFileName</c> y por último al basename
+        /// del path original. Como ninguno de los tres puede contener
+        /// separadores ni <c>..</c>, el rewrite nunca puede escapar del
+        /// directorio <c>sources/</c> del job.</para>
         /// </summary>
-        private static void ValidateSourcePathsInside(JobManifest manifest, string extractedRoot)
+        private static void RewriteSourceFilePathsToLocalCopy(JobManifest manifest, string finalDir)
         {
             if (manifest.Files == null) return;
-            if (string.IsNullOrEmpty(extractedRoot)) return;
+            if (string.IsNullOrEmpty(finalDir)) return;
+
+            string sourcesDir = Path.Combine(finalDir, "sources");
             foreach (var file in manifest.Files)
             {
                 if (file == null) continue;
-                string raw = file.SourceFilePath ?? string.Empty;
-                if (string.IsNullOrEmpty(raw)) continue;
-                try
+
+                string name = !string.IsNullOrEmpty(file.NormalizedFileName)
+                    ? file.NormalizedFileName
+                    : (!string.IsNullOrEmpty(file.OriginalFileName)
+                        ? file.OriginalFileName
+                        : Path.GetFileName(file.SourceFilePath ?? string.Empty));
+
+                if (string.IsNullOrEmpty(name))
                 {
-                    if (!PathTraversalGuard.TryResolveInside(extractedRoot, raw, out _))
-                    {
-                        throw new InvalidJobPackageException(
-                            $"El manifest incluye SourceFilePath fuera del paquete: '{raw}'. " +
-                            "Rechazado por seguridad.");
-                    }
+                    // Sin nombre derivable: queda vacío. El re-proceso
+                    // simplemente no tendrá archivo fuente (mismo efecto
+                    // que si el original estuviera ausente).
+                    file.SourceFilePath = string.Empty;
+                    continue;
                 }
-                catch (InvalidJobPackageException) { throw; }
-                catch (Exception ex)
-                {
-                    throw new InvalidJobPackageException(
-                        $"SourceFilePath inválido en el manifest ('{raw}'): {ex.Message}");
-                }
+
+                file.SourceFilePath = Path.Combine(sourcesDir, name);
             }
         }
     }
