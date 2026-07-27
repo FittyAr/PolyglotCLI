@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using PolyglotCLI.Validation;
 
 namespace PolyglotCLI.web.Services.JobDetails;
 
@@ -46,7 +47,7 @@ public class JobArtifactsService : IJobArtifactsService
 
     public string? ReadTextFile(string jobDir, string path, string errorPrefix = "Error al leer el archivo")
     {
-        if (!TryResolveInside(jobDir, path, out var fullPath))
+        if (!PathTraversalGuard.TryResolveInside(jobDir, path, out var fullPath))
         {
             return $"{errorPrefix}: ruta fuera del directorio del trabajo.";
         }
@@ -62,7 +63,7 @@ public class JobArtifactsService : IJobArtifactsService
 
     public string? ReadFileAsBase64(string jobDir, string path, string errorPrefix = "Error al leer la imagen")
     {
-        if (!TryResolveInside(jobDir, path, out var fullPath))
+        if (!PathTraversalGuard.TryResolveInside(jobDir, path, out var fullPath))
         {
             return $"{errorPrefix}: ruta fuera del directorio del trabajo.";
         }
@@ -91,39 +92,5 @@ public class JobArtifactsService : IJobArtifactsService
         {
         }
         return result;
-    }
-
-    /// <summary>
-    /// Resuelve <paramref name="path"/> contra <paramref name="jobDir"/>
-    /// y verifica que el resultado sigue dentro de ese directorio. Bloquea
-    /// paths absolutos, <c>..\..\..</c>, y symlinks que escapen.
-    /// </summary>
-    private static bool TryResolveInside(string jobDir, string path, out string fullPath)
-    {
-        fullPath = string.Empty;
-        if (string.IsNullOrEmpty(jobDir) || string.IsNullOrEmpty(path)) return false;
-        try
-        {
-            string jobRoot = Path.GetFullPath(jobDir);
-            // Si `path` es absoluto, combínalo con jobRoot (que lo descarta);
-            // si es relativo, combínalo. Después resolvemos.
-            string combined = Path.IsPathRooted(path)
-                ? path
-                : Path.Combine(jobRoot, path);
-            string resolved = Path.GetFullPath(combined);
-            // Comparación con comparador OrdinalIgnoreCase es segura porque
-            // ambos lados ya están normalizados por GetFullPath.
-            if (!resolved.StartsWith(jobRoot + Path.DirectorySeparatorChar, System.StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(resolved, jobRoot, System.StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-            fullPath = resolved;
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
     }
 }

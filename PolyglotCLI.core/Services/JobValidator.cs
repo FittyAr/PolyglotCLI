@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
 {
@@ -9,16 +10,13 @@ namespace PolyglotCLI
     {
         public static (bool IsValid, string? ErrorMessage) ValidateJobSettings(AppConfig config, string scanDir)
         {
-            // 1. LM Studio API URL
-            string apiUrl = config.ApiUrl;
-            if (string.IsNullOrEmpty(apiUrl))
+            // 1. LM Studio API URL — delega a NetworkUrlValidator para
+            // no duplicar la lógica (esquema, host vacío, longitud
+            // máxima, etc.). El validator es la única fuente de verdad.
+            var urlResult = NetworkUrlValidator.SanitizeApiUrl(config.ApiUrl);
+            if (!urlResult.IsValid)
             {
-                return (false, "LM Studio API URL cannot be empty.");
-            }
-            if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out var uriResult) || 
-                (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))
-            {
-                return (false, "LM Studio API URL must be a valid HTTP or HTTPS URL (e.g., http://localhost:1234/v1).");
+                return (false, $"LM Studio API URL inválida: {urlResult.FirstError} (valor: '{config.ApiUrl}').");
             }
 
             // 2. Translation Model Name
@@ -39,7 +37,12 @@ namespace PolyglotCLI
                 return (false, "Target Language must contain only letters, spaces, or hyphens (e.g., 'English' or 'Brazilian-Portuguese').");
             }
 
-            // 4. Output Directory
+            // 4. Output Directory — chequeo mínimo de chars no
+            // válidos. La validación completa (path traversal, control
+            // chars, length) ya corre en AppConfig.Save via
+            // FileSystemPathValidator; acá solo necesitamos detectar
+            // chars que el FS rechaza antes de pasarle al usuario un
+            // mensaje críptico.
             string outDir = config.OutputDirectory ?? "";
             if (string.IsNullOrEmpty(outDir))
             {

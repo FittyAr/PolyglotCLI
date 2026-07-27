@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
 {
@@ -241,10 +242,14 @@ namespace PolyglotCLI
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(ApiUrl) || !Uri.TryCreate(ApiUrl, UriKind.Absolute, out _))
+            // Misma validación que JobValidator.ValidateJobSettings:
+            // delegamos a NetworkUrlValidator para no duplicar la
+            // lógica (esquema, host vacío, longitud máxima).
+            var urlResult = NetworkUrlValidator.SanitizeApiUrl(ApiUrl);
+            if (!urlResult.IsValid)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Error: Invalid LM Studio API URL '{ApiUrl}'.");
+                Console.WriteLine($"Error: Invalid LM Studio API URL '{ApiUrl}': {urlResult.FirstError}.");
                 Console.ResetColor();
                 return false;
             }

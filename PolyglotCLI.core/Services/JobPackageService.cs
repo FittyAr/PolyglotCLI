@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
 {
@@ -213,9 +214,10 @@ namespace PolyglotCLI
                         {
                             existing.JobId = effectiveJobId;
                             existing.LastUpdatedAt = DateTime.Now;
-                            await File.WriteAllTextAsync(
-                                finalManifestPath,
-                                JsonSerializer.Serialize(existing, new JsonSerializerOptions { WriteIndented = true }));
+                            // JobManifest.Save ya implementa el patrón
+                            // atómico (.tmp + File.Replace), no usamos
+                            // File.WriteAllTextAsync directo acá.
+                            existing.Save(finalManifestPath);
                         }
                     }
                     catch (Exception fixEx)
@@ -307,17 +309,13 @@ namespace PolyglotCLI
         /// evitar que ReprocessPageAsync termine abriendo archivos del
         /// usuario cuando el manifest proviene de un .zpg hostil.
         ///
-        /// Los paths relativos se interpretan contra el root extraído (no
-        /// contra el CWD); los absolutos se comparan tal cual. La comparación
-        /// final exige que el path resuelto sea el root mismo o que esté
-        /// estrictamente dentro (prefijo + separador) — un check naive de
-        /// "StartsWith(root)" aceptaría "/foo/bar" cuando root es "/foo".
+        /// Delega a <see cref="PathTraversalGuard.TryResolveInside"/> —
+        /// única implementación de esta defensa en el proyecto.
         /// </summary>
         private static void ValidateSourcePathsInside(JobManifest manifest, string extractedRoot)
         {
             if (manifest.Files == null) return;
             if (string.IsNullOrEmpty(extractedRoot)) return;
-            string root = Path.GetFullPath(extractedRoot);
             foreach (var file in manifest.Files)
             {
                 if (file == null) continue;
@@ -325,13 +323,7 @@ namespace PolyglotCLI
                 if (string.IsNullOrEmpty(raw)) continue;
                 try
                 {
-                    string resolved = Path.IsPathRooted(raw)
-                        ? Path.GetFullPath(raw)
-                        : Path.GetFullPath(Path.Combine(root, raw));
-                    bool inside =
-                        string.Equals(resolved, root, StringComparison.OrdinalIgnoreCase) ||
-                        resolved.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-                    if (!inside)
+                    if (!PathTraversalGuard.TryResolveInside(extractedRoot, raw, out _))
                     {
                         throw new InvalidJobPackageException(
                             $"El manifest incluye SourceFilePath fuera del paquete: '{raw}'. " +
