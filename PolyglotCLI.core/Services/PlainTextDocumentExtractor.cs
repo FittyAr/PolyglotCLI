@@ -22,12 +22,13 @@ namespace PolyglotCLI
             DocumentTarget target, 
             OcrService ocrService, 
             PdfPageRenderer pageRenderer, 
-            List<PageProcessState>? cachedStates = null,
-            MarkdownWriter? originalWriter = null)
+            ExtractionContext? context = null,
+            List<PageProcessState>? cachedStates = null)
         {
             var pageStates = new List<PageProcessState>();
             try
             {
+                (context ?? ExtractionContext.None).CancellationToken.ThrowIfCancellationRequested();
                 string text = File.ReadAllText(filePath);
                 var chunks = TextChunker.ChunkText(text, target.MaxCharactersPerChunk, target.ChunkOverlapCharacters);
                 
@@ -52,16 +53,8 @@ namespace PolyglotCLI
                         });
                     }
                 }
-
-                if (originalWriter != null)
-                {
-                    foreach (var s in pageStates)
-                    {
-                        originalWriter.SaveOrUpdatePage(s.PageNumber, s.OcrText ?? string.Empty);
-                    }
-                }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 var state = new PageProcessState
                 {
@@ -71,11 +64,6 @@ namespace PolyglotCLI
                     OcrText = $"*Failed to read plain text file: {ex.Message}*"
                 };
                 pageStates.Add(state);
-
-                if (originalWriter != null)
-                {
-                    originalWriter.SaveOrUpdatePage(1, state.OcrText ?? string.Empty);
-                }
             }
 
             return Task.FromResult(pageStates);

@@ -210,16 +210,6 @@ public partial class Config : ComponentBase, IDisposable
             var snapshot = JsonSerializer.Deserialize<PolyglotCLI.AppConfig>(_baselineJson);
             if (snapshot is null) return;
             CopyInto(snapshot, AppConfig);
-            // También revertimos los buffers locales de los prompts:
-            try
-            {
-                var promptLoader = new PromptLoader();
-                try { ocrPromptText = promptLoader.LoadOcrPrompt(); } catch {}
-                try { translationPromptText = promptLoader.LoadTranslationPrompt(); } catch {}
-                try { reviewPromptText = promptLoader.LoadReviewPrompt(); } catch {}
-                try { promptImproverPromptText = promptLoader.LoadPromptImproverPrompt(); } catch {}
-            }
-            catch { }
         }
         catch
         {
@@ -382,8 +372,26 @@ public partial class Config : ComponentBase, IDisposable
         dst.LogLevelFile = src.LogLevelFile;
     }
 
+    private readonly CancellationTokenSource _disposeCts = new();
+
+    private async Task ClearSaveMessageLaterAsync()
+    {
+        try
+        {
+            await Task.Delay(3000, _disposeCts.Token);
+            saveMessage = "";
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException)
+        {
+            // Componente descartado antes de que venza el timer.
+        }
+    }
+
     public void Dispose()
     {
+        _disposeCts.Cancel();
+        _disposeCts.Dispose();
         _locationHandler?.Dispose();
         _locationHandler = null;
         _handlerRegistered = false;
@@ -407,7 +415,6 @@ public partial class Config : ComponentBase, IDisposable
         AppConfig.DismissedMigrationNotice = true;
         AppConfig.Save();
         _baselineJson = SerializeForCompare(AppConfig);
-        StateHasChanged();
     }
 
     /// <summary>
@@ -420,14 +427,12 @@ public partial class Config : ComponentBase, IDisposable
         AppConfig.DismissedDpapiNotice = true;
         AppConfig.Save();
         _baselineJson = SerializeForCompare(AppConfig);
-        StateHasChanged();
     }
 
     protected async Task LoadModelsFromServer()
     {
         isTestingConnection = true;
         testConnectionResult = null;
-        StateHasChanged();
 
         try
         {
@@ -459,7 +464,6 @@ public partial class Config : ComponentBase, IDisposable
         finally
         {
             isTestingConnection = false;
-            StateHasChanged();
         }
     }
 
@@ -519,9 +523,9 @@ public partial class Config : ComponentBase, IDisposable
             // persistido en disco, así que el nuevo estado limpio.
             _baselineJson = SerializeForCompare(AppConfig);
 
-            await Task.Delay(3000);
-            saveMessage = "";
-            StateHasChanged();
+            // El banner se limpia en segundo plano: no bloquear al que
+            // llama (p.ej. el guard de navegación "Guardar y salir").
+            _ = ClearSaveMessageLaterAsync();
         }
         catch (Exception ex)
         {

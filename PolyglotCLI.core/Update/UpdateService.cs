@@ -188,6 +188,10 @@ namespace PolyglotCLI.Update
                 throw new InvalidOperationException("La release no incluye un instalador .exe.");
             if (!IsAllowedGitHubAssetUrl(info.InstallerDownloadUrl))
                 throw new InvalidOperationException("La URL del instalador no pertenece a un host de GitHub permitido.");
+            // Sin digest publicado no hay forma de verificar el binario que
+            // se ejecutaría como admin: se aborta ANTES de descargar.
+            if (string.IsNullOrWhiteSpace(info.Digest))
+                throw new InvalidOperationException("La release no publica un digest SHA-256 del instalador; la actualización automática no puede verificarlo.");
 
             string tempDir = Path.Combine(Path.GetTempPath(), "PolyglotCLI-Updates");
             Directory.CreateDirectory(tempDir);
@@ -234,24 +238,21 @@ namespace PolyglotCLI.Update
             }
             progress?.Report(1.0);
 
-            // Verificación de integridad: si GitHub publicó un digest
-            // sha256, el archivo tiene que coincidir. Si no, se borra
-            // y se aborta antes de cualquier Process.Start.
-            if (!string.IsNullOrEmpty(info.Digest))
+            // Verificación de integridad: el archivo tiene que coincidir con
+            // el digest publicado. Si no, se borra y se aborta antes de
+            // cualquier Process.Start.
+            string actual = await ComputeSha256Async(outPath, ct).ConfigureAwait(false);
+            if (!DigestMatches(info.Digest, actual))
             {
-                string actual = await ComputeSha256Async(outPath, ct).ConfigureAwait(false);
-                if (!DigestMatches(info.Digest, actual))
-                {
-                    try { File.Delete(outPath); } catch { /* best effort */ }
-                    throw new InvalidOperationException(
-                        $"El instalador descargado no pasó la verificación SHA-256. " +
-                        $"Esperado={info.Digest}, calculado=sha256:{actual}");
-                }
-                // Recordar el (path, digest) verificado para que
-                // LaunchSilentInstaller pueda re-verificar antes de
-                // ejecutar el binario como admin (defensa contra TOCTOU).
-                _verifiedInstallers[outPath] = info.Digest;
+                try { File.Delete(outPath); } catch { /* best effort */ }
+                throw new InvalidOperationException(
+                    $"El instalador descargado no pasó la verificación SHA-256. " +
+                    $"Esperado={info.Digest}, calculado=sha256:{actual}");
             }
+            // Recordar el (path, digest) verificado para que
+            // LaunchSilentInstaller pueda re-verificar antes de
+            // ejecutar el binario como admin (defensa contra TOCTOU).
+            _verifiedInstallers[outPath] = info.Digest;
 
             return outPath;
         }
@@ -318,9 +319,15 @@ namespace PolyglotCLI.Update
                     "Por seguridad, sólo se ejecutan binarios que pasaron la verificación de digest en esta instancia.");
             }
 
-            string actualHex = ComputeSha256Sync(installerPath);
+            // Se mantiene un handle abierto con FileShare.Read desde el
+            // hash hasta Process.Start: mientras exista, ningún otro
+            // proceso puede escribir, renombrar ni borrar el .exe, así que
+            // el binario que se ejecuta es exactamente el verificado.
+            using var lockHandle = new FileStream(installerPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: false);
+            string actualHex = ComputeSha256(lockHandle);
             if (!DigestMatches(expectedDigest, actualHex))
             {
+                lockHandle.Dispose();
                 try { File.Delete(installerPath); } catch { /* best effort */ }
                 _verifiedInstallers.Remove(installerPath);
                 throw new InvalidOperationException(
@@ -349,11 +356,11 @@ namespace PolyglotCLI.Update
             return proc;
         }
 
-        private static string ComputeSha256Sync(string path)
+        private static string ComputeSha256(Stream stream)
         {
-            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: false);
+            stream.Position = 0;
             using var sha = SHA256.Create();
-            byte[] hash = sha.ComputeHash(fs);
+            byte[] hash = sha.ComputeHash(stream);
             return Convert.ToHexString(hash).ToLowerInvariant();
         }
 
@@ -406,12 +413,15 @@ namespace PolyglotCLI.Update
 
             static int[] Parts(string v)
             {
-                var m = Regex.Match(v, @"^\s*(\d+)(?:\.(\d+))?(?:\.(\d+))?");
-                if (!m.Success) return new[] { 0 };
                 int[] p = new int[3];
+                var m = Regex.Match(v, @"^\s*(\d+)(?:\.(\d+))?(?:\.(\d+))?");
+                // Tag sin dígitos (p.ej. "nightly"): se trata como 0.0.0.
+                // Antes devolvía un array de 1 elemento y el bucle de
+                // comparación lanzaba IndexOutOfRangeException.
+                if (!m.Success) return p;
                 for (int i = 0; i < 3; i++)
                 {
-                    p[i] = m.Groups[i + 1].Success ? int.Parse(m.Groups[i + 1].Value) : 0;
+                    p[i] = m.Groups[i + 1].Success && int.TryParse(m.Groups[i + 1].Value, out int n) ? n : 0;
                 }
                 return p;
             }

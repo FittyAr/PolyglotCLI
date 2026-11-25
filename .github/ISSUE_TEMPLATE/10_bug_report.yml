@@ -32,7 +32,7 @@ body:
     attributes:
       label: PolyglotCLI version and system details
       description: |
-        Indique la versión exacta de PolyglotCLI (la puede consultar en el pie de página de la UI Web o en PolyglotCLI.web.csproj).
+        Indique la versión exacta de PolyglotCLI (la puede consultar en el pie de página de la UI Web o en Directory.Build.props).
       placeholder: |
         PolyglotCLI: v1.0.0
         Navegador: Chrome / Edge

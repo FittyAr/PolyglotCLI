@@ -53,7 +53,7 @@ public class UpdateServiceTests : IDisposable
         using var svc = new UpdateService("1.0.0", new HttpClient());
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            svc.DownloadInstallerAsync(info).GetAwaiter().GetResult());
+            svc.DownloadInstallerAsync(info, ct: TestContext.Current.CancellationToken).GetAwaiter().GetResult());
         Assert.Contains("host de GitHub", ex.Message);
     }
 
@@ -70,7 +70,7 @@ public class UpdateServiceTests : IDisposable
         using var svc = new UpdateService("1.0.0", new HttpClient());
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            svc.DownloadInstallerAsync(info).GetAwaiter().GetResult());
+            svc.DownloadInstallerAsync(info, ct: TestContext.Current.CancellationToken).GetAwaiter().GetResult());
         Assert.Contains("host de GitHub", ex.Message);
     }
 
@@ -91,7 +91,7 @@ public class UpdateServiceTests : IDisposable
             Digest = digest
         };
 
-        var path = await svc.DownloadInstallerAsync(info);
+        var path = await svc.DownloadInstallerAsync(info, ct: TestContext.Current.CancellationToken);
         try
         {
             Assert.True(File.Exists(path));
@@ -121,7 +121,7 @@ public class UpdateServiceTests : IDisposable
         };
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            svc.DownloadInstallerAsync(info));
+            svc.DownloadInstallerAsync(info, ct: TestContext.Current.CancellationToken));
         Assert.Contains("verificación SHA-256", ex.Message);
     }
 
@@ -144,7 +144,7 @@ public class UpdateServiceTests : IDisposable
             Digest = digest
         };
 
-        var path = await svc.DownloadInstallerAsync(info);
+        var path = await svc.DownloadInstallerAsync(info, ct: TestContext.Current.CancellationToken);
         try { File.Delete(path); } catch { }
     }
 
@@ -166,7 +166,7 @@ public class UpdateServiceTests : IDisposable
             Digest = digest
         };
 
-        var path = await svc.DownloadInstallerAsync(info);
+        var path = await svc.DownloadInstallerAsync(info, ct: TestContext.Current.CancellationToken);
         try
         {
             // Lo importante: el archivo resuelto debe caer estrictamente

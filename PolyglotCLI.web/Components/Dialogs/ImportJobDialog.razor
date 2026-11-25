@@ -85,7 +85,6 @@
         if (selectedFile == null) return;
         busy = true;
         errorMessage = null;
-        StateHasChanged();
 
         try
         {
@@ -124,7 +123,6 @@
         finally
         {
             busy = false;
-            StateHasChanged();
         }
     }
 

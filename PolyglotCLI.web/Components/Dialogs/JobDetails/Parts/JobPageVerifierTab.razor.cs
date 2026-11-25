@@ -159,8 +159,18 @@ public partial class JobPageVerifierTab : ComponentBase
             return;
         }
 
+        // Re-procesar escribe en los archivos del trabajo; no hacerlo
+        // mientras el orquestador está corriendo.
+        if (TranslationSession.IsProcessing)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning,
+                "Traducción en curso",
+                "No se puede re-procesar una página mientras hay una traducción en ejecución.",
+                duration: 7000);
+            return;
+        }
+
         IsReprocessingPage = true;
-        StateHasChanged();
 
         try
         {
@@ -212,7 +222,6 @@ public partial class JobPageVerifierTab : ComponentBase
         finally
         {
             IsReprocessingPage = false;
-            StateHasChanged();
         }
     }
 

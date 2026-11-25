@@ -2,8 +2,10 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
 {
@@ -18,6 +20,23 @@ namespace PolyglotCLI
         public const string PackageExtension = ".zpg";
         public const string PackageMimeType = "application/zip";
         private const int CompressionBufferSize = 81920;
+
+        /// <summary>
+        /// Límites anti zip-bomb para la importación: tamaño total
+        /// descomprimido y cantidad de entradas. Un job real queda muy
+        /// por debajo (PNGs de páginas + JSON + fuentes).
+        /// </summary>
+        public const long MaxTotalUncompressedBytes = 4L * 1024 * 1024 * 1024;
+        public const int MaxEntryCount = 20_000;
+
+        /// <summary>
+        /// Carpetas del job que NO se exportan (logs locales: rutas de la
+        /// máquina, nombres de usuario, etc.).
+        /// </summary>
+        private static readonly string[] ExcludedExportDirectories = { "logs" };
+
+        /// <summary>Nombre del snapshot de configuración del job.</summary>
+        private const string JobConfigFileName = "config.json";
 
         public static void ExportJobPackage(string jobDir, Stream output)
         {
@@ -52,7 +71,7 @@ namespace PolyglotCLI
 
             using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
             {
-                AddDirectoryToArchive(archive, jobDir, rootName);
+                AddDirectoryToArchive(archive, jobDir, rootName, isJobRoot: true);
 
                 if (isIncomplete)
                 {
@@ -66,22 +85,70 @@ namespace PolyglotCLI
             }
         }
 
-        private static void AddDirectoryToArchive(ZipArchive archive, string sourceDir, string entryPrefix)
+        private static void AddDirectoryToArchive(ZipArchive archive, string sourceDir, string entryPrefix, bool isJobRoot = false)
         {
             foreach (var filePath in Directory.GetFiles(sourceDir))
             {
                 var fileName = Path.GetFileName(filePath);
                 var entry = archive.CreateEntry($"{entryPrefix}/{fileName}", CompressionLevel.Optimal);
-                using var src = File.OpenRead(filePath);
                 using var dst = entry.Open();
+
+                if (isJobRoot && string.Equals(fileName, JobConfigFileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Defensa en profundidad: aunque los jobs nuevos ya
+                    // guardan config.json sin secretos, los jobs creados
+                    // por versiones anteriores pueden tener API keys.
+                    byte[] sanitized = StripSecretsFromConfigJson(File.ReadAllText(filePath));
+                    dst.Write(sanitized, 0, sanitized.Length);
+                    continue;
+                }
+
+                using var src = File.OpenRead(filePath);
                 src.CopyTo(dst, CompressionBufferSize);
             }
 
             foreach (var subDir in Directory.GetDirectories(sourceDir))
             {
                 var dirName = Path.GetFileName(subDir);
+                if (isJobRoot && Array.Exists(ExcludedExportDirectories, d => string.Equals(d, dirName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
                 AddDirectoryToArchive(archive, subDir, $"{entryPrefix}/{dirName}");
             }
+        }
+
+        /// <summary>
+        /// Elimina ApiKey, ProviderApiKeys y ProviderConfigs[*].ApiKey de un
+        /// config.json. Si el JSON no se puede parsear, se exporta un objeto
+        /// vacío: preferimos perder ajustes a filtrar una key.
+        /// </summary>
+        internal static byte[] StripSecretsFromConfigJson(string json)
+        {
+            JsonObject root;
+            try
+            {
+                root = JsonNode.Parse(json) as JsonObject ?? new JsonObject();
+            }
+            catch (JsonException)
+            {
+                root = new JsonObject();
+            }
+
+            root.Remove(nameof(AppConfig.ApiKey));
+            root.Remove(nameof(AppConfig.ProviderApiKeys));
+            if (root[nameof(AppConfig.ProviderConfigs)] is JsonObject providerConfigs)
+            {
+                foreach (var kvp in providerConfigs)
+                {
+                    if (kvp.Value is JsonObject pc)
+                    {
+                        pc.Remove(nameof(ProviderConfig.ApiKey));
+                    }
+                }
+            }
+
+            return System.Text.Encoding.UTF8.GetBytes(root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 
         public static async Task<string> ImportJobPackageAsync(Stream input, string jobsRoot)
@@ -108,10 +175,12 @@ namespace PolyglotCLI
                 {
                     archive = new ZipArchive(input, ZipArchiveMode.Read, leaveOpen: false);
                 }
-                catch (InvalidDataException ide)
+                // .NET 11 puede lanzar ArgumentOutOfRangeException (o IOException)
+                // en lugar de InvalidDataException con archivos truncados/diminutos.
+                catch (Exception ex) when (ex is InvalidDataException or ArgumentException or IOException)
                 {
                     throw new InvalidJobPackageException(
-                        "El archivo no es un ZIP válido o está corrupto.", ide);
+                        "El archivo no es un ZIP válido o está corrupto.", ex);
                 }
 
                 using (archive)
@@ -120,6 +189,8 @@ namespace PolyglotCLI
                     {
                         throw new InvalidJobPackageException("El archivo zip está vacío.");
                     }
+
+                    EnsureWithinSizeLimits(archive);
 
                     topLevel = DetectTopLevelPrefix(archive);
                     if (string.IsNullOrEmpty(topLevel))
@@ -208,6 +279,11 @@ namespace PolyglotCLI
 
                 RewriteSourceFilePathsToLocalCopy(manifest, finalDir);
 
+                // El OutputDirectory del manifest viene de otra máquina (o
+                // de un paquete manipulado) y se usa al reanudar: lo
+                // reseteamos a la carpeta de salida por defecto local.
+                manifest.OutputDirectory = AppConfig.GetDefaultOutputDirectory();
+
                 // Persistir el manifest en su ubicación final. Reutilizamos
                 // el objeto en memoria (que ya tiene SourceFilePath
                 // reescrito y, si corresponde, JobId actualizado) en vez de
@@ -253,6 +329,35 @@ namespace PolyglotCLI
                 catch (Exception cleanupEx)
                 {
                     AppLogger.Warn($"Failed to cleanup staging dir {stagingDir}: {cleanupEx.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Rechaza paquetes con demasiadas entradas o cuyo tamaño
+        /// descomprimido declarado supera <see cref="MaxTotalUncompressedBytes"/>
+        /// (zip bomb) ANTES de extraer nada a disco.
+        /// </summary>
+        private static void EnsureWithinSizeLimits(ZipArchive archive)
+        {
+            if (archive.Entries.Count > MaxEntryCount)
+            {
+                throw new InvalidJobPackageException(
+                    $"El paquete tiene demasiadas entradas ({archive.Entries.Count}; máximo {MaxEntryCount}).");
+            }
+
+            long total = 0;
+            foreach (var entry in archive.Entries)
+            {
+                if (entry.Length < 0)
+                {
+                    throw new InvalidJobPackageException($"La entrada '{entry.FullName}' declara un tamaño inválido.");
+                }
+                total += entry.Length;
+                if (total > MaxTotalUncompressedBytes)
+                {
+                    throw new InvalidJobPackageException(
+                        $"El paquete descomprimido supera el máximo permitido ({MaxTotalUncompressedBytes / (1024 * 1024)} MB).");
                 }
             }
         }
@@ -318,12 +423,13 @@ namespace PolyglotCLI
         /// o incluyera segmentos <c>..</c>; el sistema siempre abrirá el
         /// archivo que vino dentro del paquete.
         ///
-        /// <para>El nombre destino se toma de <c>NormalizedFileName</c>
-        /// (saneado a <c>[a-zA-Z0-9_\-\.]</c> al crear el job) con
+        /// <para>El nombre destino se toma de <c>NormalizedFileName</c> con
         /// fallback a <c>OriginalFileName</c> y por último al basename
-        /// del path original. Como ninguno de los tres puede contener
-        /// separadores ni <c>..</c>, el rewrite nunca puede escapar del
-        /// directorio <c>sources/</c> del job.</para>
+        /// del path original. Como el manifest viene de afuera (no es
+        /// confiable), cada candidato se reduce a su basename
+        /// (<c>Path.GetFileName</c>) y se valida con
+        /// <see cref="PathTraversalGuard"/>: si el resultado no queda
+        /// estrictamente dentro de <c>sources/</c>, el path se deja vacío.</para>
         /// </summary>
         private static void RewriteSourceFilePathsToLocalCopy(JobManifest manifest, string finalDir)
         {
@@ -335,23 +441,45 @@ namespace PolyglotCLI
             {
                 if (file == null) continue;
 
-                string name = !string.IsNullOrEmpty(file.NormalizedFileName)
-                    ? file.NormalizedFileName
-                    : (!string.IsNullOrEmpty(file.OriginalFileName)
-                        ? file.OriginalFileName
-                        : Path.GetFileName(file.SourceFilePath ?? string.Empty));
+                string name = SafeBaseName(file.NormalizedFileName);
+                if (string.IsNullOrEmpty(name)) name = SafeBaseName(file.OriginalFileName);
+                if (string.IsNullOrEmpty(name)) name = SafeBaseName(file.SourceFilePath);
 
-                if (string.IsNullOrEmpty(name))
+                if (string.IsNullOrEmpty(name)
+                    || !PathTraversalGuard.TryResolveInside(sourcesDir, name, out var resolved)
+                    || string.Equals(resolved, Path.GetFullPath(sourcesDir), StringComparison.OrdinalIgnoreCase))
                 {
-                    // Sin nombre derivable: queda vacío. El re-proceso
-                    // simplemente no tendrá archivo fuente (mismo efecto
-                    // que si el original estuviera ausente).
+                    // Sin nombre derivable o nombre que escaparía de
+                    // sources/: queda vacío. El re-proceso simplemente no
+                    // tendrá archivo fuente (mismo efecto que si el
+                    // original estuviera ausente).
+                    AppLogger.Warn($"Import: nombre de archivo fuente inválido en el manifest ('{file.NormalizedFileName}'). Se deja sin ruta.");
                     file.SourceFilePath = string.Empty;
+                    file.CopiedFilePath = string.Empty;
                     continue;
                 }
 
-                file.SourceFilePath = Path.Combine(sourcesDir, name);
+                file.SourceFilePath = resolved;
+                file.CopiedFilePath = resolved;
             }
+        }
+
+        /// <summary>
+        /// Basename de un valor del manifest, aceptando separadores de
+        /// Windows y Unix (un manifest creado en otra plataforma puede usar
+        /// cualquiera). Devuelve vacío para "." / ".." o nombres con ':'
+        /// (rutas con unidad o ADS).
+        /// </summary>
+        private static string SafeBaseName(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            string normalized = value.Replace('\\', '/');
+            int idx = normalized.LastIndexOf('/');
+            string name = (idx >= 0 ? normalized.Substring(idx + 1) : normalized).Trim();
+            name = Path.GetFileName(name);
+            if (name == "." || name == ".." || name.Contains(':')) return string.Empty;
+            if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return string.Empty;
+            return name;
         }
     }
 }

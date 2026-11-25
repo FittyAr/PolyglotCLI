@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace PolyglotCLI.web.Components.Dialogs.JobDetails.Parts;
 
-public partial class JobOriginalPageViewer : ComponentBase
+public partial class JobOriginalPageViewer : ComponentBase, IDisposable
 {
     [Parameter]
     public int? PageNumber { get; set; }

@@ -6,6 +6,7 @@
 @inject NavigationManager NavigationManager
 @inject DialogService DialogService
 @inject IJobPackageHost JobPackageHost
+@inject NotificationService NotificationService
 @using PolyglotCLI.web.Components.Dialogs
 
 <PageTitle>Historial de Trabajos - PolyglotCLI</PageTitle>
@@ -124,8 +125,24 @@
         // busca la carpeta, no la encuentra y falla con un error
         // críptico (o se cuelga mostrando el último job).
         if (!await EnsureJobConsistent(job, "reanudar")) return;
+        if (RejectIfTranslationRunning("reanudar este trabajo")) return;
 
         NavigationManager.NavigateTo($"/?resumeJobId={job.JobId}");
+    }
+
+    /// <summary>
+    /// Mientras el orquestador escribe en la carpeta de jobs, borrar o
+    /// reanudar otro trabajo puede corromper manifiestos. Avisamos y
+    /// cancelamos la acción.
+    /// </summary>
+    bool RejectIfTranslationRunning(string action)
+    {
+        if (!TranslationSession.IsProcessing) return false;
+        NotificationService.Notify(NotificationSeverity.Warning,
+            "Traducción en curso",
+            $"No se puede {action} mientras hay una traducción en ejecución. Esperá a que termine o detenela.",
+            duration: 7000);
+        return true;
     }
 
     async Task AnalyzeErrors(JobManifest job)
@@ -188,6 +205,7 @@
     {
         // ── LOG: entrada al handler ───────────────────────────────────
         AppLogger.Info($"DeleteJob: handler called for job '{job.JobId}'.");
+        if (RejectIfTranslationRunning("eliminar trabajos")) return;
 
         // 1) Confirmación
         bool? confirm = await DialogService.Confirm(

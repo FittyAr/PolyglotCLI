@@ -18,28 +18,36 @@ namespace PolyglotCLI
         }
 
         public async Task<List<PageProcessState>> ExtractTextAsync(
-            string filePath, 
-            DocumentTarget target, 
-            OcrService ocrService, 
-            PdfPageRenderer pageRenderer, 
-            List<PageProcessState>? cachedStates = null,
-            MarkdownWriter? originalWriter = null)
+            string filePath,
+            DocumentTarget target,
+            OcrService ocrService,
+            PdfPageRenderer pageRenderer,
+            ExtractionContext? context = null,
+            List<PageProcessState>? cachedStates = null)
         {
+            context ??= ExtractionContext.None;
             var pageStates = new List<PageProcessState>();
             try
             {
+                context.CancellationToken.ThrowIfCancellationRequested();
                 var cached = cachedStates?.Find(s => s.PageNumber == 1);
                 if (cached != null && !cached.OcrFailed && !string.IsNullOrEmpty(cached.OcrText))
                 {
-                    pageStates.Add(cached);
+                    pageStates.Add(new PageProcessState
+                    {
+                        PageNumber = 1,
+                        OcrText = cached.OcrText,
+                        ThoughtText = cached.ThoughtText,
+                        OcrFailed = false
+                    });
                     AppLogger.Info($"Image OCR: Using cached OCR text from disk.");
                     return pageStates;
                 }
 
                 byte[] imageBytes = File.ReadAllBytes(filePath);
-                
-                var ocrRes = await ocrService.PerformOcrAsync(imageBytes, 1);
-                
+
+                var ocrRes = await ocrService.PerformOcrAsync(imageBytes, 1, context.CancellationToken);
+
                 var state = new PageProcessState
                 {
                     PageNumber = 1,
@@ -49,19 +57,10 @@ namespace PolyglotCLI
                 };
                 pageStates.Add(state);
 
-                TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, 1, true, null);
-
-                if (originalWriter != null)
-                {
-                    originalWriter.SaveOrUpdatePage(1, state.OcrText ?? string.Empty);
-                }
+                context.ReportPage(filePath, 1, true, null);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException && !LlmClientFactory.IsFatalAuthenticationError(ex))
             {
-                if (LlmClientFactory.IsFatalAuthenticationError(ex))
-                {
-                    throw;
-                }
                 var state = new PageProcessState
                 {
                     PageNumber = 1,
@@ -71,12 +70,7 @@ namespace PolyglotCLI
                 };
                 pageStates.Add(state);
 
-                TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, 1, false, ex.Message);
-
-                if (originalWriter != null)
-                {
-                    originalWriter.SaveOrUpdatePage(1, state.OcrText ?? string.Empty);
-                }
+                context.ReportPage(filePath, 1, false, ex.Message);
             }
 
             return pageStates;

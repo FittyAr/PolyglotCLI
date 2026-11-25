@@ -1,5 +1,5 @@
 # scripts/bump_version.ps1
-# Incrementa la version en el .csproj, actualiza el CHANGELOG.md, crea el commit/tag y hace push a GitHub.
+# Incrementa la version en Directory.Build.props (fuente unica para web y MAUI), actualiza el CHANGELOG.md, crea el commit/tag y hace push a GitHub.
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::InputEncoding = [System.Text.Encoding]::UTF8
@@ -17,7 +17,7 @@ if (-not $scriptDir) {
 Set-Location $scriptDir
 Set-Location ".."
 
-$csprojPath = "PolyglotCLI.web/PolyglotCLI.web.csproj"
+$csprojPath = "Directory.Build.props"
 $changelogPath = "docs/CHANGELOG.md"
 $unreleasedPath = "docs/UNRELEASE.md"
 $installerScript = Join-Path $scriptDir "build_installer.ps1"
@@ -48,7 +48,7 @@ function Test-GitPendingChanges {
 function Test-GitPushPermissions {
     $branch = git branch --show-current
     if ([string]::IsNullOrWhiteSpace($branch)) {
-        $branch = "main"
+        $branch = "master"
     }
     
     Write-Host "Verificando autenticacion de Git y permisos de push para origin ($branch)..." -ForegroundColor Yellow
@@ -77,7 +77,7 @@ Write-Host "==========================================" -ForegroundColor Cyan
 if (-not (Test-GitPendingChanges)) { exit 0 }
 if (-not (Test-GitPushPermissions)) { exit 1 }
 
-# 2. Cargar version actual del .csproj
+# 2. Cargar version actual de Directory.Build.props
 if (-not (Test-Path $csprojPath)) {
     Write-Error "No se encontro $csprojPath"
     exit 1
@@ -86,7 +86,7 @@ if (-not (Test-Path $csprojPath)) {
 $csprojContent = Get-Content -Raw -Path $csprojPath
 if ($csprojContent -match '<Version>([^<]+)</Version>') {
     $currentVersion = $Matches[1]
-    Write-Host "Version actual en csproj: $currentVersion" -ForegroundColor Cyan
+    Write-Host "Version actual en ${csprojPath}: $currentVersion" -ForegroundColor Cyan
 
     # Sugerir version incremental (patch)
     $parts = $currentVersion -split '\.'
@@ -118,7 +118,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     $origUnreleased = Get-Content -Raw -Path $unreleasedPath
 
     function Restore-VersionFiles {
-        Write-Host "Revirtiendo cambios locales en csproj, CHANGELOG.md y UNRELEASE.md..." -ForegroundColor Yellow
+        Write-Host "Revirtiendo cambios locales en Directory.Build.props, CHANGELOG.md y UNRELEASE.md..." -ForegroundColor Yellow
         Set-Content -Path $csprojPath -Value $origCsproj -Encoding UTF8
         $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText((Resolve-Path $changelogPath).Path, $origChangelog, $utf8NoBom)
@@ -230,7 +230,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
         $newChangelogLines += $newVersionBlock
     }
 
-    # 4. Modificar archivos de proyecto localmente (Csproj)
+    # 4. Modificar la version compartida (Directory.Build.props)
     Write-Host "Modificando la version del proyecto en $csprojPath..." -ForegroundColor Yellow
     $newCsprojContent = $csprojContent -replace '<Version>[^<]+</Version>', "<Version>$newVersion</Version>"
     Set-Content -Path $csprojPath -Value $newCsprojContent -Encoding UTF8
@@ -291,7 +291,7 @@ if ($csprojContent -match '<Version>([^<]+)</Version>') {
     # 6. Confirmacion de Git
     $branch = git branch --show-current
     if ([string]::IsNullOrWhiteSpace($branch)) {
-        $branch = "main"
+        $branch = "master"
     }
 
     # Capturar el estado pendiente antes de stagear (modificaciones + archivos sin seguimiento)

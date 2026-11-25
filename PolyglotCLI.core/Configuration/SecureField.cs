@@ -56,6 +56,10 @@ namespace PolyglotCLI
         {
             if (string.IsNullOrEmpty(plain)) return plain;
             if (IsEncrypted(plain)) return plain;
+            // Un marker de "no se pudo descifrar" lleva adentro el
+            // ciphertext original: se devuelve ESE ciphertext para no
+            // pisar la key real con el marker cifrado en el próximo Save.
+            if (TryGetOriginalCipherFromMarker(plain, out var originalCipher)) return originalCipher;
 
             try
             {
@@ -255,11 +259,38 @@ namespace PolyglotCLI
         /// un marker en vez de null. El marker es detectable
         /// (<see cref="IsDecryptionFailed"/>) y permite que la UI
         /// muestre "key no se pudo descifrar" en vez de "key vacía".
+        /// El marker conserva el ciphertext original
+        /// (<c>__decrypt_failed__:enc:v1:...</c>) para que
+        /// <see cref="Protect"/> lo restaure al guardar: así un config
+        /// copiado entre usuarios no pierde la key de forma permanente.
         /// </summary>
         private const string DecryptionFailedMarker = "__decrypt_failed__";
+        private const string DecryptionFailedSeparator = ":";
 
         public static bool IsDecryptionFailed(string? value)
-            => value == DecryptionFailedMarker;
+            => value != null && value.StartsWith(DecryptionFailedMarker, StringComparison.Ordinal);
+
+        /// <summary>
+        /// Devuelve null si el valor es un marker de descifrado fallido
+        /// (nunca debe enviarse como credencial), o el valor tal cual.
+        /// </summary>
+        public static string? SanitizeForUse(string? value)
+            => IsDecryptionFailed(value) ? null : value;
+
+        private static bool TryGetOriginalCipherFromMarker(string value, out string? originalCipher)
+        {
+            originalCipher = null;
+            if (!IsDecryptionFailed(value)) return false;
+            string rest = value.Substring(DecryptionFailedMarker.Length);
+            if (rest.StartsWith(DecryptionFailedSeparator, StringComparison.Ordinal))
+            {
+                rest = rest.Substring(DecryptionFailedSeparator.Length);
+            }
+            // Sin ciphertext embebido (marker legacy): no hay nada que
+            // preservar, se guarda vacío en lugar del marker.
+            originalCipher = IsEncrypted(rest) ? rest : null;
+            return true;
+        }
 
         private static string? UnprotectOrMarker(string? cipher, string locationForLog)
         {
@@ -275,7 +306,7 @@ namespace PolyglotCLI
             AppLogger.Warn($"AppConfig: no se pudo descifrar '{locationForLog}'. " +
                            $"Re-ingresá la API key desde la pestaña General. " +
                            $"(Si este campo era intencionalmente vacío, podés ignorar el warning.)");
-            return DecryptionFailedMarker;
+            return DecryptionFailedMarker + DecryptionFailedSeparator + cipher;
         }
     }
 }

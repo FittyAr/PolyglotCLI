@@ -13,6 +13,12 @@ git config core.hooksPath .githooks
 Eso le dice a git que busque los hooks en este directorio en lugar
 de `.git/hooks/`. Sin este paso, el hook no se ejecuta.
 
+Para comprobar que quedó activo:
+
+```powershell
+git config --get core.hooksPath   # debe imprimir .githooks
+```
+
 ## Bypassearlo en una emergencia
 
 ```powershell
@@ -24,20 +30,29 @@ todos modos. No abusar.
 
 ## Archivos
 
-- `pre-push.bat` — wrapper de Windows. Git para Windows puede
-  ejecutar archivos `.bat` como hooks directamente, pero
-  PowerShell rechaza `-File` sin extensión `.ps1`, por eso el
-  wrapper existe.
+- `pre-push` — el hook que git ejecuta. Git solo reconoce el nombre
+  exacto del hook (sin extensión), por eso **no** sirve un
+  `pre-push.bat` ni un `pre-push.ps1` sueltos. Es un script `sh`
+  (Git para Windows trae `sh`) que hace
+  `exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File pre-push.ps1`
+  (o `pwsh` si no hay `powershell.exe`, p. ej. en Mac/Linux).
 - `pre-push.ps1` — la lógica real: corre `dotnet build` +
   `dotnet test` y devuelve exit code 0/1 según el resultado.
+- `.gitattributes` — fuerza finales de línea LF en `pre-push`
+  aunque `core.autocrlf=true` (con CRLF el shebang de `sh` falla).
+
+Al agregar el hook al repo conviene marcarlo ejecutable (necesario
+en Mac/Linux):
+
+```powershell
+git add --chmod=+x .githooks/pre-push
+```
 
 ## Compatibilidad
 
-El hook es Windows-only (PowerShell + .bat). En Unix el
-`pre-push.ps1` necesita `pwsh` y el `.bat` no se ejecuta; el
-hook simplemente no corre. Si en el futuro hay devs en Mac/Linux,
-se puede agregar un `pre-push` (sin extensión) con shebang
-`#!/bin/sh` que llame a `pwsh pre-push.ps1`.
+- Windows: funciona con Git para Windows (usa `powershell.exe`).
+- Mac/Linux: requiere `pwsh` (PowerShell 7) en el PATH; si no está,
+  el hook avisa y deja pasar el push sin build ni tests.
 
 ## Cron de backup
 

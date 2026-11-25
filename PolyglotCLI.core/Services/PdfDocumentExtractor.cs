@@ -13,16 +13,17 @@ namespace PolyglotCLI
         }
 
         public async Task<List<PageProcessState>> ExtractTextAsync(
-            string filePath, 
-            DocumentTarget target, 
-            OcrService ocrService, 
-            PdfPageRenderer pageRenderer, 
-            List<PageProcessState>? cachedStates = null,
-            MarkdownWriter? originalWriter = null)
+            string filePath,
+            DocumentTarget target,
+            OcrService ocrService,
+            PdfPageRenderer pageRenderer,
+            ExtractionContext? context = null,
+            List<PageProcessState>? cachedStates = null)
         {
+            context ??= ExtractionContext.None;
             var pageStates = new List<PageProcessState>();
             using var textExtractor = new PdfTextExtractor();
-            
+
             textExtractor.Open(filePath);
             int totalPages = textExtractor.PageCount;
 
@@ -39,21 +40,19 @@ namespace PolyglotCLI
 
             foreach (int pageNum in resolvedPages)
             {
-                TranslationOrchestrator.ActiveCancellationToken.ThrowIfCancellationRequested();
+                context.CancellationToken.ThrowIfCancellationRequested();
                 var state = new PageProcessState { PageNumber = pageNum };
                 pageStates.Add(state);
 
+                // Reutilizar la extracción previa evita repetir el OCR
+                // (caro). La fusión de traducciones/revisiones la hace el
+                // orquestador (PageStateMerger) para todos los formatos.
                 var cached = cachedStates?.Find(s => s.PageNumber == pageNum);
                 if (cached != null && !cached.OcrFailed && !string.IsNullOrEmpty(cached.OcrText))
                 {
                     state.OcrText = cached.OcrText;
+                    state.ThoughtText = cached.ThoughtText;
                     state.OcrFailed = false;
-                    state.TranslatedText = cached.TranslatedText;
-                    state.TranslationFailed = cached.TranslationFailed;
-                    state.TranslationErrorMessage = cached.TranslationErrorMessage;
-                    state.ReviewedText = cached.ReviewedText;
-                    state.ReviewFailed = cached.ReviewFailed;
-                    state.ReviewErrorMessage = cached.ReviewErrorMessage;
                     AppLogger.Info($"Page {pageNum}: Using cached OCR text from disk.");
                     continue;
                 }
@@ -63,43 +62,20 @@ namespace PolyglotCLI
                     try
                     {
                         byte[] pngBytes = pageRenderer.RenderPageToPng(filePath, pageNum);
-                        
-                        // Save PNG to current job directory if set (under temp/ subdirectory)
-                        if (!string.IsNullOrEmpty(TranslationOrchestrator.CurrentJobDirectory))
-                        {
-                            try
-                            {
-                                string tempDir = Path.Combine(TranslationOrchestrator.CurrentJobDirectory, "temp");
-                                if (!Directory.Exists(tempDir))
-                                {
-                                    Directory.CreateDirectory(tempDir);
-                                }
-                                string docName = Path.GetFileNameWithoutExtension(filePath);
-                                string pngPath = Path.Combine(tempDir, $"{docName}_page_{pageNum}.png");
-                                File.WriteAllBytes(pngPath, pngBytes);
-                            }
-                            catch (Exception savePngEx)
-                            {
-                                AppLogger.Warn($"Failed to save temporary page PNG to temp directory: {savePngEx.Message}");
-                            }
-                        }
+                        SaveRenderedPage(context.JobDirectory, filePath, pageNum, pngBytes);
 
-                        var ocrRes = await ocrService.PerformOcrAsync(pngBytes, pageNum);
+                        var ocrRes = await ocrService.PerformOcrAsync(pngBytes, pageNum, context.CancellationToken);
                         state.OcrText = ocrRes.Text;
                         state.ThoughtText = ocrRes.Thought;
                         state.OcrFailed = false;
-                        TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, pageNum, true, null);
+                        context.ReportPage(filePath, pageNum, true, null);
                     }
-                    catch (Exception ocrEx)
+                    catch (Exception ocrEx) when (ocrEx is not OperationCanceledException && !LlmClientFactory.IsFatalAuthenticationError(ocrEx))
                     {
-                        if (LlmClientFactory.IsFatalAuthenticationError(ocrEx))
-                        {
-                            throw;
-                        }
                         state.OcrFailed = true;
                         state.OcrErrorMessage = ocrEx.Message;
                         state.OcrText = $"*Failed to perform OCR on page {pageNum} due to error: {ocrEx.Message}*";
-                        TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, pageNum, false, ocrEx.Message);
+                        context.ReportPage(filePath, pageNum, false, ocrEx.Message);
                     }
                 }
                 else
@@ -108,24 +84,40 @@ namespace PolyglotCLI
                     {
                         state.OcrText = textExtractor.ExtractTextFromPage(pageNum);
                         state.OcrFailed = false;
-                        TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, pageNum, true, null);
+                        context.ReportPage(filePath, pageNum, true, null);
                     }
                     catch (Exception extractEx)
                     {
                         state.OcrFailed = true;
                         state.OcrErrorMessage = extractEx.Message;
                         state.OcrText = $"*Failed to extract text on page {pageNum} due to error: {extractEx.Message}*";
-                        TranslationOrchestrator.OnPageOcrCompleted?.Invoke(filePath, pageNum, false, extractEx.Message);
+                        context.ReportPage(filePath, pageNum, false, extractEx.Message);
                     }
-                }
-
-                if (originalWriter != null)
-                {
-                    originalWriter.SaveOrUpdatePage(pageNum, state.OcrText ?? string.Empty);
                 }
             }
 
             return pageStates;
+        }
+
+        /// <summary>
+        /// Guarda el PNG renderizado bajo {job}\temp\ si hay un job en
+        /// curso (lo usa la UI para mostrar la página original).
+        /// </summary>
+        private static void SaveRenderedPage(string? jobDirectory, string filePath, int pageNum, byte[] pngBytes)
+        {
+            if (string.IsNullOrEmpty(jobDirectory)) return;
+            try
+            {
+                string tempDir = Path.Combine(jobDirectory, "temp");
+                Directory.CreateDirectory(tempDir);
+                string docName = Path.GetFileNameWithoutExtension(filePath);
+                string pngPath = Path.Combine(tempDir, $"{docName}_page_{pageNum}.png");
+                File.WriteAllBytes(pngPath, pngBytes);
+            }
+            catch (Exception savePngEx)
+            {
+                AppLogger.Warn($"Failed to save temporary page PNG to temp directory: {savePngEx.Message}");
+            }
         }
     }
 }

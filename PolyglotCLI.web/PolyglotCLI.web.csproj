@@ -6,16 +6,15 @@
 
   <ItemGroup>
     <PackageReference Include="BlazorPanzoom" Version="0.2.1" />
-    <PackageReference Include="Radzen.Blazor" Version="11.1.7" />
+    <PackageReference Include="Radzen.Blazor" Version="13.3.0" />
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <AssemblyName>PolyglotCLI</AssemblyName>
-    <Version>1.2.2</Version>
     <!-- Icono Win32 embebido en PolyglotCLI.exe (apphost del servidor web).
          Es la fuente de verdad para los iconos de los accesos directos
          (Escritorio y Menu Inicio). -->

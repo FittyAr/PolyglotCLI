@@ -52,15 +52,16 @@ LicenseFile=..\LICENSE
 ; Icono del instalador .exe generado
 SetupIconFile=..\assets\icons\app.ico
 
-; Imagenes del asistente tomadas del manifiesto grafico de la aplicacion
-; (assets/msix/Assets). Si se sustituyen por otras imagenes, mantener las
-; proporciones recomendadas:
-;   WizardImageFile        ~ 164x314 px  (lateral del wizard, banda vertical)
-;   WizardSmallImageFile   ~ 55x55  px   (icono de cabecera, esquina sup. izq.)
-WizardImageFile=..\assets\msix\Assets\LogoSimple.png
-WizardSmallImageFile=..\assets\msix\Assets\Square44x44Logo.png
-WizardImageStretch=yes
-WizardImageBackColor=$1F2937
+; Imagenes del asistente generadas por scripts/generate_brand_assets.ps1 a
+; partir del arte de marca (assets/brand). Se pasa una lista de tamanos con la
+; proporcion exacta de Inno (164x314 y 55x55 al 100%, mas 125/150/200%):
+; Setup elige la que mejor encaja segun DPI y WizardSizePercent, asi la
+; imagen no se deforma (antes se estiraba un PNG cuadrado de 1024x1024).
+WizardImageFile=..\assets\brand\installer\WizardImage-100.png,..\assets\brand\installer\WizardImage-125.png,..\assets\brand\installer\WizardImage-150.png,..\assets\brand\installer\WizardImage-200.png
+WizardSmallImageFile=..\assets\brand\installer\WizardSmallImage-100.png,..\assets\brand\installer\WizardSmallImage-125.png,..\assets\brand\installer\WizardSmallImage-150.png,..\assets\brand\installer\WizardSmallImage-200.png
+WizardImageStretch=no
+; Mismo color que el fondo de WizardImage (#0F172A, formato $bbggrr).
+WizardImageBackColor=$2A170F
 
 ; Compresion solida + LZMA2 para minimizar el tamano del instalador
 Compression=lzma2/ultra64
@@ -81,6 +82,13 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ; gracias a <ApplicationIcon> en PolyglotCLI.Maui.csproj) para mantener una
 ; unica fuente de verdad del icono corporativo.
 UninstallDisplayIcon={app}\app.ico
+
+; Nombre en "Programas y caracteristicas" sin la version concatenada (la
+; version ya tiene su propia columna, tomada de AppVersion; Publisher y
+; HelpLink salen de AppPublisher/AppSupportURL). Sustituye las antiguas
+; escrituras manuales en HKLM\...\Uninstall, que fallaban cuando el usuario
+; elegia instalar "solo para mi" (modo sin privilegios de administrador).
+UninstallDisplayName={#MyAppName}
 
 ; Espacio minimo requerido en la pantalla de seleccion de carpeta. Ver el
 ; comentario sobre EXTRA_SPACE_KB al inicio del script.
@@ -114,13 +122,13 @@ Source: "..\assets\icons\app.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; Servidor Web (PolyglotCLI.web)
 Source: "..\artifacts\publish_out\*"; \
     DestDir: "{app}\Server\serverapp"; \
-    Components: server; \
+    Components: server; Excludes: "*.pdb"; \
     Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Aplicacion de escritorio (PolyglotCLI.Maui)
 Source: "..\artifacts\publish_maui\*"; \
     DestDir: "{app}\Desktop\desktopapp"; \
-    Components: desktop; \
+    Components: desktop; Excludes: "*.pdb"; \
     Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Tasks]
@@ -154,21 +162,21 @@ Name: "{group}\PolyglotCLI - Desktop"; \
     Components: desktop
 
 ; --- Escritorio (siempre, filtrados por componente y por tarea desktopicon) ---
-Name: "{commondesktop}\PolyglotCLI - Server"; \
+Name: "{autodesktop}\PolyglotCLI - Server"; \
     Filename: "{app}\Server\serverapp\PolyglotCLI.exe"; \
     WorkingDir: "{app}\Server\serverapp"; \
     IconFilename: "{app}\app.ico"; \
     Comment: "Inicia el servidor web PolyglotCLI"; \
     Tasks: desktopicon; Components: server
 
-Name: "{commondesktop}\PolyglotCLI - Web"; \
+Name: "{autodesktop}\PolyglotCLI - Web"; \
     Filename: "{cmd}"; \
     Parameters: "/C start """" http://localhost:5000"; \
     IconFilename: "{app}\app.ico"; \
     Comment: "Abre el panel web de PolyglotCLI en el navegador"; \
     Tasks: desktopicon; Components: server
 
-Name: "{commondesktop}\PolyglotCLI - Desktop"; \
+Name: "{autodesktop}\PolyglotCLI - Desktop"; \
     Filename: "{app}\Desktop\desktopapp\PolyglotCLI.Maui.exe"; \
     WorkingDir: "{app}\Desktop\desktopapp"; \
     IconFilename: "{app}\app.ico"; \
@@ -187,123 +195,133 @@ Type: filesandordirs; Name: "{group}"
 ; Nota: se ha eliminado la seccion [Run] deliberadamente. No se ofrece
 ; lanzar el servidor web ni abrir el navegador al finalizar la instalacion.
 
-[Registry]
-; Sobrescribe los valores del Uninstall registrados por Inno Setup para que
-; en "Programas y caracteristicas" de Windows:
-;   - La columna "Nombre" muestre SOLO "PolyglotCLI" (sin la version, que ya
-;     tiene su propia columna "Version").
-;   - La columna "Version" muestre exactamente "{APP_VERSION}".
-; Esto evita la concatenacion "Nombre Version" que aparece en algunas vistas
-; localizadas (p.ej. Windows en espanol) cuando se usa AppVerName con espacios.
-; Las claves se eliminan automaticamente al desinstalar (uninsdeletevalue).
-Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1"; ValueType: string; ValueName: "DisplayName";     ValueData: "{#MyAppName}";        Flags: uninsdeletevalue
-Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1"; ValueType: string; ValueName: "DisplayVersion";  ValueData: "{#APP_VERSION}";      Flags: uninsdeletevalue
-Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1"; ValueType: string; ValueName: "Publisher";       ValueData: "{#MyAppPublisher}";   Flags: uninsdeletevalue
-Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1"; ValueType: string; ValueName: "HelpLink";        ValueData: "{#MyAppURL}";         Flags: uninsdeletevalue
-
 [Code]
 
-function IsDotNet10Installed: Boolean;
+// ---------------------------------------------------------------------------
+// Runtimes de .NET 11 por componente:
+//   - Escritorio (MAUI, framework-dependent): su runtimeconfig.json solo
+//     declara Microsoft.NETCore.App 11.* (Windows App SDK va incluido en la
+//     carpeta de la app). Si falta, se instala el .NET 11 Desktop Runtime,
+//     que lo incluye.
+//   - Servidor Web (ASP.NET Core): Microsoft.NETCore.App 11.* +
+//     Microsoft.AspNetCore.App 11.*.
+// La verificacion se hace en PrepareToInstall (despues de elegir componentes,
+// tambien en modo silencioso) y solo para los componentes seleccionados.
+// ---------------------------------------------------------------------------
+
+function IsSharedRuntimeInstalled(const FrameworkName: string): Boolean;
 var
   SearchRec: TFindRec;
-  FolderPath: string;
   FileName: string;
   Output: AnsiString;
   ResultCode: Integer;
 begin
   Result := False;
 
-  // 1. Verificacion directa en directorios de runtimes instalados
-  FolderPath := ExpandConstant('{commonpf}\dotnet\shared\Microsoft.WindowsDesktop.App');
-  if FindFirst(FolderPath + '\10.*', SearchRec) then
+  // 1. Verificacion directa en la carpeta de runtimes compartidos (x64).
+  if FindFirst(ExpandConstant('{commonpf64}\dotnet\shared\') + FrameworkName + '\11.*', SearchRec) then
   begin
     FindClose(SearchRec);
     Result := True;
     Exit;
   end;
 
-  FolderPath := ExpandConstant('{commonpf}\dotnet\shared\Microsoft.NETCore.App');
-  if FindFirst(FolderPath + '\10.*', SearchRec) then
-  begin
-    FindClose(SearchRec);
-    Result := True;
-    Exit;
-  end;
-
-  // 2. Consulta via 'dotnet --list-runtimes'
+  // 2. Consulta via 'dotnet --list-runtimes' (instalaciones en otra ruta).
   FileName := ExpandConstant('{tmp}\dotnet_runtimes_check.txt');
-  if Exec('cmd.exe', '/C dotnet --list-runtimes > "' + FileName + '" 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  if Exec(ExpandConstant('{cmd}'), '/C dotnet --list-runtimes > "' + FileName + '" 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
     if LoadStringFromFile(FileName, Output) then
-    begin
-      if (Pos('Microsoft.WindowsDesktop.App 10.', string(Output)) > 0) or
-         (Pos('Microsoft.NETCore.App 10.', string(Output)) > 0) or
-         (Pos('Microsoft.AspNetCore.App 10.', string(Output)) > 0) then
-      begin
-        Result := True;
-      end;
-    end;
+      Result := Pos(FrameworkName + ' 11.', string(Output)) > 0;
     DeleteFile(FileName);
   end;
 end;
 
-function InstallDotNet10: Boolean;
+function InstallSharedRuntime(const FrameworkName, DisplayName, WingetId, DownloadUrl, LocalFileName: string): Boolean;
 var
   ResultCode: Integer;
   InstallerPath: string;
-  DownloadUrl: string;
 begin
   Result := False;
 
-  // Intentar instalacion desatendida mediante winget en Windows 10/11
-  Exec('cmd.exe', '/C winget install --id Microsoft.DotNet.DesktopRuntime.10 --silent --accept-package-agreements --accept-source-agreements', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  if IsDotNet10Installed then
+  // 1. winget (Windows 10/11). Si no esta disponible, el comando falla sin mas.
+  Exec(ExpandConstant('{cmd}'), '/C winget install --id ' + WingetId + ' --exact --silent --accept-package-agreements --accept-source-agreements', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if IsSharedRuntimeInstalled(FrameworkName) then
   begin
     Result := True;
     Exit;
   end;
 
-  // Si winget no completa la instalacion, descargar ejecutable directo via Inno Setup
-  InstallerPath := ExpandConstant('{tmp}\dotnet-desktop-runtime-10-setup.exe');
-  DownloadUrl := 'https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe';
-
+  // 2. Descarga directa del instalador oficial de Microsoft.
+  InstallerPath := ExpandConstant('{tmp}\') + LocalFileName;
   try
-    DownloadTemporaryFile(DownloadUrl, 'dotnet-desktop-runtime-10-setup.exe', '', nil);
+    DownloadTemporaryFile(DownloadUrl, LocalFileName, '', nil);
     if FileExists(InstallerPath) then
     begin
       if Exec(InstallerPath, '/passive /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
-      begin
-        Result := IsDotNet10Installed or (ResultCode = 0) or (ResultCode = 3010);
-      end;
+        Result := IsSharedRuntimeInstalled(FrameworkName) or (ResultCode = 0) or (ResultCode = 3010);
     end;
   except
-    MsgBox('No se pudo descargar automáticamente el instalador de .NET 10: ' + GetExceptionMessage + #13#10 +
-           'Por favor, descárguelo e instálelo manualmente desde https://dotnet.microsoft.com/download/dotnet/10.0', mbError, MB_OK);
+    SuppressibleMsgBox('No se pudo descargar automáticamente ' + DisplayName + ': ' + GetExceptionMessage + #13#10 +
+      'Descárguelo e instálelo manualmente desde https://dotnet.microsoft.com/download/dotnet/11.0',
+      mbError, MB_OK, IDOK);
   end;
 end;
 
-function InitializeSetup: Boolean;
+// Devuelve '' si se puede continuar, o un mensaje que aborta la instalacion.
+function EnsureRuntime(const ComponentLabel, FrameworkName, DisplayName, WingetId, DownloadUrl, LocalFileName: string): String;
 begin
-  Result := True;
+  Result := '';
+  if IsSharedRuntimeInstalled(FrameworkName) then
+    Exit;
 
-  if not IsDotNet10Installed then
+  if SuppressibleMsgBox(
+       'El componente "' + ComponentLabel + '" requiere ' + DisplayName + ' y no se ha detectado en su sistema.' + #13#10 + #13#10 +
+       '¿Desea descargarlo e instalarlo automáticamente ahora?',
+       mbConfirmation, MB_YESNO, IDYES) = IDYES then
   begin
-    if MsgBox(
-      'PolyglotCLI requiere .NET 10 Desktop Runtime para funcionar correctamente y no se ha detectado en su sistema.' + #13#10 + #13#10 +
-      '¿Desea descargar e instalar .NET 10 Desktop Runtime automáticamente ahora?',
-      mbConfirmation, MB_YESNO) = idYes then
-    begin
-      if not InstallDotNet10 then
-      begin
-        if MsgBox(
-          'No se pudo confirmar la instalación de .NET 10 Desktop Runtime.' + #13#10 + #13#10 +
-          '¿Desea continuar con la instalación de PolyglotCLI de todos modos?',
-          mbConfirmation, MB_YESNO) = idNo then
-        begin
-          Result := False;
-        end;
-      end;
-    end;
+    if InstallSharedRuntime(FrameworkName, DisplayName, WingetId, DownloadUrl, LocalFileName) then
+      Exit;
+  end;
+
+  if SuppressibleMsgBox(
+       'No se pudo confirmar la instalación de ' + DisplayName + '.' + #13#10 +
+       'Sin él, "' + ComponentLabel + '" no arrancará.' + #13#10 + #13#10 +
+       '¿Desea continuar con la instalación de PolyglotCLI de todos modos?',
+       mbConfirmation, MB_YESNO, IDYES) = IDNO then
+    Result := DisplayName + ' es necesario para "' + ComponentLabel + '". ' +
+      'Instálelo desde https://dotnet.microsoft.com/download/dotnet/11.0 y vuelva a ejecutar el instalador.';
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+
+  if WizardIsComponentSelected('desktop') then
+  begin
+    Result := EnsureRuntime('Escritorio nativo (PolyglotCLI MAUI)',
+      'Microsoft.NETCore.App', '.NET 11 Desktop Runtime',
+      'Microsoft.DotNet.DesktopRuntime.11',
+      'https://aka.ms/dotnet/11.0/windowsdesktop-runtime-win-x64.exe',
+      'dotnet-desktop-runtime-11-win-x64.exe');
+    if Result <> '' then
+      Exit;
+  end;
+
+  if WizardIsComponentSelected('server') then
+  begin
+    Result := EnsureRuntime('Servidor Web (PolyglotCLI Web)',
+      'Microsoft.NETCore.App', '.NET 11 Runtime',
+      'Microsoft.DotNet.Runtime.11',
+      'https://aka.ms/dotnet/11.0/dotnet-runtime-win-x64.exe',
+      'dotnet-runtime-11-win-x64.exe');
+    if Result <> '' then
+      Exit;
+
+    Result := EnsureRuntime('Servidor Web (PolyglotCLI Web)',
+      'Microsoft.AspNetCore.App', 'ASP.NET Core 11 Runtime',
+      'Microsoft.DotNet.AspNetCore.11',
+      'https://aka.ms/dotnet/11.0/aspnetcore-runtime-win-x64.exe',
+      'aspnetcore-runtime-11-win-x64.exe');
   end;
 end;
 

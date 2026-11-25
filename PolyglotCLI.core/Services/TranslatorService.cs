@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PolyglotCLI
@@ -20,14 +21,9 @@ namespace PolyglotCLI
             _targetLanguage = targetLanguage;
         }
 
-        public async Task<string> TranslateTextAsync(string sourceText, int pageNumber)
+        public async Task<string> TranslateTextAsync(string sourceText, int pageNumber, CancellationToken cancellationToken = default)
         {
-            string cleanSource = System.Text.RegularExpressions.Regex.Replace(
-                sourceText ?? string.Empty, 
-                @"<think>[\s\S]*?</think>", 
-                string.Empty, 
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            ).Trim();
+            string cleanSource = ThinkTagParser.Strip(sourceText);
 
             if (string.IsNullOrWhiteSpace(cleanSource))
             {
@@ -49,7 +45,8 @@ namespace PolyglotCLI
                 string translatedText = await _client.SendTextRequestAsync(
                     _systemPrompt,
                     userPrompt,
-                    _modelName
+                    _modelName,
+                    cancellationToken
                 );
                 stopwatch.Stop();
 

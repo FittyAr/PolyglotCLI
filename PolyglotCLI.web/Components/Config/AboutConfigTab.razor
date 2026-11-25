@@ -45,13 +45,6 @@ Inno Setup / .exe).
                         <td>
                             <code>@AppVersion</code>
                             @if (!string.IsNullOrEmpty(GitCommitShort))
-
-
-
-
-
-
-
                             {
                                 <span style="opacity: 0.6; margin-left: 0.4rem;">(@GitCommitShort)</span>
                             }
@@ -311,6 +304,15 @@ Inno Setup / .exe).
                         </td>
                     </tr>
                     <tr>
+                        <td style="opacity: 0.7;">Política de privacidad</td>
+                        <td>
+                            <a href="https://github.com/FittyAr/PolyglotCLI/blob/master/docs/PRIVACY.md" target="_blank"
+                                rel="noopener" style="color: var(--rz-primary); text-decoration: none;">
+                                PRIVACY.md
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
                         <td style="opacity: 0.7;">Prompts del sistema</td>
                         <td><code>assets/prompts/</code> (5 archivos .md editables)</td>
                     </tr>
@@ -333,55 +335,20 @@ Inno Setup / .exe).
                         <td style="opacity: 0.7; width: 35%;">Tipo de instalación</td>
                         <td>
                             @if (InstallEnvironment.IsMsixInstalled)
-
-
-
-
-
-
-
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="MSIX (Microsoft Store)" />
                                 <span style="opacity:0.7; margin-left:0.5rem;">
                                     Las actualizaciones las gestiona Microsoft Store.
                                 </span>
                             }
-
-
-
-
-
-
-
                             else if (InstallEnvironment.IsInnoInstalled)
-
-
-
-
-
-
-
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Inno Setup (.exe)" />
                                 <span style="opacity:0.7; margin-left:0.5rem;">
                                     Auto-actualizable desde GitHub.
                                 </span>
                             }
-
-
-
-
-
-
-
                             else
-
-
-
-
-
-
-
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Desarrollo / portable" />
                                 <span style="opacity:0.7; margin-left:0.5rem;">
@@ -398,41 +365,13 @@ Inno Setup / .exe).
                         <td style="opacity: 0.7;">Última versión</td>
                         <td>
                             @if (string.IsNullOrEmpty(LatestVersionDisplay))
-
-
-
-
-
-
-
                             {
                                 <span style="opacity:0.7;">—</span>
                             }
-
-
-
-
-
-
-
                             else
-
-
-
-
-
-
-
                             {
                                 <code>@LatestVersionDisplay</code>
                                 @if (IsUpdateAvailable)
-
-
-
-
-
-
-
                                 {
                                     <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="disponible" class="rz-ml-2" />
                                 }
@@ -445,15 +384,8 @@ Inno Setup / .exe).
             <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; align-items: center;">
                 <RadzenButton Text="Buscar actualizaciones" Icon="refresh" ButtonStyle="ButtonStyle.Secondary"
                     Click="@OnCheckClick" IsBusy="@_checking" BusyText="Buscando..."
-                    Disabled="@(!InstallEnvironment.CanSelfUpdate)" />
-                @if (!InstallEnvironment.CanSelfUpdate)
-
-
-
-
-
-
-
+                    Disabled="@(!CanCheckUpdates)" />
+                @if (!CanCheckUpdates)
                 {
                     <span style="opacity:0.7; font-size: 0.8rem;">
                         No disponible en este modo de instalación.
@@ -465,1219 +397,148 @@ Inno Setup / .exe).
 </RadzenRow>
 
 @code {
-    private string AppVersion { get; } = ResolveAppVersion();
-
-
-
-
-
-
-
+    private string AppVersion { get; } = AppVersionInfo.Current;
     private string? GitCommitShort { get; } = ResolveGitCommitShort();
-
-
-
-
-
-
-
     private string TargetFramework { get; } = ResolveTargetFramework();
-
-
-
-
-
-
-
     private string RuntimeVersion { get; } = Environment.Version.ToString();
-
-
-
-
-
-
-
     private string BuildDate { get; } = ResolveBuildDate();
-
-
-
-
-
-
-
     private string LicenseText { get; } = DefaultLicenseText;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     // --- Estado de actualizaciones ---
-
-
-
-
-
-
-
     private bool _checking;
-
-
-
-
-
-
-
     private UpdateInfo? _updateInfo;
-
-
-
-
-
-
-
     private string LastCheckDisplay =>
-
-
-
-
-
-
-
     _updateInfo is null
-
-
-
-
-
-
-
     ? "Nunca"
-
-
-
-
-
-
-
     : (_updateInfo.CheckSucceeded ? "OK" : $"Error: {_updateInfo.ErrorMessage}");
-
-
-
-
-
-
-
     private string LatestVersionDisplay =>
-
-
-
-
-
-
-
     _updateInfo is null || !_updateInfo.CheckSucceeded ? string.Empty : _updateInfo.LatestVersion;
-
-
-
-
-
-
-
     private bool IsUpdateAvailable =>
-
-
-
-
-
-
-
     _updateInfo is { CheckSucceeded: true, IsUpdateAvailable: true };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     private UpdateHostedService? _updater;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    private bool CanCheckUpdates => InstallEnvironment.CanSelfUpdate && _updater is not null;
 
     protected override void OnInitialized()
-
-
-
-
-
-
-
     {
-
-
-
-
-
-
-
         // Solo resolvemos el servicio si la app puede auto-actualizarse
-
-
-
-
-
-
-
         // (es decir, no es MSIX). En MSIX el campo sale deshabilitado.
-
-
-
-
-
-
-
         if (InstallEnvironment.CanSelfUpdate)
-
-
-
-
-
-
-
         {
-
-
-
-
-
-
-
             try
-
-
-
-
-
-
-
             {
-
-
-
-
-
-
-
                 var hosted = (IEnumerable<Microsoft.Extensions.Hosting.IHostedService>?)Services
-
-
-
-
-
-
-
                 .GetService(typeof(IEnumerable<Microsoft.Extensions.Hosting.IHostedService>));
-
-
-
-
-
-
-
-                _updater = hosted?.FirstOrDefault(s => s is UpdateHostedService) as UpdateHostedService;
-
-
-
-
-
-
-
+                _updater = hosted?.OfType<UpdateHostedService>().FirstOrDefault();
                 if (_updater?.LastCheck is UpdateInfo last)
-
-
-
-
-
-
-
                 {
-
-
-
-
-
-
-
                     _updateInfo = last;
-
-
-
-
-
-
-
                 }
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
-
-            catch
-
-
-
-
-
-
-
+            catch (Exception ex)
             {
-
-
-
-
-
-
-
-                // Si falla la resolución, el botón seguirá funcionando
-
-
-
-
-
-
-
-                // porque OnCheckClick también resuelve el servicio.
-
-
-
-
-
-
-
+                // En escritorio (MAUI) el servicio no está registrado:
+                // _updater queda null y el botón se deshabilita.
+                AppLogger.Warn($"AboutConfigTab: no se pudo resolver UpdateHostedService - {ex.Message}");
             }
-
-
-
-
-
-
-
         }
-
-
-
-
-
-
-
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     private async Task OnCheckClick()
-
-
-
-
-
-
-
     {
-
-
-
-
-
-
-
         if (_checking) return;
-
-
-
-
-
-
-
         _checking = true;
-
-
-
-
-
-
-
         try
-
-
-
-
-
-
-
         {
-
-
-
-
-
-
-
             // Re-resolver por si el servicio no estaba disponible en
-
-
-
-
-
-
-
             // OnInitialized (p.ej. la pestaña se montó antes que el host).
-
-
-
-
-
-
-
             if (_updater is null)
-
-
-
-
-
-
-
             {
-
-
-
-
-
-
-
                 var hosted = (IEnumerable<Microsoft.Extensions.Hosting.IHostedService>?)Services
-
-
-
-
-
-
-
                 .GetService(typeof(IEnumerable<Microsoft.Extensions.Hosting.IHostedService>));
-
-
-
-
-
-
-
                 _updater = hosted?.FirstOrDefault(s => s is UpdateHostedService) as UpdateHostedService;
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
-
             if (_updater is null)
-
-
-
-
-
-
-
             {
-
-
-
-
-
-
-
                 Notifier.Notify(NotificationSeverity.Warning,
-
-
-
-
-
-
-
                 "Servicio de updates no disponible",
-
-
-
-
-
-
-
                 "Esta instalación no soporta auto-actualización.",
-
-
-
-
-
-
-
                 duration: 6000);
-
-
-
-
-
-
-
                 return;
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             var info = await _updater.CheckNowAsync();
-
-
-
-
-
-
-
             _updateInfo = info;
-
-
-
-
-
-
-
             if (info.CheckSucceeded && info.IsUpdateAvailable)
-
-
-
-
-
-
-
             {
-
-
-
-
-
-
-
                 // Reusar el dialog del notifier
-
-
-
-
-
-
-
                 var result = await DialogService.OpenAsync<UpdateAvailableDialog>(
-
-
-
-
-
-
-
                 title: $"Actualización disponible: {info.LatestVersion}",
-
-
-
-
-
-
-
                 parameters: new Dictionary<string, object?> { { "Info", info } },
-
-
-
-
-
-
-
                 options: new DialogOptions { Width = "560px" });
-
-
-
-
-
-
-
                 if (string.Equals(result as string, "dismiss", StringComparison.OrdinalIgnoreCase))
-
-
-
-
-
-
-
                 {
-
-
-
-
-
-
-
                     _updater.DismissUpdate(info.LatestVersion);
-
-
-
-
-
-
-
                 }
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
-
             else if (info.CheckSucceeded)
-
-
-
-
-
-
-
             {
-
-
-
-
-
-
-
                 Notifier.Notify(NotificationSeverity.Success,
-
-
-
-
-
-
-
                 "Sin actualizaciones",
-
-
-
-
-
-
-
                 $"Ya tenés la última versión ({info.CurrentVersion}).",
-
-
-
-
-
-
-
                 duration: 5000);
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
-
             else
-
-
-
-
-
-
-
             {
-
-
-
-
-
-
-
                 Notifier.Notify(NotificationSeverity.Error,
-
-
-
-
-
-
-
                 "No se pudo consultar GitHub",
-
-
-
-
-
-
-
                 info.ErrorMessage,
-
-
-
-
-
-
-
                 duration: 7000);
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
-
         }
-
-
-
-
-
-
-
         finally
-
-
-
-
-
-
-
         {
-
-
-
-
-
-
-
             _checking = false;
-
-
-
-
-
-
-
         }
-
-
-
-
-
-
-
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     /// <summary>
     /// Versión del ensamblado: combina el archivo AssemblyInformationalVersionAttribute
     /// (formato "1.1.2+abcdef") cuando está disponible, y cae al
     /// AssemblyVersion si falta. Sin reflexión, una cadena vacía.
     /// </summary>
-    private static string ResolveAppVersion()
-
-
-
-
-
-
-
-    {
-
-
-
-
-
-
-
-        var asm = typeof(AboutConfigTab).Assembly;
-
-
-
-
-
-
-
-        var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-
-
-
-
-
-
-
-        if (!string.IsNullOrWhiteSpace(info))
-
-
-
-
-
-
-
-        {
-
-
-
-
-
-
-
-            // "1.1.2+abcdef..." -> mostramos sólo el hash corto aparte
-
-
-
-
-
-
-
-            var plusIdx = info.IndexOf('+');
-
-
-
-
-
-
-
-            if (plusIdx > 0)
-
-
-
-
-
-
-
-            {
-
-
-
-
-
-
-
-                return info[..plusIdx];
-
-
-
-
-
-
-
-            }
-
-
-
-
-
-
-
-            return info;
-
-
-
-
-
-
-
-        }
-
-
-
-
-
-
-
-        return asm.GetName().Version?.ToString() ?? "1.0.0";
-
-
-
-
-
-
-
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     private static string? ResolveGitCommitShort()
-
-
-
-
-
-
-
     {
-
-
-
-
-
-
-
         var asm = typeof(AboutConfigTab).Assembly;
-
-
-
-
-
-
-
         var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-
-
-
-
-
-
-
         if (!string.IsNullOrWhiteSpace(info))
-
-
-
-
-
-
-
         {
-
-
-
-
-
-
-
             var plusIdx = info.IndexOf('+');
-
-
-
-
-
-
-
             if (plusIdx > 0 && plusIdx + 1 < info.Length)
-
-
-
-
-
-
-
             {
-
-
-
-
-
-
-
                 var hash = info[(plusIdx + 1)..];
-
-
-
-
-
-
-
                 return hash.Length >= 7 ? hash[..7] : hash;
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
-
         }
-
-
-
-
-
-
-
         return null;
-
-
-
-
-
-
-
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     private static string ResolveTargetFramework()
-
-
-
-
-
-
-
     {
-
-
-
-
-
-
-
         var asm = typeof(AboutConfigTab).Assembly;
-
-
-
-
-
-
-
         var attr = asm.GetCustomAttribute<TargetFrameworkAttribute>();
-
-
-
-
-
-
-
-        return attr?.FrameworkName ?? "net10.0";
-
-
-
-
-
-
-
+        return attr?.FrameworkName ?? "net11.0";
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     private static string ResolveBuildDate()
-
-
-
-
-
-
-
     {
-
-
-
-
-
-
-
         // La fecha de compilación no es trivial sin MSBuild; usamos la del
-
-
-
-
-
-
-
         // ensamblado (WriteTime del PE header) cuando está disponible, y
-
-
-
-
-
-
-
         // caemos a la del directorio de la app en single-file publish.
-
-
-
-
-
-
-
         try
-
-
-
-
-
-
-
         {
-
-
-
-
-
-
-
             var asm = typeof(AboutConfigTab).Assembly;
-
-
-
-
-
-
-
             // IL3000: en single-file publish `Assembly.Location` siempre
             // devuelve string.Empty. El check `IsNullOrEmpty(location)`
             // de abajo ya cubre ese caso cayendo a
@@ -1687,301 +548,42 @@ Inno Setup / .exe).
 #pragma warning disable IL3000
             var location = asm.Location;
 #pragma warning restore IL3000
-
-
-
-
-
-
-
             if (!string.IsNullOrEmpty(location) && System.IO.File.Exists(location))
-
-
-
-
-
-
-
             {
-
-
-
-
-
-
-
                 return System.IO.File.GetLastWriteTime(location).ToString("yyyy-MM-dd HH:mm");
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
-
             // En single-file publish asm.Location es vacío; usamos el
-
-
-
-
-
-
-
             // directorio base de la app como proxy razonable.
-
-
-
-
-
-
-
             var baseDir = AppContext.BaseDirectory;
-
-
-
-
-
-
-
             if (!string.IsNullOrEmpty(baseDir))
-
-
-
-
-
-
-
             {
-
-
-
-
-
-
-
                 var probe = System.IO.Path.Combine(baseDir, asm.GetName().Name + ".dll");
-
-
-
-
-
-
-
                 if (System.IO.File.Exists(probe))
-
-
-
-
-
-
-
                 {
-
-
-
-
-
-
-
                     return System.IO.File.GetLastWriteTime(probe).ToString("yyyy-MM-dd HH:mm");
-
-
-
-
-
-
-
                 }
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
-
         }
-
-
-
-
-
-
-
         catch
-
-
-
-
-
-
-
         {
-
-
-
-
-
-
-
             // Si nada funciona, mostramos la fecha actual como último recurso.
-
-
-
-
-
-
-
         }
-
-
-
-
-
-
-
         return DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm") + " UTC";
-
-
-
-
-
-
-
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     private const string DefaultLicenseText =
-
-
-
-
-
-
-
     "MIT License\n\n" +
-
-
-
-
-
-
-
     "Copyright (c) 2026 FittyAr\n\n" +
-
-
-
-
-
-
-
     "Permission is hereby granted, free of charge, to any person obtaining a copy\n" +
-
-
-
-
-
-
-
     "of this software and associated documentation files (the \"Software\"), to deal\n" +
-
-
-
-
-
-
-
     "in the Software without restriction, including without limitation the rights\n" +
-
-
-
-
-
-
-
     "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n" +
-
-
-
-
-
-
-
     "copies of the Software, and to permit persons to whom the Software is\n" +
-
-
-
-
-
-
-
     "furnished to do so, subject to the following conditions:\n\n" +
-
-
-
-
-
-
-
     "The above copyright notice and this permission notice shall be included in all\n" +
-
-
-
-
-
-
-
     "copies or substantial portions of the Software.\n\n" +
-
-
-
-
-
-
-
     "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n" +
-
-
-
-
-
-
-
     "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n" +
-
-
-
-
-
-
-
     "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.";
 
     // ─── Ubicaciones de archivos ───────────────────────────────────

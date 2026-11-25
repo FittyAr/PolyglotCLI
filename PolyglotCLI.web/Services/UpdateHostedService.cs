@@ -1,10 +1,10 @@
 using System;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using PolyglotCLI;
 using PolyglotCLI.Update;
+using PolyglotCLI.web.Components;
 
 namespace PolyglotCLI.web.Services
 {
@@ -46,7 +46,7 @@ namespace PolyglotCLI.web.Services
         public UpdateHostedService(AppConfig config)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
-            CurrentVersion = ResolveCurrentVersion();
+            CurrentVersion = AppVersionInfo.Current;
             _update = new UpdateService(CurrentVersion);
         }
 
@@ -67,16 +67,7 @@ namespace PolyglotCLI.web.Services
                 {
                     var info = await _update.CheckForUpdateAsync(stoppingToken).ConfigureAwait(false);
                     LastCheck = info;
-                    // Sólo persistir si la marca de tiempo realmente cambió:
-                    // evita reescribir config.json cada 6h cuando nada cambió,
-                    // y combinado con la escritura atómica de AppConfig.Save
-                    // blinda contra un corte a mitad de archivo.
-                    var newStamp = DateTime.UtcNow;
-                    if (_config.LastUpdateCheckUtc != newStamp)
-                    {
-                        _config.LastUpdateCheckUtc = newStamp;
-                        _config.Save();
-                    }
+                    RecordCheckTimestamp();
 
                     if (info.CheckSucceeded && info.IsUpdateAvailable &&
                         info.LatestVersion != _config.DismissedUpdateVersion)
@@ -103,25 +94,34 @@ namespace PolyglotCLI.web.Services
 
         /// <summary>
         /// Lanza una consulta inmediata (p.ej. cuando el usuario hace
-        /// click en "Buscar actualizaciones"). Devuelve la misma
-        /// <see cref="UpdateInfo"/> que la próxima ejecución del bucle
-        /// habría producido.
+        /// click en "Buscar actualizaciones"). NO dispara
+        /// <see cref="OnUpdateAvailable"/>: quien llama ya muestra su propio
+        /// diálogo, y así evitamos abrir dos diálogos o notificar a todas
+        /// las pestañas abiertas por un chequeo manual.
         /// </summary>
         public async Task<UpdateInfo> CheckNowAsync(CancellationToken ct = default)
         {
             var info = await _update.CheckForUpdateAsync(ct).ConfigureAwait(false);
             LastCheck = info;
-            var newStamp = DateTime.UtcNow;
-            if (_config.LastUpdateCheckUtc != newStamp)
+            RecordCheckTimestamp();
+            return info;
+        }
+
+        /// <summary>
+        /// Persiste la hora del último chequeo. Un fallo al guardar no debe
+        /// interrumpir el chequeo de actualizaciones.
+        /// </summary>
+        private void RecordCheckTimestamp()
+        {
+            try
             {
-                _config.LastUpdateCheckUtc = newStamp;
+                _config.LastUpdateCheckUtc = DateTime.UtcNow;
                 _config.Save();
             }
-            if (info.CheckSucceeded && info.IsUpdateAvailable)
+            catch (Exception ex)
             {
-                OnUpdateAvailable?.Invoke(info);
+                AppLogger.Warn($"UpdateHostedService: no se pudo guardar LastUpdateCheckUtc - {ex.Message}");
             }
-            return info;
         }
 
         /// <summary>
@@ -132,18 +132,6 @@ namespace PolyglotCLI.web.Services
         {
             _config.DismissedUpdateVersion = version;
             _config.Save();
-        }
-
-        private static string ResolveCurrentVersion()
-        {
-            var asm = typeof(UpdateHostedService).Assembly;
-            var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-            if (!string.IsNullOrWhiteSpace(info))
-            {
-                int p = info.IndexOf('+');
-                return p > 0 ? info[..p] : info;
-            }
-            return asm.GetName().Version?.ToString() ?? "1.0.0";
         }
     }
 }

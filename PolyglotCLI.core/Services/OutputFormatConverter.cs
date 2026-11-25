@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Markdig;
 using DocumentFormat.OpenXml;
@@ -10,8 +11,6 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HtmlToOpenXml;
 using PeachPDF;
-using NetOdt;
-using NetOdt.Enumerations;
 
 namespace PolyglotCLI
 {
@@ -49,33 +48,64 @@ namespace PolyglotCLI
         }
 
         /// <summary>
-        /// Attempts to convert a Markdown file using pandoc (external tool).
-        /// Returns true if successful, false if pandoc is not available.
+        /// Tiempo máximo que se le da a pandoc por conversión.
         /// </summary>
-        public static bool TryConvertWithPandoc(string markdownPath, string outputPath, string format)
+        public static readonly TimeSpan PandocTimeout = TimeSpan.FromSeconds(60);
+
+        /// <summary>
+        /// Attempts to convert a Markdown file using pandoc (external tool).
+        /// Returns true if successful, false if pandoc is not available or failed.
+        /// stdout/stderr se leen de forma asíncrona (evita el deadlock por
+        /// buffer lleno) y si pandoc excede <see cref="PandocTimeout"/> se
+        /// mata el árbol de procesos completo.
+        /// </summary>
+        public static async Task<bool> TryConvertWithPandocAsync(string markdownPath, string outputPath, string format, CancellationToken cancellationToken = default)
         {
             AppLogger.Info($"Format Conversion (Pandoc): Attempting to convert '{markdownPath}' to '{format}' -> '{outputPath}'...");
             var stopwatch = Stopwatch.StartNew();
+            Process? process = null;
             try
             {
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "pandoc",
-                    Arguments = $"\"{markdownPath}\" -o \"{outputPath}\" --from=markdown --to={format}",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
+                startInfo.ArgumentList.Add(markdownPath);
+                startInfo.ArgumentList.Add("-o");
+                startInfo.ArgumentList.Add(outputPath);
+                startInfo.ArgumentList.Add("--from=markdown");
+                startInfo.ArgumentList.Add($"--to={format}");
 
-                using var process = Process.Start(startInfo);
+                process = Process.Start(startInfo);
                 if (process == null)
                 {
                     AppLogger.Warn("Format Conversion (Pandoc): Failed to start process (process was null).");
                     return false;
                 }
 
-                process.WaitForExit(60000); // 60 second timeout
+                Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+                Task<string> stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(PandocTimeout);
+                try
+                {
+                    await process.WaitForExitAsync(timeoutCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    KillProcessTree(process);
+                    if (cancellationToken.IsCancellationRequested) throw;
+                    AppLogger.Warn($"Format Conversion (Pandoc): pandoc excedió {PandocTimeout.TotalSeconds:F0}s y fue terminado.");
+                    return false;
+                }
+
+                string error = await stderrTask;
+                await stdoutTask;
                 stopwatch.Stop();
 
                 if (process.ExitCode == 0 && File.Exists(outputPath))
@@ -84,14 +114,13 @@ namespace PolyglotCLI
                     AppLogger.Info($"  → {format.ToUpperInvariant()} saved to: {outputPath}");
                     return true;
                 }
-                else
-                {
-                    string error = process.StandardError.ReadToEnd();
-                    AppLogger.Error($"Format Conversion (Pandoc): pandoc to {format} conversion failed (Exit code: {process.ExitCode}). Error details: {error.Trim()}");
-                    
-                    AppLogger.Warn($"  [WARNING] pandoc conversion to {format} failed: {error}");
-                    return false;
-                }
+
+                AppLogger.Error($"Format Conversion (Pandoc): pandoc to {format} conversion failed (Exit code: {process.ExitCode}). Error details: {error.Trim()}");
+                return false;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -99,26 +128,50 @@ namespace PolyglotCLI
                 AppLogger.Warn($"Format Conversion (Pandoc): pandoc tool is not installed or failed to execute after {stopwatch.ElapsedMilliseconds}ms. Exception: {ex.Message}");
                 return false;
             }
+            finally
+            {
+                process?.Dispose();
+            }
+        }
+
+        private static void KillProcessTree(Process process)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch (Exception killEx)
+            {
+                AppLogger.Warn($"Format Conversion (Pandoc): no se pudo terminar pandoc: {killEx.Message}");
+            }
         }
 
         /// <summary>
         /// Converts Markdown to requested output formats.
-        /// Uses pandoc if available, and falls back to local C# libraries (HtmlToOpenXml, PeachPDF, NetOdt).
+        /// Uses pandoc if available, and falls back to local C# libraries (HtmlToOpenXml, PeachPDF, OdtFileWriter).
+        /// Devuelve <c>true</c> sólo si TODOS los formatos pedidos se
+        /// generaron; un fallo se loguea y se refleja en el resultado para
+        /// que el caller no marque la conversión como completada.
         /// </summary>
-        public static async Task ConvertToFormatsAsync(string markdownPath, string outputFormats)
+        public static async Task<bool> ConvertToFormatsAsync(string markdownPath, string outputFormats, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(outputFormats))
             {
-                return;
+                return true;
             }
 
             AppLogger.Info($"Format Conversion: Initiating conversions for: {outputFormats}");
 
             string[] formats = outputFormats.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
             string basePath = Path.ChangeExtension(markdownPath, null);
+            bool allSucceeded = true;
 
             foreach (string format in formats)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 string fmt = format.Trim().ToLowerInvariant();
 
                 if (fmt == "md" || fmt == "markdown")
@@ -139,38 +192,38 @@ namespace PolyglotCLI
                     {
                         string pandocFormat = fmt == "odf" ? "odt" : fmt;
                         // Try pandoc first
-                        if (!TryConvertWithPandoc(markdownPath, outputPath, pandocFormat))
+                        if (!await TryConvertWithPandocAsync(markdownPath, outputPath, pandocFormat, cancellationToken))
                         {
                             AppLogger.Warn($"Format Conversion: pandoc not available for {fmt.ToUpperInvariant()}. Falling back to local C# OpenSource conversion...");
-                            
-                            // Generate HTML helper string for HTML-based converters
-                            string tempHtmlPath = $"{basePath}_temp.html";
-                            ConvertToHtml(markdownPath, tempHtmlPath);
-                            string htmlContent = File.ReadAllText(tempHtmlPath, Encoding.UTF8);
-                            
-                            try
+
+                            if (fmt == "odt" || fmt == "odf")
                             {
-                                if (fmt == "docx")
-                                {
-                                    ConvertHtmlToDocxLocal(htmlContent, outputPath);
-                                }
-                                else if (fmt == "pdf")
-                                {
-                                    await ConvertHtmlToPdfLocalAsync(htmlContent, outputPath);
-                                }
-                                else if (fmt == "odt" || fmt == "odf")
-                                {
-                                    // Use ODF/ODT extension as defined
-                                    string odtPath = fmt == "odf" ? $"{basePath}.odf" : $"{basePath}.odt";
-                                    ConvertMarkdownToOdtLocal(markdownPath, odtPath);
-                                }
+                                ConvertMarkdownToOdtLocal(markdownPath, outputPath);
                             }
-                            finally
+                            else
                             {
-                                // Clean up temp html file
-                                if (File.Exists(tempHtmlPath))
+                                // Generate HTML helper string for HTML-based converters
+                                string tempHtmlPath = $"{basePath}_temp.html";
+                                ConvertToHtml(markdownPath, tempHtmlPath);
+                                try
                                 {
-                                    File.Delete(tempHtmlPath);
+                                    string htmlContent = File.ReadAllText(tempHtmlPath, Encoding.UTF8);
+                                    if (fmt == "docx")
+                                    {
+                                        ConvertHtmlToDocxLocal(htmlContent, outputPath);
+                                    }
+                                    else
+                                    {
+                                        await ConvertHtmlToPdfLocalAsync(htmlContent, outputPath);
+                                    }
+                                }
+                                finally
+                                {
+                                    // Clean up temp html file
+                                    if (File.Exists(tempHtmlPath))
+                                    {
+                                        File.Delete(tempHtmlPath);
+                                    }
                                 }
                             }
                         }
@@ -178,15 +231,17 @@ namespace PolyglotCLI
                     else
                     {
                         AppLogger.Warn($"Format Conversion: Unknown requested output format '{fmt}'. Skipping.");
-                        AppLogger.Warn($"  [WARNING] Unknown output format '{fmt}'. Skipping.");
+                        allSucceeded = false;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     AppLogger.Error($"Format Conversion: Exception during format conversion to '{fmt}'.", ex);
-                    AppLogger.Error($"  [ERROR] Failed to convert to {fmt}: {ex.Message}");
+                    allSucceeded = false;
                 }
             }
+
+            return allSucceeded;
         }
 
         public static void ConvertHtmlToDocxLocal(string htmlContent, string outputPath)
@@ -200,13 +255,13 @@ namespace PolyglotCLI
                     mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document(
                         new DocumentFormat.OpenXml.Wordprocessing.Body()
                     );
-                    
+
                     var htmlConverter = new HtmlConverter(mainPart);
                     htmlConverter.Parse(htmlContent);
-                    
+
                     mainPart.Document.Save();
                 }
-                
+
                 File.WriteAllBytes(outputPath, memoryStream.ToArray());
             }
             AppLogger.Info($"Local Format Conversion (Docx): Succeeded saving docx to '{outputPath}'");
@@ -231,6 +286,11 @@ namespace PolyglotCLI
             AppLogger.Info($"  → PDF saved (locally) to: {outputPath}");
         }
 
+        /// <summary>
+        /// Conversión local Markdown → ODT/ODF. Usa <see cref="OdtFileWriter"/>,
+        /// que no necesita plantillas en disco (ver su documentación). Lanza
+        /// excepción si falla, para que el caller lo registre como error.
+        /// </summary>
         public static void ConvertMarkdownToOdtLocal(string markdownPath, string outputPath)
         {
             AppLogger.Info($"Local Format Conversion (Odt): Converting markdown to '{outputPath}'...");
@@ -240,135 +300,8 @@ namespace PolyglotCLI
             }
 
             string[] lines = File.ReadAllLines(markdownPath, Encoding.UTF8);
-            if (File.Exists(outputPath))
-            {
-                File.Delete(outputPath);
-            }
+            OdtFileWriter.WriteFromMarkdownLines(lines, outputPath);
 
-            string exeDir = AppContext.BaseDirectory;
-            string originalDir = Path.Combine(exeDir, "Original");
-            string metaInfDir = Path.Combine(originalDir, "META-INF");
-            string picturesDir = Path.Combine(originalDir, "Pictures");
-            string thumbnailsDir = Path.Combine(originalDir, "Thumbnails");
-            if (!Directory.Exists(originalDir)) Directory.CreateDirectory(originalDir);
-            if (!Directory.Exists(metaInfDir)) Directory.CreateDirectory(metaInfDir);
-            if (!Directory.Exists(picturesDir)) Directory.CreateDirectory(picturesDir);
-            if (!Directory.Exists(thumbnailsDir)) Directory.CreateDirectory(thumbnailsDir);
-
-            // Escribir mimetype
-            string mimetypePath = Path.Combine(originalDir, "mimetype");
-            if (!File.Exists(mimetypePath))
-            {
-                File.WriteAllText(mimetypePath, "application/vnd.oasis.opendocument.text", new UTF8Encoding(false));
-            }
-
-            // Escribir thumbnail.png
-            string thumbnailPath = Path.Combine(thumbnailsDir, "thumbnail.png");
-            if (!File.Exists(thumbnailPath))
-            {
-                File.WriteAllBytes(thumbnailPath, new byte[0]);
-            }
-
-            // Escribir manifest.xml
-            string manifestPath = Path.Combine(metaInfDir, "manifest.xml");
-            if (!File.Exists(manifestPath))
-            {
-                string manifestXml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
-<manifest:manifest xmlns:manifest=""urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"" manifest:version=""1.2"">
-  <manifest:file-entry manifest:full-path=""/"" manifest:version=""1.2"" manifest:media-type=""application/vnd.oasis.opendocument.text""/>
-  <manifest:file-entry manifest:full-path=""content.xml"" manifest:media-type=""text/xml""/>
-  <manifest:file-entry manifest:full-path=""styles.xml"" manifest:media-type=""text/xml""/>
-  <manifest:file-entry manifest:full-path=""meta.xml"" manifest:media-type=""text/xml""/>
-</manifest:manifest>";
-                File.WriteAllText(manifestPath, manifestXml, Encoding.UTF8);
-            }
-
-            // Escribir content.xml
-            string contentXmlPath = Path.Combine(originalDir, "content.xml");
-            if (!File.Exists(contentXmlPath))
-            {
-                string contentXml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
-<office:document-content xmlns:office=""urn:oasis:names:tc:opendocument:xmlns:office:1.0"" xmlns:style=""urn:oasis:names:tc:opendocument:xmlns:style:1.0"" xmlns:text=""urn:oasis:names:tc:opendocument:xmlns:text:1.0"" xmlns:table=""urn:oasis:names:tc:opendocument:xmlns:table:1.0"" xmlns:draw=""urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"" xmlns:fo=""urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"" xmlns:xlink=""http://www.w3.org/1999/xlink"" xmlns:dc=""http://purl.org/dc/elements/1.1/"" xmlns:meta=""urn:oasis:names:tc:opendocument:xmlns:meta:1.0"" xmlns:number=""urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0"" xmlns:svg=""urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0"" xmlns:chart=""urn:oasis:names:tc:opendocument:xmlns:chart:1.0"" xmlns:dr3d=""urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0"" xmlns:math=""http://www.w3.org/1998/Math/MathML"" xmlns:form=""urn:oasis:names:tc:opendocument:xmlns:form:1.0"" xmlns:script=""urn:oasis:names:tc:opendocument:xmlns:script:1.0"" xmlns:ooo=""http://openoffice.org/2004/office"" xmlns:ooow=""http://openoffice.org/2004/writer"" xmlns:oooc=""http://openoffice.org/2004/calc"" xmlns:dom=""http://www.w3.org/2001/xml-events"" xmlns:xforms=""http://www.w3.org/2002/xforms"" xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"" xmlns:rpt=""http://openoffice.org/2009/report"" xmlns:of=""urn:oasis:names:tc:opendocument:xmlns:of:1.2"" xmlns:xhtml=""http://www.w3.org/1999/xhtml"" xmlns:grddl=""http://www.w3.org/2003/g/data-view#"" xmlns:officeooo=""http://openoffice.org/2009/office"" xmlns:tableooo=""http://openoffice.org/2009/table"" xmlns:drawooo=""http://openoffice.org/2009/draw"" xmlns:calcext=""urn:org:documentfoundation:names:experimental:calc:xmlns:calcext:1.0"" xmlns:loext=""urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0"" xmlns:field=""urn:openoffice:names:experimental:ooo-ms-format:drawing-陸"" office:version=""1.2"">
-  <office:scripts/>
-  <office:font-face-decls/>
-  <office:automatic-styles/>
-  <office:body>
-    <office:text>
-      <office:forms form:apply-design-mode=""false"" form:automatic-focus=""false""/>
-    </office:text>
-  </office:body>
-</office:document-content>";
-                File.WriteAllText(contentXmlPath, contentXml, Encoding.UTF8);
-            }
-
-            // Escribir styles.xml
-            string stylesXmlPath = Path.Combine(originalDir, "styles.xml");
-            if (!File.Exists(stylesXmlPath))
-            {
-                string stylesXml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
-<office:document-styles xmlns:office=""urn:oasis:names:tc:opendocument:xmlns:office:1.0"" xmlns:style=""urn:oasis:names:tc:opendocument:xmlns:style:1.0"" xmlns:text=""urn:oasis:names:tc:opendocument:xmlns:text:1.0"" xmlns:table=""urn:oasis:names:tc:opendocument:xmlns:table:1.0"" xmlns:draw=""urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"" xmlns:fo=""urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"" xmlns:xlink=""http://www.w3.org/1999/xlink"" xmlns:dc=""http://purl.org/dc/elements/1.1/"" xmlns:meta=""urn:oasis:names:tc:opendocument:xmlns:meta:1.0"" xmlns:number=""urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0"" xmlns:svg=""urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0"" xmlns:chart=""urn:oasis:names:tc:opendocument:xmlns:chart:1.0"" xmlns:dr3d=""urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0"" xmlns:math=""http://www.w3.org/1998/Math/MathML"" xmlns:form=""urn:oasis:names:tc:opendocument:xmlns:form:1.0"" xmlns:script=""urn:oasis:names:tc:opendocument:xmlns:script:1.0"" xmlns:ooo=""http://openoffice.org/2004/office"" xmlns:ooow=""http://openoffice.org/2004/writer"" xmlns:oooc=""http://openoffice.org/2004/calc"" xmlns:dom=""http://www.w3.org/2001/xml-events"" xmlns:rpt=""http://openoffice.org/2009/report"" xmlns:of=""urn:oasis:names:tc:opendocument:xmlns:of:1.2"" xmlns:xhtml=""http://www.w3.org/1999/xhtml"" xmlns:grddl=""http://www.w3.org/2003/g/data-view#"" xmlns:officeooo=""http://openoffice.org/2009/office"" xmlns:tableooo=""http://openoffice.org/2009/table"" xmlns:drawooo=""http://openoffice.org/2009/draw"" xmlns:calcext=""urn:org:documentfoundation:names:experimental:calc:xmlns:calcext:1.0"" xmlns:loext=""urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0"" xmlns:field=""urn:openoffice:names:experimental:ooo-ms-format:drawing-陸"" office:version=""1.2"">
-  <office:font-face-decls/>
-  <office:styles/>
-  <office:automatic-styles/>
-  <office:master-styles>
-    <style:master-page style:name=""Standard"" style:page-layout-name=""Mpm1""/>
-  </office:master-styles>
-</office:document-styles>";
-                File.WriteAllText(stylesXmlPath, stylesXml, Encoding.UTF8);
-            }
-
-            // Escribir meta.xml
-            string metaXmlPath = Path.Combine(originalDir, "meta.xml");
-            if (!File.Exists(metaXmlPath))
-            {
-                string metaXml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
-<office:document-meta xmlns:office=""urn:oasis:names:tc:opendocument:xmlns:office:1.0"" xmlns:xlink=""http://www.w3.org/1999/xlink"" xmlns:dc=""http://purl.org/dc/elements/1.1/"" xmlns:meta=""urn:oasis:names:tc:opendocument:xmlns:meta:1.0"" xmlns:ooo=""http://openoffice.org/2004/office"" xmlns:grddl=""http://www.w3.org/2003/g/data-view#"" office:version=""1.2"">
-  <office:meta>
-    <meta:generator>NetOdt</meta:generator>
-    <meta:initial-creator>NetOdt</meta:initial-creator>
-    <meta:creation-date>2026-07-10T12:00:00Z</meta:creation-date>
-    <dc:creator>NetOdt</dc:creator>
-    <dc:date>2026-07-10T12:00:00Z</dc:date>
-  </office:meta>
-</office:document-meta>";
-                File.WriteAllText(metaXmlPath, metaXml, Encoding.UTF8);
-            }
-
-            using (var odtDocument = new OdtDocument(outputPath))
-            {
-                odtDocument.SetGlobalFont("Arial", NetOdt.Enumerations.FontSize.Size11);
-
-                foreach (var line in lines)
-                {
-                    string trimmed = line.Trim();
-                    if (string.IsNullOrEmpty(trimmed))
-                    {
-                        odtDocument.AppendEmptyLines(1);
-                        continue;
-                    }
-
-                    if (trimmed.StartsWith("# "))
-                    {
-                        odtDocument.AppendLine(trimmed.Substring(2), TextStyle.Title);
-                    }
-                    else if (trimmed.StartsWith("## "))
-                    {
-                        odtDocument.AppendLine(trimmed.Substring(3), TextStyle.Bold);
-                    }
-                    else if (trimmed.StartsWith("### "))
-                    {
-                        odtDocument.AppendLine(trimmed.Substring(4), TextStyle.Bold | TextStyle.Italic);
-                    }
-                    else if (trimmed.StartsWith("- ") || trimmed.StartsWith("* "))
-                    {
-                        odtDocument.AppendLine("• " + trimmed.Substring(2), TextStyle.None);
-                    }
-                    else
-                    {
-                        odtDocument.AppendLine(line, TextStyle.None);
-                    }
-                }
-            }
             AppLogger.Info($"Local Format Conversion (Odt): Succeeded saving odt to '{outputPath}'");
             AppLogger.Info($"  → ODT/ODF saved (locally) to: {outputPath}");
         }

@@ -30,10 +30,11 @@ namespace PolyglotCLI
                 sb.AppendLine();
             }
 
-            // Sort pages to maintain correct order
-            pages.Sort((a, b) => a.PageNumber.CompareTo(b.PageNumber));
+            // Ordenar una COPIA: la lista del caller no se modifica.
+            var orderedPages = new List<DocumentPageData>(pages);
+            orderedPages.Sort((a, b) => a.PageNumber.CompareTo(b.PageNumber));
 
-            foreach (var page in pages)
+            foreach (var page in orderedPages)
             {
                 string? text = isOriginal ? page.OriginalText : (!string.IsNullOrEmpty(page.ReviewedText) ? page.ReviewedText : page.TranslatedText);
                 if (!string.IsNullOrWhiteSpace(text))
@@ -44,12 +45,6 @@ namespace PolyglotCLI
             }
 
             File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
-        }
-
-        // Dummy method to satisfy compiler for legacy IExtractor calls
-        public void SaveOrUpdatePage(int pageNumber, string content)
-        {
-            // Do nothing
         }
     }
 }

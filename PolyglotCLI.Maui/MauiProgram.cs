@@ -14,31 +14,14 @@ namespace PolyglotCLI.Maui
 	{
 		public static MauiApp CreateMauiApp()
 		{
-#if WINDOWS
-			try
-			{
-				string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-				// Estructura {desarrollador}\{programa}: el cache de
-				// WebView2 también vive bajo FittyAr\PolyglotCLI para
-				// no plantar la app directo en %LocalAppData%.
-				string userDataFolder = System.IO.Path.Combine(localAppData, "FittyAr", "PolyglotCLI", "WebView2");
-				if (!System.IO.Directory.Exists(userDataFolder))
-				{
-					System.IO.Directory.CreateDirectory(userDataFolder);
-				}
-				Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", userDataFolder);
-			}
-			catch { }
-#endif
+			// La carpeta de datos de WebView2 (WEBVIEW2_USER_DATA_FOLDER) se
+			// configura una sola vez en Platforms/Windows/App.xaml.cs, antes de
+			// que WinUI inicialice cualquier WebView.
 
 			var builder = MauiApp.CreateBuilder();
 			builder
 				.UseMauiApp<App>()
-				.UseMauiCommunityToolkit()
-				.ConfigureFonts(fonts =>
-				{
-					fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-				});
+				.UseMauiCommunityToolkit();
 
 			// Inicializar configuracion y logger
 			var config = AppConfig.Load();

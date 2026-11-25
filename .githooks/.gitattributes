@@ -1,0 +1,2 @@
+# El hook lo ejecuta sh: forzar finales de linea LF aunque core.autocrlf=true.
+pre-push text eol=lf

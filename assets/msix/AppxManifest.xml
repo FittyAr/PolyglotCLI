@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifiesto MSIX para Microsoft Store. Lo procesa .github/workflows/release.yml:
+    - Los marcadores de identidad (nombre, publisher y nombre visible del
+      editor) se reemplazan con los valores de Partner Center (secrets
+      MS_STORE_*). El workflow falla si falta alguno.
+    - La version 0.0.0.0 de Identity se reemplaza por la del release (X.Y.Z.0).
+  Los logos se referencian sin calificadores: el publish de MSBuild
+  (-p:PolyglotMsix=true) genera un resources.pri que los indexa y MRT elige
+  la variante scale-XXX / targetsize-XX adecuada.
+  Ver docs/STORE_SUBMISSION.md.
+-->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
@@ -8,7 +19,7 @@
   <Identity
     Name="TEMPLATE_PACKAGE_IDENTITY_NAME"
     Publisher="TEMPLATE_PACKAGE_IDENTITY_PUBLISHER"
-    Version="1.0.0.0"
+    Version="0.0.0.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
@@ -18,11 +29,11 @@
   </Properties>
 
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22000.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
   </Dependencies>
 
   <Resources>
-    <Resource Language="en-US" />
+    <Resource Language="es-ES" />
   </Resources>
 
   <Applications>
@@ -35,13 +46,19 @@
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
-        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square71x71Logo="Assets\Square71x71Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png"
+          ShortName="PolyglotCLI" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#0F172A" />
       </uap:VisualElements>
     </Application>
   </Applications>
 
   <Capabilities>
+    <!-- Requerida por toda app de escritorio Win32 empaquetada (MAUI/WinUI
+         sin empaquetar dentro de MSIX). Justificación en docs/STORE_SUBMISSION.md. -->
     <rescap:Capability Name="runFullTrust" />
   </Capabilities>
 </Package>

@@ -327,15 +327,46 @@ namespace PolyglotCLI.test
         }
 
         [Fact]
-        public void GetDefaultOutputDirectory_UsesFittyArPolyglotCLI_OnWindows()
+        public void GetDefaultOutputDirectory_UsesDocumentsPolyglotCLI()
         {
-            if (!OperatingSystem.IsWindows()) return;
+            // La salida por defecto vive en Documentos\PolyglotCLI: MSIX no
+            // la virtualiza y el usuario la encuentra sin carpetas ocultas.
+            string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (string.IsNullOrEmpty(documents)) return;
 
             string path = AppConfig.GetDefaultOutputDirectory();
-            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string expectedDir = Path.Combine(appData, "FittyAr", "PolyglotCLI", "output");
 
-            Assert.Equal(expectedDir, path);
+            Assert.Equal(Path.Combine(documents, "PolyglotCLI"), path);
+        }
+
+        [Fact]
+        public void GetSafeOutputDirectory_ResolvesRelativePathUnderDefaultOutputDirectory()
+        {
+            // Una ruta relativa nunca se resuelve contra el directorio de la
+            // app (de sólo lectura en MSIX), sino bajo la carpeta por defecto.
+            string actual = AppConfig.GetSafeOutputDirectory("output");
+
+            Assert.Equal(Path.Combine(AppConfig.GetDefaultOutputDirectory(), "output"), actual);
+            Assert.False(actual.StartsWith(AppContext.BaseDirectory, StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        public void GetSafeOutputDirectory_KeepsExplicitAbsolutePath()
+        {
+            string explicitDir = Path.Combine(Path.GetTempPath(), $"polyglot_out_{Guid.NewGuid():N}");
+
+            Assert.Equal(explicitDir, AppConfig.GetSafeOutputDirectory(explicitDir));
+        }
+
+        [Fact]
+        public void GetSafeOutputDirectory_RedirectsPathsInsideExecutableDirectory()
+        {
+            string? exeDir = string.IsNullOrEmpty(Environment.ProcessPath) ? null : Path.GetDirectoryName(Environment.ProcessPath);
+            if (string.IsNullOrEmpty(exeDir)) return;
+
+            string insideExe = Path.Combine(exeDir, "output");
+
+            Assert.Equal(AppConfig.GetDefaultOutputDirectory(), AppConfig.GetSafeOutputDirectory(insideExe));
         }
 
         [Fact]
@@ -522,27 +553,21 @@ namespace PolyglotCLI.test
             string fakePfPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                 "PolyglotCLI", "output");
-            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string expected = Path.Combine(appData, "FittyAr", "PolyglotCLI", "output");
+            string expected = AppConfig.GetDefaultOutputDirectory();
 
             // Act
             string actual = AppConfig.GetSafeOutputDirectory(fakePfPath);
 
-            // Assert: debe redirigir a FittyAr/PolyglotCLI/output, no
-            // a PolyglotCLI/output (regression del cambio de
-            // estandarización).
+            // Assert: debe redirigir a la carpeta de salida por defecto
+            // (Documentos\PolyglotCLI), nunca quedarse en Program Files.
             Assert.Equal(expected, actual);
-            Assert.StartsWith(Path.Combine(appData, "FittyAr", "PolyglotCLI"), actual);
-            Assert.DoesNotContain(Path.Combine(appData, "PolyglotCLI", "output"), actual);
+            Assert.False(AppConfig.IsPathInsideProgramFiles(actual));
         }
 
         [Fact]
-        public void GetSafeOutputDirectory_DefaultIsFittyArPolyglotCLI_WhenPathIsEmpty()
+        public void GetSafeOutputDirectory_DefaultIsDocumentsPolyglotCLI_WhenPathIsEmpty()
         {
-            if (!OperatingSystem.IsWindows()) return;
-
-            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string expected = Path.Combine(appData, "FittyAr", "PolyglotCLI", "output");
+            string expected = AppConfig.GetDefaultOutputDirectory();
 
             string actual = AppConfig.GetSafeOutputDirectory("");
 

@@ -14,7 +14,7 @@ namespace PolyglotCLI
         public string? OcrProvider { get; set; }
         public string? TranslationProvider { get; set; }
         public string? ReviewProvider { get; set; }
-        public string ApiUrl { get; set; } = "http://172.22.144.1:1234/v1";
+        public string ApiUrl { get; set; } = LlmProviderHelper.GetDefaultApiUrl(LlmProvider.LmStudio);
         public string? ApiKey { get; set; }
         public string? ModelName { get; set; }
         public string? VisionModelName { get; set; }
@@ -276,14 +276,14 @@ namespace PolyglotCLI
                         int.TryParse(rangeParts[0], out int start) && 
                         int.TryParse(rangeParts[1], out int end))
                     {
-                        int min = Math.Min(start, end);
-                        int max = Math.Max(start, end);
-                        for (int i = min; i <= max; i++)
+                        // Acotar a [1, totalPages] ANTES de iterar: con
+                        // "1-2147483647" el `i++` desbordaba (bucle infinito)
+                        // y rangos enormes iteraban millones de veces en vano.
+                        int min = Math.Max(1, Math.Min(start, end));
+                        int max = Math.Min(totalPages, Math.Max(start, end));
+                        for (long i = min; i <= max; i++)
                         {
-                            if (i >= 1 && i <= totalPages)
-                            {
-                                pages.Add(i);
-                            }
+                            pages.Add((int)i);
                         }
                     }
                 }
@@ -349,7 +349,7 @@ namespace PolyglotCLI
             Console.WriteLine("Options:");
             Console.WriteLine("  -f, --files <paths>        Path(s) to the PDF file(s) to translate.");
             Console.WriteLine("  -m, --mode <text|image>    PDF content type. 'text' (extract text) or 'image' (OCR first). Default: text.");
-            Console.WriteLine("  -a, --api <url>            LM Studio Base API URL. Default: http://172.22.144.1:1234/v1");
+            Console.WriteLine($"  -a, --api <url>            LM Studio Base API URL. Default: {LlmProviderHelper.GetDefaultApiUrl(LlmProvider.LmStudio)}");
             Console.WriteLine("  --model <name>             Name of the translation LLM loaded in LM Studio.");
             Console.WriteLine("  -vmodel, --vision-model <name> Name of the vision model for OCR loaded in LM Studio.");
             Console.WriteLine("  -t, --target-lang <lang>   Target language for translation. Default: Spanish.");

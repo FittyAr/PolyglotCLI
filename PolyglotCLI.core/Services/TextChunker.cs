@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
 {
@@ -14,9 +15,17 @@ namespace PolyglotCLI
                 return chunks;
             }
 
-            // Clamp overlap to a reasonable max (half of chunk size)
-            if (overlapCharacters < 0) overlapCharacters = 0;
-            if (overlapCharacters > maxCharacters / 2) overlapCharacters = maxCharacters / 2;
+            // Un tamaño de chunk <= 0 (config corrupto) hacía que el corte
+            // por caracteres avanzara 0 posiciones: bucle infinito. Los
+            // valores fuera de rango caen al default del validador; los
+            // tamaños chicos pero positivos se respetan (no cuelgan).
+            if (maxCharacters < 1 || maxCharacters > NumericRangeValidator.MaxChunkSize)
+            {
+                maxCharacters = NumericRangeValidator.ClampChunkSize(maxCharacters);
+            }
+
+            // Overlap acotado a [0, mitad del chunk].
+            overlapCharacters = NumericRangeValidator.ClampChunkOverlap(overlapCharacters, maxCharacters);
 
             // Split by lines
             string[] lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);

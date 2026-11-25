@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -37,13 +38,13 @@ namespace PolyglotCLI
             AppLogger.Debug($"Created OpenAiCompatibleClient for {_apiUrl} with timeout of {timeoutSeconds}s.");
         }
 
-        public async Task<string> GetFirstLoadedModelAsync()
+        public async Task<string> GetFirstLoadedModelAsync(CancellationToken cancellationToken = default)
         {
-            var models = await GetAvailableModelsAsync();
+            var models = await GetAvailableModelsAsync(cancellationToken);
             return models.Count > 0 ? models[0] : string.Empty;
         }
 
-        public async Task<List<string>> GetAvailableModelsAsync()
+        public async Task<List<string>> GetAvailableModelsAsync(CancellationToken cancellationToken = default)
         {
             AppLogger.Debug($"GET /models: Fetching models list from {_apiUrl}...");
             var models = new List<string>();
@@ -61,10 +62,10 @@ namespace PolyglotCLI
             {
                 try
                 {
-                    var response = await _httpClient.GetAsync(endpoint);
+                    using var response = await _httpClient.GetAsync(endpoint, cancellationToken);
                     if (response.IsSuccessStatusCode)
                     {
-                        var content = await response.Content.ReadAsStringAsync();
+                        var content = await response.Content.ReadAsStringAsync(cancellationToken);
                         using var doc = JsonDocument.Parse(content);
                         ExtractModelsFromJson(doc.RootElement, models);
 
@@ -76,9 +77,13 @@ namespace PolyglotCLI
                     }
                     else
                     {
-                        string errContent = await response.Content.ReadAsStringAsync();
+                        string errContent = await response.Content.ReadAsStringAsync(cancellationToken);
                         AppLogger.Warn($"GET {endpoint}: Failed (Code: {response.StatusCode}). Content: {errContent}");
                     }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -144,12 +149,12 @@ namespace PolyglotCLI
             }
         }
 
-        public async Task<string> SendTextRequestAsync(string systemPrompt, string userPrompt, string? modelName)
+        public async Task<string> SendTextRequestAsync(string systemPrompt, string userPrompt, string? modelName, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(modelName))
             {
                 AppLogger.Debug("SendTextRequestAsync: Model name not specified. Fetching default active model...");
-                modelName = await GetFirstLoadedModelAsync();
+                modelName = await GetFirstLoadedModelAsync(cancellationToken);
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
                     modelName = "default-model";
@@ -181,7 +186,7 @@ namespace PolyglotCLI
                     Temperature = Temperature
                 };
 
-                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel);
+                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel, cancellationToken);
                 stopwatch.Stop();
                 AppLogger.Info($"POST /chat/completions (SK): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
@@ -195,12 +200,12 @@ namespace PolyglotCLI
             }
         }
 
-        public async Task<string> SendVisionRequestAsync(string systemPrompt, string userPrompt, byte[] imageBytes, string imageMimeType, string? modelName)
+        public async Task<string> SendVisionRequestAsync(string systemPrompt, string userPrompt, byte[] imageBytes, string imageMimeType, string? modelName, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(modelName))
             {
                 AppLogger.Debug("SendVisionRequestAsync: Model name not specified. Fetching default active model...");
-                modelName = await GetFirstLoadedModelAsync();
+                modelName = await GetFirstLoadedModelAsync(cancellationToken);
                 if (string.IsNullOrWhiteSpace(modelName))
                 {
                     modelName = "default-model";
@@ -238,7 +243,7 @@ namespace PolyglotCLI
                     Temperature = Temperature
                 };
 
-                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel);
+                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel, cancellationToken);
                 stopwatch.Stop();
                 AppLogger.Info($"POST /chat/completions (SK Vision): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
@@ -252,7 +257,7 @@ namespace PolyglotCLI
             }
         }
 
-        public async Task<bool> UnloadModelAsync(string modelIdentifier)
+        public async Task<bool> UnloadModelAsync(string modelIdentifier, CancellationToken cancellationToken = default)
         {
             AppLogger.Info($"VRAM Unload: Requesting unload of model '{modelIdentifier}'...");
             var stopwatch = Stopwatch.StartNew();
@@ -269,7 +274,7 @@ namespace PolyglotCLI
                 string jsonPayload = JsonSerializer.Serialize(payload);
                 using var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync(endpoint, httpContent);
+                using var response = await _httpClient.PostAsync(endpoint, httpContent, cancellationToken);
                 stopwatch.Stop();
 
                 if (response.IsSuccessStatusCode)
@@ -287,8 +292,19 @@ namespace PolyglotCLI
                     keep_alive = 0
                 };
                 using var ollamaContent = new StringContent(JsonSerializer.Serialize(ollamaPayload), Encoding.UTF8, "application/json");
-                await _httpClient.PostAsync(ollamaEndpoint, ollamaContent);
-                return true;
+                using var ollamaResponse = await _httpClient.PostAsync(ollamaEndpoint, ollamaContent, cancellationToken);
+                if (ollamaResponse.IsSuccessStatusCode)
+                {
+                    AppLogger.Info($"VRAM Unload: Model '{modelIdentifier}' unloaded via Ollama keep_alive=0.");
+                    return true;
+                }
+
+                AppLogger.Debug($"VRAM Unload: Neither LM Studio nor Ollama unload succeeded for '{modelIdentifier}' (codes {(int)response.StatusCode}/{(int)ollamaResponse.StatusCode}).");
+                return false;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -298,18 +314,22 @@ namespace PolyglotCLI
             }
         }
 
-        public async Task UnloadAllExceptAsync(string keepModelIdentifier)
+        public async Task UnloadAllExceptAsync(string keepModelIdentifier, CancellationToken cancellationToken = default)
         {
             try
             {
-                var models = await GetAvailableModelsAsync();
+                var models = await GetAvailableModelsAsync(cancellationToken);
                 foreach (var model in models)
                 {
                     if (!model.Equals(keepModelIdentifier, StringComparison.OrdinalIgnoreCase))
                     {
-                        await UnloadModelAsync(model);
+                        await UnloadModelAsync(model, cancellationToken);
                     }
                 }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {

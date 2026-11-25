@@ -184,6 +184,17 @@ namespace PolyglotCLI.test
         }
 
         [Fact]
+        public async Task ImportJobPackageAsync_RejectsTinyNonZipStream()
+        {
+            // Archivos más chicos que el registro EOCD del zip: en .NET 11
+            // ZipArchive lanza ArgumentOutOfRangeException, no InvalidDataException.
+            using var input = new MemoryStream(System.Text.Encoding.ASCII.GetBytes("notzip\n"));
+            var ex = await Assert.ThrowsAsync<InvalidJobPackageException>(async () =>
+                await JobPackageService.ImportJobPackageAsync(input, _jobsRoot));
+            Assert.Contains("ZIP", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
         public async Task ImportJobPackageAsync_ReportsFilesFound_WhenManifestMissing()
         {
             // Create a zip that has the right top-level prefix but no manifest.json

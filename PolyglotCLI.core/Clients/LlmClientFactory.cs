@@ -73,6 +73,12 @@ namespace PolyglotCLI
                 apiUrl = LlmProviderHelper.GetDefaultApiUrl(provider);
             }
 
+            // Una key que no se pudo descifrar (marker de SecureField)
+            // nunca se manda como bearer token: equivale a "sin key".
+#pragma warning disable CA1416 // SanitizeForUse es una comparación de strings, segura en todo OS.
+            apiKey = SecureField.SanitizeForUse(apiKey);
+#pragma warning restore CA1416
+
             // Defensa SSRF: validar la URL antes de crear el
             // HttpClient. Por ahora (PR 2) solo logueamos — no
             // cambiamos el comportamiento para mantener

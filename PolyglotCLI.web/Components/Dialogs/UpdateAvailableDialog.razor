@@ -83,6 +83,17 @@
     {
         if (_updater is null) return;
 
+        // El instalador cierra la app: no interrumpir una traducción en
+        // curso (dejaría manifiestos/_data.json a medio escribir).
+        if (TranslationSession.IsProcessing)
+        {
+            Notifier.Notify(NotificationSeverity.Warning,
+                "Traducción en curso",
+                "Esperá a que termine (o detenela) antes de actualizar.",
+                duration: 7000);
+            return;
+        }
+
         // Cierra este dialog antes de abrir el de progreso.
         DialogService.Close();
 

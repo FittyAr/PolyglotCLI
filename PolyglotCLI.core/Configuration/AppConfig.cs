@@ -22,7 +22,7 @@ namespace PolyglotCLI
         public string TranslationProvider { get; set; } = "LmStudio";
         public string ReviewProvider { get; set; } = "LmStudio";
 
-        public string ApiUrl { get; set; } = "http://172.22.144.1:1234/v1";
+        public string ApiUrl { get; set; } = LlmProviderHelper.GetDefaultApiUrl(LlmProvider.LmStudio);
         public string? ApiKey { get; set; }
         public Dictionary<string, string> ProviderApiKeys { get; set; } = new Dictionary<string, string>();
         public Dictionary<string, ProviderConfig> ProviderConfigs { get; set; } = new Dictionary<string, ProviderConfig>();
@@ -303,7 +303,7 @@ namespace PolyglotCLI
 
                 foreach (var p in pathsToCheck)
                 {
-                    if (fullPath.StartsWith(p, StringComparison.OrdinalIgnoreCase))
+                    if (IsSameOrInside(fullPath, p))
                     {
                         return true;
                     }
@@ -316,6 +316,48 @@ namespace PolyglotCLI
             return false;
         }
 
+        /// <summary>
+        /// True si <paramref name="path"/> cae en una ubicación de sólo
+        /// lectura para el usuario: Program Files (ver
+        /// <see cref="IsPathInsideProgramFiles"/>) o la carpeta del
+        /// ejecutable (<see cref="Environment.ProcessPath"/>), que en
+        /// MSIX/Program Files no es escribible y en instalaciones
+        /// portables se pierde al actualizar.
+        /// </summary>
+        public static bool IsPathInsideReadOnlyLocation(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            if (IsPathInsideProgramFiles(path)) return true;
+            try
+            {
+                string fullPath = Path.GetFullPath(path);
+                string? exeDir = string.IsNullOrEmpty(Environment.ProcessPath)
+                    ? null
+                    : Path.GetDirectoryName(Environment.ProcessPath);
+                if (!string.IsNullOrEmpty(exeDir) && IsSameOrInside(fullPath, exeDir))
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // Path malformado: lo tratamos como no read-only y deja
+                // que el caller falle al usarlo.
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Comparación de prefijo consciente de separadores: evita que
+        /// "C:\Program FilesX" se considere dentro de "C:\Program Files".
+        /// </summary>
+        private static bool IsSameOrInside(string fullPath, string root)
+        {
+            string normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return string.Equals(fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), normalizedRoot, StringComparison.OrdinalIgnoreCase)
+                || fullPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+
         public static string GetSafeOutputDirectory(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
@@ -323,9 +365,14 @@ namespace PolyglotCLI
                 return GetDefaultOutputDirectory();
             }
 
-            string fullPath = Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, path));
+            // Las rutas relativas se resuelven contra la carpeta de salida
+            // por defecto (Documentos\PolyglotCLI), nunca contra
+            // AppContext.BaseDirectory (de sólo lectura en MSIX).
+            string fullPath = Path.IsPathRooted(path)
+                ? path
+                : Path.GetFullPath(Path.Combine(GetDefaultOutputDirectory(), path));
 
-            if (IsPathInsideProgramFiles(fullPath))
+            if (IsPathInsideReadOnlyLocation(fullPath))
             {
                 return GetDefaultOutputDirectory();
             }
@@ -334,12 +381,19 @@ namespace PolyglotCLI
         }
 
         /// <summary>
-        /// Carpeta por defecto para salidas (markdown, docx, exports).
-        /// Siempre bajo {AppData}\FittyAr\PolyglotCLI\output\ para
-        /// mantener la convención {desarrollador}\{programa}.
+        /// Carpeta por defecto para salidas (markdown, docx, exports):
+        /// Documentos\PolyglotCLI. Se usa Documentos (y no AppData)
+        /// porque MSIX no la virtualiza y el usuario la encuentra sin
+        /// buscar carpetas ocultas. Si el sistema no expone Documentos
+        /// (cuentas de servicio), se cae a {AppData}\FittyAr\PolyglotCLI\output.
         /// </summary>
         public static string GetDefaultOutputDirectory()
         {
+            string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (!string.IsNullOrEmpty(documents))
+            {
+                return Path.Combine(documents, "PolyglotCLI");
+            }
             if (OperatingSystem.IsWindows())
             {
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -611,37 +665,28 @@ namespace PolyglotCLI
             }
             else
             {
-                // Orden de prioridad:
-                //   1. AppData (canónico para datos de usuario).
-                //   2. currentDir / baseDir (dev / legacy).
-                //
-                // Developers pueden setear POLYGLOTCLI_USE_PROJECT_CONFIG=1
-                // para invertir el orden y usar el config del project
-                // tree, ignorando AppData. Útil cuando se quiere
-                // iterar sobre el config sin tocar el del usuario.
-                string currentDirConfig = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
-                string baseDirConfig = Path.Combine(AppContext.BaseDirectory, "config.json");
+                // Por defecto SOLO se usa el config canónico en AppData.
+                // Un config.json en el directorio de trabajo o junto al
+                // binario únicamente se consulta si el desarrollador lo
+                // pidió explícitamente con POLYGLOTCLI_USE_PROJECT_CONFIG=1:
+                // de lo contrario, un config.json plantado en el CWD
+                // ganaría en el primer arranque (sin config en AppData).
                 string appDataConfig = GetDefaultConfigPath();
+                resolvedPath = appDataConfig;
 
-                if (!UseProjectConfig && File.Exists(appDataConfig))
+                if (UseProjectConfig)
                 {
-                    resolvedPath = appDataConfig;
-                }
-                else if (File.Exists(currentDirConfig) && !IsPathInsideProgramFiles(currentDirConfig))
-                {
-                    resolvedPath = currentDirConfig;
-                }
-                else if (File.Exists(baseDirConfig) && !IsPathInsideProgramFiles(baseDirConfig))
-                {
-                    resolvedPath = baseDirConfig;
-                }
-                else if (File.Exists(baseDirConfig))
-                {
-                    resolvedPath = baseDirConfig;
-                }
-                else
-                {
-                    resolvedPath = appDataConfig; // Fallback default path for saving new config
+                    string currentDirConfig = Path.Combine(Directory.GetCurrentDirectory(), "config.json");
+                    string baseDirConfig = Path.Combine(AppContext.BaseDirectory, "config.json");
+
+                    if (File.Exists(currentDirConfig) && !IsPathInsideProgramFiles(currentDirConfig))
+                    {
+                        resolvedPath = currentDirConfig;
+                    }
+                    else if (File.Exists(baseDirConfig))
+                    {
+                        resolvedPath = baseDirConfig;
+                    }
                 }
             }
 
@@ -680,6 +725,13 @@ namespace PolyglotCLI
             }
             catch (Exception ex)
             {
+                // El config está corrupto: antes de caer a defaults (que el
+                // próximo Save escribiría encima) guardamos una copia para
+                // que el usuario pueda recuperar sus ajustes a mano.
+                string? backupPath = BackupCorruptConfig(resolvedPath);
+                AppLogger.Warn(
+                    $"AppConfig: no se pudo leer '{resolvedPath}', se usan valores por defecto. " +
+                    $"Copia del archivo original: '{backupPath ?? "(no se pudo crear)"}'. Error: {ex.Message}");
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"Warning: Failed to load config.json, using defaults. Error: {ex.Message}");
                 Console.ResetColor();
@@ -747,105 +799,145 @@ namespace PolyglotCLI
 
             configPath ??= LoadedFromPath ?? GetDefaultConfigPath();
 
-            // Ciframos los campos sensibles (ApiKey, ProviderApiKeys[*],
-            // ProviderConfigs[*].ApiKey) antes de serializar. El
-            // try/finally garantiza que el estado en memoria vuelva a
-            // quedar en claro aunque la escritura a disco falle: la
-            // app necesita los valores reales para hablar con el LLM.
-            // El lock evita que otro thread lea los valores cifrados
-            // durante la ventana de serialización.
+            // Se cifra y serializa una COPIA profunda: la instancia viva
+            // (singleton en Blazor) nunca pasa por un estado cifrado, así
+            // que lectores concurrentes jamás ven ciphertext como "API key".
+            // El lock sólo serializa escrituras concurrentes al archivo.
             lock (_saveLock)
             {
-            try
-            {
-                // CA1416: ver nota en Load(). SecureField está marcado
-                // [SupportedOSPlatform("windows")] pero los métodos
-                // internos degradan en no-Windows (Protect devuelve
-                // plaintext, Unprotect devuelve null) — el comportamiento
-                // es seguro en todos los OS.
+                string? tmpPath = null;
+                try
+                {
+                    var snapshot = Clone();
+                    // CA1416: ver nota en Load(). SecureField está marcado
+                    // [SupportedOSPlatform("windows")] pero los métodos
+                    // internos degradan en no-Windows (Protect devuelve
+                    // plaintext) — el comportamiento es seguro en todos los OS.
 #pragma warning disable CA1416
-                SecureField.ProtectInPlace(this);
+                    SecureField.ProtectInPlace(snapshot);
 #pragma warning restore CA1416
 
-                var options = new JsonSerializerOptions { WriteIndented = true };
-                string jsonString = JsonSerializer.Serialize(this, options);
-                // Escritura atómica: escribimos a un .tmp en la misma carpeta
-                // y luego File.Replace (que es atómico en Windows/NTFS). Si el
-                // proceso se corta a mitad de un File.WriteAllText clásico, el
-                // config.json quedaría corrupto y el próximo Load cae a
-                // defaults. Con .tmp + Replace, o se ve la versión vieja o
-                // se ve la nueva, nunca un archivo trunco.
-                string dir = Path.GetDirectoryName(configPath) ?? ".";
-                string tmpPath = Path.Combine(dir, $".{Path.GetFileName(configPath)}.{Guid.NewGuid():N}.tmp");
-                File.WriteAllText(tmpPath, jsonString);
-                if (File.Exists(configPath))
-                {
-                    File.Replace(tmpPath, configPath, destinationBackupFileName: null);
+                    string jsonString = JsonSerializer.Serialize(snapshot, IndentedJsonOptions);
+                    // Escritura atómica: .tmp en la misma carpeta + File.Replace
+                    // (atómico en NTFS). O se ve la versión vieja o la nueva,
+                    // nunca un archivo trunco.
+                    string dir = Path.GetDirectoryName(configPath) ?? ".";
+                    if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                    tmpPath = Path.Combine(dir, $".{Path.GetFileName(configPath)}.{Guid.NewGuid():N}.tmp");
+                    File.WriteAllText(tmpPath, jsonString);
+                    if (File.Exists(configPath))
+                    {
+                        File.Replace(tmpPath, configPath, destinationBackupFileName: null);
+                    }
+                    else
+                    {
+                        File.Move(tmpPath, configPath);
+                    }
+                    tmpPath = null;
                 }
-                else
+                catch (Exception ex)
                 {
-                    File.Move(tmpPath, configPath);
+                    AppLogger.Error($"AppConfig: no se pudo guardar '{configPath}': {ex.Message}", ex);
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"Warning: Failed to save config.json. Error: {ex.Message}");
+                    Console.ResetColor();
                 }
+                finally
+                {
+                    // Si la escritura falló a mitad, no dejamos el .tmp huérfano.
+                    if (tmpPath != null)
+                    {
+                        try { if (File.Exists(tmpPath)) File.Delete(tmpPath); }
+                        catch { /* best effort */ }
+                    }
+                }
+            }
+        }
+
+        private static readonly JsonSerializerOptions IndentedJsonOptions = new() { WriteIndented = true };
+
+        /// <summary>
+        /// Copia profunda de la configuración (vía round-trip JSON). Los
+        /// secretos quedan en claro en la copia, igual que en memoria.
+        /// Úsese para obtener una configuración por-ejecución que se pueda
+        /// mutar sin afectar al singleton compartido.
+        /// </summary>
+        public AppConfig Clone()
+        {
+            string json;
+            lock (_saveLock)
+            {
+                json = JsonSerializer.Serialize(this);
+            }
+            var copy = JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
+            copy.LoadedFromPath = LoadedFromPath;
+            copy.LastMigrationUtc = LastMigrationUtc;
+            return copy;
+        }
+
+        /// <summary>
+        /// Copia profunda SIN secretos (ApiKey, ProviderApiKeys,
+        /// ProviderConfigs[*].ApiKey vacíos). Es la que se persiste en la
+        /// carpeta de cada trabajo y viaja en los paquetes .zpg.
+        /// </summary>
+        public AppConfig CloneWithoutSecrets()
+        {
+            var copy = Clone();
+            copy.ApiKey = null;
+            copy.ProviderApiKeys = new Dictionary<string, string>();
+            foreach (var pc in copy.ProviderConfigs.Values)
+            {
+                if (pc != null) pc.ApiKey = null;
+            }
+            copy.LoadedFromPath = null;
+            return copy;
+        }
+
+        /// <summary>
+        /// Guarda una copia del config ilegible como
+        /// <c>config.json.corrupt-{timestamp}</c> junto al original.
+        /// Devuelve la ruta de la copia o null si no se pudo crear.
+        /// </summary>
+        private static string? BackupCorruptConfig(string path)
+        {
+            try
+            {
+                if (!File.Exists(path)) return null;
+                string backup = $"{path}.corrupt-{DateTime.Now:yyyyMMdd_HHmmss}";
+                File.Copy(path, backup, overwrite: true);
+                return backup;
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"Warning: Failed to save config.json. Error: {ex.Message}");
-                Console.ResetColor();
+                AppLogger.Warn($"AppConfig: no se pudo respaldar el config corrupto '{path}': {ex.Message}");
+                return null;
             }
-            finally
-            {
-                // Devolver los campos sensibles a plaintext en memoria,
-                // independientemente de si la escritura a disco tuvo
-                // éxito. La app los necesita en claro para hablar con
-                // el LLM.
-                // CA1416: ver nota arriba.
-#pragma warning disable CA1416
-                SecureField.UnprotectInPlace(this);
-#pragma warning restore CA1416
-            }
-            } // lock (_saveLock)
         }
 
+        /// <summary>
+        /// Recarga desde disco TODOS los ajustes persistibles (propiedades
+        /// públicas con getter y setter público que no están marcadas
+        /// <see cref="System.Text.Json.Serialization.JsonIgnoreAttribute"/>).
+        /// Así un ajuste nuevo no queda fuera por olvidarse de listarlo acá.
+        /// </summary>
         public void Reload()
         {
             var fresh = Load(LoadedFromPath);
-            Provider = fresh.Provider;
-            OcrProvider = fresh.OcrProvider ?? fresh.Provider;
-            TranslationProvider = fresh.TranslationProvider ?? fresh.Provider;
-            ReviewProvider = fresh.ReviewProvider ?? fresh.Provider;
-            ApiUrl = fresh.ApiUrl;
-            ApiKey = fresh.ApiKey;
-            ProviderApiKeys = fresh.ProviderApiKeys ?? new Dictionary<string, string>();
-            ProviderConfigs = fresh.ProviderConfigs ?? new Dictionary<string, ProviderConfig>();
-            DefaultModel = fresh.DefaultModel;
-            DefaultVisionModel = fresh.DefaultVisionModel;
-            TargetLanguage = fresh.TargetLanguage;
-            OutputDirectory = fresh.OutputDirectory;
-            LastScanDirectory = fresh.LastScanDirectory;
-            Debug = fresh.Debug;
-            AdditionalPrompt = fresh.AdditionalPrompt;
-            TranslationTimeoutSeconds = fresh.TranslationTimeoutSeconds;
-            PromptImproveTimeoutSeconds = fresh.PromptImproveTimeoutSeconds;
-            ModelCheckTimeoutSeconds = fresh.ModelCheckTimeoutSeconds;
-            Temperature = fresh.Temperature;
-            MaxCharactersPerChunk = fresh.MaxCharactersPerChunk;
-            ChunkOverlapCharacters = fresh.ChunkOverlapCharacters;
-            PreserveFormat = fresh.PreserveFormat;
-            EnableReview = fresh.EnableReview;
-            ReviewModel = fresh.ReviewModel;
-            ReviewTimeoutSeconds = fresh.ReviewTimeoutSeconds;
-            ReviewTemperature = fresh.ReviewTemperature;
-            OcrTemperature = fresh.OcrTemperature;
-            OcrTimeoutSeconds = fresh.OcrTimeoutSeconds;
-            OutputFormats = fresh.OutputFormats;
-            SaveMarkdown = fresh.SaveMarkdown;
-            DefaultOutputFormat = fresh.DefaultOutputFormat;
-            SupportedOutputFormats = fresh.SupportedOutputFormats;
-            SupportedInputExtensions = fresh.SupportedInputExtensions;
-            LogDirectory = fresh.LogDirectory;
-            LogLevelConsole = fresh.LogLevelConsole;
-            LogLevelFile = fresh.LogLevelFile;
+            foreach (var prop in typeof(AppConfig).GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+            {
+                if (!prop.CanRead || prop.SetMethod == null || !prop.SetMethod.IsPublic) continue;
+                if (prop.GetIndexParameters().Length > 0) continue;
+                if (Attribute.IsDefined(prop, typeof(System.Text.Json.Serialization.JsonIgnoreAttribute))) continue;
+                prop.SetValue(this, prop.GetValue(fresh));
+            }
+
+            // Normalizaciones históricas: los providers por etapa heredan
+            // el global si vienen vacíos; los diccionarios nunca son null.
+            OcrProvider = string.IsNullOrWhiteSpace(OcrProvider) ? Provider : OcrProvider;
+            TranslationProvider = string.IsNullOrWhiteSpace(TranslationProvider) ? Provider : TranslationProvider;
+            ReviewProvider = string.IsNullOrWhiteSpace(ReviewProvider) ? Provider : ReviewProvider;
+            ProviderApiKeys ??= new Dictionary<string, string>();
+            ProviderConfigs ??= new Dictionary<string, ProviderConfig>();
         }
 
         public void SavePresets(

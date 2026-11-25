@@ -1,6 +1,6 @@
 # PolyglotCLI
 
-A modern, web-based translation application built with ASP.NET Core Blazor (interactive server-side) and .NET 10. It translates PDF and other documents page-by-page, supporting direct text extraction or image-rendering with OCR using vision-enabled local or cloud-based LLMs (such as Qwen2.5-VL, Llama 3.2 Vision, Gemini, or Ollama).
+A modern, web-based translation application built with ASP.NET Core Blazor (interactive server-side) and .NET 11. It translates PDF and other documents page-by-page, supporting direct text extraction or image-rendering with OCR using vision-enabled local or cloud-based LLMs (such as Qwen2.5-VL, Llama 3.2 Vision, Gemini, or Ollama).
 
 Translations are processed incrementally (page-by-page) and appended immediately to the output files, keeping memory usage minimal.
 
@@ -80,7 +80,8 @@ graph LR
 
 ## Prerequisites
 
-1. **.NET 10 SDK** installed on your system.
+1. **.NET 11 SDK** (11.0.100, pinned in [`global.json`](global.json)) installed on your system, plus the MAUI workload for the desktop app (`dotnet workload install maui-windows`).
+   - To *run* the released builds you only need the runtimes: **.NET 11 Desktop Runtime** for the desktop app and **ASP.NET Core 11 Runtime** for the web server (the installer offers to install whichever is missing). The Microsoft Store version is self-contained and needs nothing else.
 2. **LM Studio** installed and running.
    - Start the **Local Server** on LM Studio (usually at `http://localhost:1234` or `http://172.22.144.1:1234`).
    - Load a text model (e.g. `qwen3.5-9b` or `ministral-3-3b`) for text mode.
@@ -133,22 +134,26 @@ Once started, navigate to the local server URL indicated in your console output 
 
 ---
 
+## Microsoft Store
+
+The native desktop app (MAUI) is being prepared for publication in the **Microsoft Store** as a self-contained MSIX package (no .NET runtime required, automatic updates through the Store). Until the listing is live, use the installer below or the `.exe` from [GitHub Releases](https://github.com/FittyAr/PolyglotCLI/releases). The Store build includes only the desktop app; the web server is distributed with the `.exe` installer. See the [privacy policy](docs/PRIVACY.md).
+
 ## One-line install (Windows)
 
 If you just want to run PolyglotCLI on Windows without cloning the repo, open **PowerShell 5.1+** and run any of the lines below. The script downloads the latest release from GitHub, installs the prerequisites and runs the Inno Setup installer with the components you choose.
 
 ```powershell
 # Full install (server + desktop) — interactive prompt
-irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/main/scripts/install-remote.ps1 | iex
+irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/master/scripts/install-remote.ps1 | iex
 
 # Only the web server (headless / minimal)
-$env:POLYGLOT_INSTALL_MODE = "server";  irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/main/scripts/install-remote.ps1 | iex
+$env:POLYGLOT_INSTALL_MODE = "server";  irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/master/scripts/install-remote.ps1 | iex
 
 # Only the native desktop app
-$env:POLYGLOT_INSTALL_MODE = "desktop"; irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/main/scripts/install-remote.ps1 | iex
+$env:POLYGLOT_INSTALL_MODE = "desktop"; irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/master/scripts/install-remote.ps1 | iex
 
 # Full install, non-interactive (useful in CI / scripts)
-$env:POLYGLOT_INSTALL_MODE = "both"; $env:POLYGLOT_SILENT = "1"; irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/main/scripts/install-remote.ps1 | iex
+$env:POLYGLOT_INSTALL_MODE = "both"; $env:POLYGLOT_SILENT = "1"; irm https://raw.githubusercontent.com/FittyAr/PolyglotCLI/master/scripts/install-remote.ps1 | iex
 ```
 
 Environment variables accepted by the installer:

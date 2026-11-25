@@ -23,17 +23,35 @@ if ([string]::IsNullOrEmpty($scriptDir)) {
 $repoRoot = (Resolve-Path (Join-Path $scriptDir "..")).Path
 Set-Location $repoRoot
 
+# 0. Determinar la version a usar (fuente unica: Directory.Build.props)
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $propsPath = "Directory.Build.props"
+    $propsContent = Get-Content -Raw -Path $propsPath
+    if ($propsContent -match '<Version>([^<]+)</Version>') {
+        $Version = $Matches[1].Trim()
+        Write-Host "Version leida de ${propsPath}: $Version" -ForegroundColor Cyan
+    } else {
+        Write-Error "No se encontro la etiqueta <Version> en $propsPath y no se especifico -Version."
+        exit 1
+    }
+}
+
+if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+    Write-Error "Formato de version no valido (debe ser X.Y.Z): $Version"
+    exit 1
+}
+
 # 1. Publicar las apps si no se indico lo contrario
 if (-not $NoPublish) {
     Write-Host "[1/3] Publicando PolyglotCLI.web -> artifacts\publish_out..." -ForegroundColor Yellow
-    dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o artifacts\publish_out | Out-Null
+    dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -p:Version=$Version -o artifacts\publish_out | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Fallo la publicacion de PolyglotCLI.web."
         exit 1
     }
 
     Write-Host "[2/3] Publicando PolyglotCLI.Maui -> artifacts\publish_maui..." -ForegroundColor Yellow
-    dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -o artifacts\publish_maui | Out-Null
+    dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net11.0-windows10.0.19041.0 -p:Version=$Version -o artifacts\publish_maui | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Fallo la publicacion de PolyglotCLI.Maui."
         exit 1
@@ -73,25 +91,7 @@ if (-not $iscc) {
     exit 1
 }
 
-# 3. Determinar la version a usar
-if ([string]::IsNullOrWhiteSpace($Version)) {
-    $csproj = "PolyglotCLI.web/PolyglotCLI.web.csproj"
-    $csprojContent = Get-Content -Raw -Path $csproj
-    if ($csprojContent -match '<Version>([^<]+)</Version>') {
-        $Version = $Matches[1]
-        Write-Host "Version leida del .csproj: $Version" -ForegroundColor Cyan
-    } else {
-        Write-Error "No se encontro la etiqueta <Version> en $csproj y no se especifico -Version."
-        exit 1
-    }
-}
-
-if ($Version -notmatch '^\d+\.\d+\.\d+$') {
-    Write-Error "Formato de version no valido (debe ser X.Y.Z): $Version"
-    exit 1
-}
-
-# 4. Compilar el .iss con ISCC
+# 3. Compilar el .iss con ISCC
 Write-Host "[3/3] Compilando instalador con ISCC (version $Version)..." -ForegroundColor Yellow
 
 # Validar que los artefactos publicados existan antes de compilar.
@@ -106,9 +106,18 @@ if (-not (Test-Path "artifacts/publish_out")) {
 }
 if (-not (Test-Path "artifacts/publish_maui")) {
     Write-Error "La carpeta 'artifacts\publish_maui' no existe. Ejecute primero:" `
-        "`n  dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -o artifacts\publish_maui" `
+        "`n  dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net11.0-windows10.0.19041.0 -o artifacts\publish_maui" `
         "`no vuelva a ejecutar este script SIN el parametro -NoPublish."
     exit 1
+}
+
+# Copiar los prompts por defecto (assets/prompts) a ambas salidas. Ni el
+# proyecto web ni el MAUI los incluyen en el publish; PromptLoader los busca
+# en <BaseDir>/prompts para inicializar %AppData%\FittyAr\PolyglotCLI\prompts.
+foreach ($dir in @("artifacts/publish_out", "artifacts/publish_maui")) {
+    $promptsDest = Join-Path $dir "prompts"
+    New-Item -ItemType Directory -Path $promptsDest -Force | Out-Null
+    Copy-Item -Path "assets/prompts/*" -Destination $promptsDest -Recurse -Force
 }
 
 # Calcular el tamano total (KB) de los artefactos publicados para informar a

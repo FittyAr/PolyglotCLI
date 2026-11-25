@@ -1,0 +1,18 @@
+#!/bin/sh
+# Hook pre-push de git: git solo ejecuta un archivo llamado exactamente
+# "pre-push" (sin extension). Delegamos en pre-push.ps1, que corre
+# dotnet build + dotnet test y devuelve 0/1.
+#
+# Activar una vez por clone:  git config core.hooksPath .githooks
+# Omitir en una emergencia:   git push --no-verify
+
+HOOK_DIR="$(dirname "$0")"
+
+if command -v powershell.exe >/dev/null 2>&1; then
+    exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HOOK_DIR/pre-push.ps1"
+elif command -v pwsh >/dev/null 2>&1; then
+    exec pwsh -NoProfile -File "$HOOK_DIR/pre-push.ps1"
+else
+    echo "pre-push: no se encontro PowerShell (powershell.exe / pwsh); se omite build + test." >&2
+    exit 0
+fi

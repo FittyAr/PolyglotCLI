@@ -18,10 +18,26 @@ namespace PolyglotCLI
                 Directory.CreateDirectory(jobDir);
             }
 
-            // Save config copy
+            // Copia de los ajustes del job SIN secretos: la carpeta del job
+            // se exporta en paquetes .zpg y no debe contener API keys.
+            // Al reanudar sólo se leen los ajustes de ajuste fino
+            // (timeouts, temperaturas, chunking...), nunca las keys.
+            //
+            // Si ya existe (reanudación) NO se pisa: contiene los ajustes
+            // con los que se creó el job, que LoadOrInitializeManifest
+            // vuelve a aplicar. Sólo se le quitan secretos que hayan
+            // quedado de versiones anteriores.
             try
             {
-                config.Save(Path.Combine(jobDir, "config.json"));
+                string jobConfigPath = Path.Combine(jobDir, "config.json");
+                if (File.Exists(jobConfigPath))
+                {
+                    File.WriteAllBytes(jobConfigPath, JobPackageService.StripSecretsFromConfigJson(File.ReadAllText(jobConfigPath)));
+                }
+                else
+                {
+                    config.CloneWithoutSecrets().Save(jobConfigPath);
+                }
             }
             catch (Exception cfgEx)
             {
@@ -29,6 +45,13 @@ namespace PolyglotCLI
             }
         }
 
+        /// <summary>
+        /// Carga el manifest de un job a reanudar o crea uno nuevo.
+        /// IMPORTANTE: al reanudar, los ajustes del job se escriben sobre
+        /// <paramref name="config"/>; el caller debe pasar una copia
+        /// por-ejecución (<see cref="AppConfig.Clone"/>), nunca el
+        /// singleton compartido de la app.
+        /// </summary>
         public static JobManifest LoadOrInitializeManifest(
             string jobDir, 
             CommandLineOptions options, 
@@ -96,7 +119,11 @@ namespace PolyglotCLI
                     {
                         FilePath = fileM.SourceFilePath,
                         Mode = currentManifest.Mode,
-                        PageRange = currentManifest.PageRange
+                        PageRange = currentManifest.PageRange,
+                        // Mismo chunking que la ejecución original: si no,
+                        // los chunks no coinciden y se pierde el progreso.
+                        MaxCharactersPerChunk = config.MaxCharactersPerChunk,
+                        ChunkOverlapCharacters = config.ChunkOverlapCharacters
                     });
                 }
                 
@@ -131,30 +158,38 @@ namespace PolyglotCLI
                     Directory.CreateDirectory(sourcesDir);
                 }
 
+                var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var target in options.DocumentTargets)
                 {
                     string originalFileName = Path.GetFileName(target.FilePath);
-                    string normalizedFileName = Regex.Replace(originalFileName, @"[^a-zA-Z0-9_\-\.]", "");
+                    string normalizedFileName = BuildUniqueNormalizedFileName(originalFileName, usedNames);
                     string copiedFilePath = Path.Combine(sourcesDir, normalizedFileName);
-                    
+                    string effectivePath = target.FilePath;
+
                     try
                     {
-                        if (target.FilePath != copiedFilePath)
+                        if (!string.Equals(Path.GetFullPath(target.FilePath), Path.GetFullPath(copiedFilePath), StringComparison.OrdinalIgnoreCase))
+                        {
                             File.Copy(target.FilePath, copiedFilePath, true);
+                        }
+                        // Sólo se trabaja sobre la copia si realmente existe.
+                        effectivePath = copiedFilePath;
                     }
                     catch (Exception ex)
                     {
-                        AppLogger.Error($"Failed to copy {originalFileName} to sources directory: {ex.Message}");
+                        // Si la copia falla seguimos con el archivo original
+                        // en vez de apuntar a una copia inexistente.
+                        AppLogger.Error($"Failed to copy {originalFileName} to sources directory: {ex.Message}. Se usará el archivo original.");
                     }
 
-                    target.FilePath = copiedFilePath;
+                    target.FilePath = effectivePath;
 
                     currentManifest.Files.Add(new JobFileManifest
                     {
-                        SourceFilePath = copiedFilePath,
+                        SourceFilePath = effectivePath,
                         OriginalFileName = originalFileName,
                         NormalizedFileName = normalizedFileName,
-                        CopiedFilePath = copiedFilePath,
+                        CopiedFilePath = effectivePath == copiedFilePath ? copiedFilePath : string.Empty,
                         TargetLanguage = options.TargetLanguage
                     });
                 }
@@ -163,6 +198,34 @@ namespace PolyglotCLI
             }
 
             return currentManifest;
+        }
+
+        private static readonly Regex UnsafeFileNameChars = new(@"[^\p{L}\p{N}_\-\.]", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Normaliza un nombre de archivo para la carpeta sources/ del job:
+        /// conserva letras y dígitos Unicode (acentos, CJK...), '_', '-' y
+        /// '.'; si queda vacío usa un GUID; y si colisiona con otro archivo
+        /// del mismo job agrega un sufijo numérico ("doc_2.pdf").
+        /// </summary>
+        public static string BuildUniqueNormalizedFileName(string originalFileName, ISet<string> usedNames)
+        {
+            string extension = UnsafeFileNameChars.Replace(Path.GetExtension(originalFileName ?? string.Empty), string.Empty);
+            string stem = UnsafeFileNameChars.Replace(Path.GetFileNameWithoutExtension(originalFileName ?? string.Empty), string.Empty).Trim('.');
+            if (string.IsNullOrEmpty(stem))
+            {
+                stem = Guid.NewGuid().ToString("N");
+            }
+
+            string candidate = stem + extension;
+            int counter = 2;
+            while (usedNames.Contains(candidate))
+            {
+                candidate = $"{stem}_{counter}{extension}";
+                counter++;
+            }
+            usedNames.Add(candidate);
+            return candidate;
         }
 
         public static void UpdatePageOcr(JobManifest manifest, string manifestPath, string filePath, int pageNum, bool success, string? error)
@@ -288,6 +351,7 @@ namespace PolyglotCLI
 
         public static void SavePageStatesToJson(List<PageProcessState> pageStates, string dataJsonPath)
         {
+            string? tmpPath = null;
             try
             {
                 string? dir = Path.GetDirectoryName(dataJsonPath);
@@ -296,21 +360,7 @@ namespace PolyglotCLI
                     Directory.CreateDirectory(dir);
                 }
 
-                var dataList = new List<DocumentPageData>();
-                foreach (var state in pageStates)
-                {
-                    dataList.Add(new DocumentPageData
-                    {
-                        PageNumber = state.PageNumber,
-                        OriginalText = state.OcrText,
-                        TranslatedText = state.TranslatedText,
-                        ReviewedText = state.ReviewedText,
-                        IsOcrSuccessful = !state.OcrFailed,
-                        IsTranslationSuccessful = !state.TranslationFailed,
-                        OcrErrorMessage = state.OcrErrorMessage,
-                        TranslationErrorMessage = state.TranslationErrorMessage
-                    });
-                }
+                var dataList = PageStateMapper.ToPageData(pageStates);
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(dataList, options);
                 // Escritura atómica (mismo patrón que AppConfig.Save y
@@ -320,7 +370,7 @@ namespace PolyglotCLI
                 // una vez por página, así que la ventana de corrupción
                 // por corte a mitad de write es alta si no es atómico.
                 string tmpDir = string.IsNullOrEmpty(dir) ? "." : dir;
-                string tmpPath = Path.Combine(
+                tmpPath = Path.Combine(
                     tmpDir,
                     $".{Path.GetFileName(dataJsonPath)}.{Guid.NewGuid():N}.tmp");
                 File.WriteAllText(tmpPath, json);
@@ -332,10 +382,19 @@ namespace PolyglotCLI
                 {
                     File.Move(tmpPath, dataJsonPath);
                 }
+                tmpPath = null;
             }
             catch (Exception ex)
             {
                 AppLogger.Warn($"Failed to save JSON state to {dataJsonPath}: {ex.Message}");
+            }
+            finally
+            {
+                if (tmpPath != null)
+                {
+                    try { if (File.Exists(tmpPath)) File.Delete(tmpPath); }
+                    catch { /* best effort */ }
+                }
             }
         }
 

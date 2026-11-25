@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PolyglotCLI
@@ -17,21 +18,10 @@ namespace PolyglotCLI
             _modelName = modelName;
         }
 
-        public async Task<string> ReviewTranslationAsync(string originalText, string translatedText, int pageNumber)
+        public async Task<string> ReviewTranslationAsync(string originalText, string translatedText, int pageNumber, CancellationToken cancellationToken = default)
         {
-            string cleanOriginal = System.Text.RegularExpressions.Regex.Replace(
-                originalText ?? string.Empty, 
-                @"<think>[\s\S]*?</think>", 
-                string.Empty, 
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            ).Trim();
-
-            string cleanTranslated = System.Text.RegularExpressions.Regex.Replace(
-                translatedText ?? string.Empty, 
-                @"<think>[\s\S]*?</think>", 
-                string.Empty, 
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            ).Trim();
+            string cleanOriginal = ThinkTagParser.Strip(originalText);
+            string cleanTranslated = ThinkTagParser.Strip(translatedText);
 
             if (string.IsNullOrWhiteSpace(cleanTranslated))
             {
@@ -49,7 +39,8 @@ namespace PolyglotCLI
                 string reviewedText = await _client.SendTextRequestAsync(
                     _systemPrompt,
                     userPrompt,
-                    _modelName
+                    _modelName,
+                    cancellationToken
                 );
                 stopwatch.Stop();
 

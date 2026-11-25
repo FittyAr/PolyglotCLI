@@ -5,145 +5,234 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version a publicar (X.Y.Z, sin la "v")'
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   build:
     name: Build and Package Release
     runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      DOTNET_NOLOGO: '1'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
     steps:
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $raw = if ($env:EVENT_NAME -eq 'workflow_dispatch') { $env:INPUT_VERSION } else { $env:REF_NAME }
+          $version = "$raw".Trim().TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+              throw "Version invalida '$raw'. Se espera X.Y.Z (tag vX.Y.Z o input 'version')."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+          "msix_version=$version.0" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $version"
+
+      - name: Validate Microsoft Store identity secrets
+        shell: pwsh
+        env:
+          MS_STORE_IDENTITY_NAME: ${{ secrets.MS_STORE_IDENTITY_NAME }}
+          MS_STORE_PUBLISHER: ${{ secrets.MS_STORE_PUBLISHER }}
+          MS_STORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.MS_STORE_PUBLISHER_DISPLAY_NAME }}
+        run: |
+          $missing = @('MS_STORE_IDENTITY_NAME', 'MS_STORE_PUBLISHER', 'MS_STORE_PUBLISHER_DISPLAY_NAME') |
+              Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) }
+          if ($missing) {
+              throw "Faltan secrets de identidad de Microsoft Store: $($missing -join ', '). Configurelos en Settings > Secrets and variables > Actions con los valores de Partner Center (Product identity)."
+          }
+          if ($env:MS_STORE_PUBLISHER -notmatch '^CN=') {
+              throw "MS_STORE_PUBLISHER debe tener el formato 'CN=...' (Package/Identity/Publisher de Partner Center)."
+          }
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: Install MAUI Workload
         run: dotnet workload install maui-windows
 
-      - name: Build and Publish Server (Web)
+      - name: Publish Server (Web, framework-dependent)
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false -o artifacts\publish_out
+          dotnet publish PolyglotCLI.web/PolyglotCLI.web.csproj -c Release -r win-x64 --self-contained false `
+              -p:Version=$env:VERSION -o artifacts\publish_out
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish (web) fallo con codigo $LASTEXITCODE" }
 
-      - name: Build and Publish Desktop (MAUI)
+      - name: Publish Desktop (MAUI, framework-dependent, para Inno Setup)
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -o artifacts\publish_maui
+          dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net11.0-windows10.0.19041.0 `
+              -p:Version=$env:VERSION -o artifacts\publish_maui
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish (MAUI) fallo con codigo $LASTEXITCODE" }
 
-      - name: Prepare Assets & Sanitize Configuration
+      # El MSIX de Microsoft Store debe ser autocontenido: no podemos asumir que
+      # el equipo tenga .NET 11 ni el Windows App Runtime instalados.
+      # ProjectPriFileName/ProjectPriIndexName hacen que MSBuild genere un unico
+      # resources.pri (WinUI + logos de assets/msix/Assets) con el nombre de
+      # indice que exige un paquete MSIX (= Identity Name).
+      - name: Publish Desktop (MAUI, self-contained, para MSIX)
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          MS_STORE_IDENTITY_NAME: ${{ secrets.MS_STORE_IDENTITY_NAME }}
+        run: |
+          dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net11.0-windows10.0.19041.0 `
+              -r win-x64 --self-contained true -p:WindowsAppSDKSelfContained=true `
+              -p:PolyglotMsix=true -p:ProjectPriFileName=resources.pri "-p:ProjectPriIndexName=$env:MS_STORE_IDENTITY_NAME" `
+              -p:Version=$env:VERSION -o artifacts\publish_maui_msix
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish (MAUI MSIX) fallo con codigo $LASTEXITCODE" }
+
+      - name: Copy prompts into publish outputs
         shell: pwsh
         run: |
-          # Funcion para copiar prompts y sanitizar config.json en un directorio de salida
-          function Prepare-Output {
-              param([string]$OutputDir)
-
-              # 1. Copiar prompts desde assets/
-              Copy-Item -Path assets/prompts -Destination "$OutputDir/prompts" -Recurse -Force
-
-              # 2. Copiar y sanitizar config.json
-              $configPath = "$OutputDir/config.json"
-              if (Test-Path $configPath) {
-                  try {
-                      $cfg = Get-Content -Raw -Path $configPath | ConvertFrom-Json
-                      $cfg.ApiKey = ""
-                      if ($cfg.ProviderApiKeys) {
-                          $cfg.ProviderApiKeys = New-Object PSObject
-                      }
-                      $cfg.ApiUrl = "http://localhost:1234/v1"
-
-                      $sanitized = ConvertTo-Json $cfg -Depth 10
-                      Set-Content -Path $configPath -Value $sanitized -Encoding UTF8
-                      Write-Host "config.json sanitizado en $OutputDir"
-                  } catch {
-                      Write-Host "Fallo al sanitizar config.json en ${OutputDir}: $_"
-                  }
+          foreach ($dir in @('artifacts\publish_out', 'artifacts\publish_maui', 'artifacts\publish_maui_msix')) {
+              $promptsDest = Join-Path $dir 'prompts'
+              New-Item -ItemType Directory -Path $promptsDest -Force | Out-Null
+              Copy-Item -Path assets/prompts/* -Destination $promptsDest -Recurse -Force
+              # Salvaguarda: ningun proyecto copia config.json a la salida. Si
+              # alguna vez aparece, fallar antes de distribuir datos locales.
+              if (Test-Path (Join-Path $dir 'config.json')) {
+                  throw "Se encontro config.json en $dir. No debe distribuirse configuracion local."
               }
           }
 
-          Prepare-Output -OutputDir "artifacts\publish_out"
-          Prepare-Output -OutputDir "artifacts\publish_maui"
-
-      - name: Build MSIX Package
+      - name: Build MSIX Package (Microsoft Store, unsigned)
+        id: msix
         shell: pwsh
+        env:
+          MSIX_VERSION: ${{ steps.ver.outputs.msix_version }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          MS_STORE_IDENTITY_NAME: ${{ secrets.MS_STORE_IDENTITY_NAME }}
+          MS_STORE_PUBLISHER: ${{ secrets.MS_STORE_PUBLISHER }}
+          MS_STORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.MS_STORE_PUBLISHER_DISPLAY_NAME }}
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
-          if ($version -match '^\d+\.\d+\.\d+$') {
-              $msixVersion = "$version.0"
-          } else {
-              $msixVersion = "1.0.0.0"
-          }
+          $ErrorActionPreference = 'Stop'
 
-          $staging = "artifacts\msix_staging"
+          # Herramientas del Windows SDK mas reciente instalado.
+          $sdkBin = 'C:\Program Files (x86)\Windows Kits\10\bin'
+          $sdkDir = Get-ChildItem -Path $sdkBin -Directory |
+              Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' -and (Test-Path (Join-Path $_.FullName 'x64\makeappx.exe')) } |
+              Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+          if (-not $sdkDir) { throw "No se encontro makeappx.exe en $sdkBin" }
+          $makeappx = Join-Path $sdkDir.FullName 'x64\makeappx.exe'
+          $makepri = Join-Path $sdkDir.FullName 'x64\makepri.exe'
+          if (-not (Test-Path $makepri)) { throw "No se encontro makepri.exe en $($sdkDir.FullName)\x64" }
+          Write-Host "Windows SDK: $($sdkDir.Name)"
+
+          # Staging: salida autocontenida sin simbolos de depuracion.
+          $staging = 'artifacts\msix_staging'
+          if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
           New-Item -ItemType Directory -Path $staging -Force | Out-Null
+          robocopy artifacts\publish_maui_msix $staging /E /XF *.pdb /NFL /NDL /NJH /NJS /NP | Out-Null
+          if ($LASTEXITCODE -ge 8) { throw "robocopy fallo con codigo $LASTEXITCODE" }
+          $global:LASTEXITCODE = 0
 
-          # Usar la salida de MAUI para el paquete MSIX
-          Copy-Item -Path artifacts\publish_maui\* -Destination $staging -Recurse -Force
-          Copy-Item -Path assets/msix/Assets -Destination "$staging/Assets" -Recurse -Force
-          Copy-Item -Path assets/msix/AppxManifest.xml -Destination $staging -Force
-
-          $manifestPath = "$staging/AppxManifest.xml"
-          $manifestContent = Get-Content -Raw -Path $manifestPath
-
-          $identityName = if ("${{ secrets.MS_STORE_IDENTITY_NAME }}") { "${{ secrets.MS_STORE_IDENTITY_NAME }}" } else { "30176FittyDev.PolyglotCLI" }
-          $publisher = if ("${{ secrets.MS_STORE_PUBLISHER }}") { "${{ secrets.MS_STORE_PUBLISHER }}" } else { "CN=EDC5BDED-A726-42CD-B98E-5657B88D9832" }
-          $publisherName = if ("${{ secrets.MS_STORE_PUBLISHER_DISPLAY_NAME }}") { "${{ secrets.MS_STORE_PUBLISHER_DISPLAY_NAME }}" } else { "FittyAr" }
-
-          $manifestContent = $manifestContent -replace 'TEMPLATE_PACKAGE_IDENTITY_NAME', $identityName
-          $manifestContent = $manifestContent -replace 'TEMPLATE_PACKAGE_IDENTITY_PUBLISHER', $publisher
-          $manifestContent = $manifestContent -replace 'TEMPLATE_PUBLISHER_DISPLAY_NAME', $publisherName
-          $manifestContent = $manifestContent -replace 'Version="1.0.0.0"', "Version=`"$msixVersion`""
-
-          Set-Content -Path $manifestPath -Value $manifestContent -Encoding UTF8
-
-          $makeappx = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "makeappx.exe" -Recurse | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1).FullName
-          if (-not $makeappx) {
-              $makeappx = "makeappx"
+          foreach ($required in @('PolyglotCLI.Maui.exe', 'resources.pri', 'Assets\StoreLogo.png')) {
+              if (-not (Test-Path (Join-Path $staging $required))) { throw "Falta $required en el staging del MSIX" }
           }
 
-          $msixName = "PolyglotCLI-${{ github.ref_name }}-x64.msix"
-          Write-Host "Ejecutando makeappx para empaquetar MSIX..."
-          & $makeappx pack /d $staging /p $msixName /o
-          Write-Host "Paquete MSIX creado con exito: $msixName"
+          # Manifiesto con identidad real de Partner Center y version del release.
+          $manifest = Get-Content -Raw -Path assets/msix/AppxManifest.xml
+          $manifest = $manifest.Replace('TEMPLATE_PACKAGE_IDENTITY_NAME', [System.Security.SecurityElement]::Escape($env:MS_STORE_IDENTITY_NAME))
+          $manifest = $manifest.Replace('TEMPLATE_PACKAGE_IDENTITY_PUBLISHER', [System.Security.SecurityElement]::Escape($env:MS_STORE_PUBLISHER))
+          $manifest = $manifest.Replace('TEMPLATE_PUBLISHER_DISPLAY_NAME', [System.Security.SecurityElement]::Escape($env:MS_STORE_PUBLISHER_DISPLAY_NAME))
+          $manifest = $manifest.Replace('Version="0.0.0.0"', "Version=`"$env:MSIX_VERSION`"")
+          if ($manifest -match 'TEMPLATE_' -or $manifest -notmatch [regex]::Escape("Version=`"$env:MSIX_VERSION`"")) {
+              throw "El manifiesto no quedo completamente parametrizado."
+          }
+          [System.IO.File]::WriteAllText((Join-Path (Resolve-Path $staging) 'AppxManifest.xml'), $manifest, (New-Object System.Text.UTF8Encoding($false)))
+
+          # Verificar resources.pri: el indice debe llamarse como la identidad
+          # del paquete y contener los logos del manifiesto.
+          & $makepri dump /if (Join-Path $staging 'resources.pri') /of artifacts\resources_pri.xml /o | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "makepri dump fallo con codigo $LASTEXITCODE" }
+          $priXml = Get-Content -Raw artifacts\resources_pri.xml
+          if ($priXml -notmatch "<ResourceMap name=`"$([regex]::Escape($env:MS_STORE_IDENTITY_NAME))`"") {
+              throw "resources.pri no tiene un ResourceMap con el Identity Name del paquete."
+          }
+          foreach ($logo in @('StoreLogo.png', 'Square44x44Logo.png', 'Square150x150Logo.png', 'Wide310x150Logo.png', 'SplashScreen.png')) {
+              if ($priXml -notmatch "Files/Assets/$([regex]::Escape($logo))") { throw "resources.pri no indexa Assets/$logo" }
+          }
+
+          $msixName = "PolyglotCLI-$env:TAG-x64-store.msix"
+          New-Item -ItemType Directory -Path artifacts\store -Force | Out-Null
+          & $makeappx pack /d $staging /p "artifacts\store\$msixName" /o
+          if ($LASTEXITCODE -ne 0) { throw "makeappx pack fallo con codigo $LASTEXITCODE" }
+          Write-Host "Paquete MSIX (sin firmar, para Partner Center): artifacts\store\$msixName"
+
+      # El MSIX sin firmar no se puede instalar por sideload: se sube como
+      # artefacto del workflow para cargarlo en Partner Center (la Store lo firma).
+      - name: Upload Store MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PolyglotCLI-${{ steps.ver.outputs.tag }}-store-msix
+          path: artifacts/store/*.msix
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Install Inno Setup
-        run: choco install innosetup -y
+        run: choco install innosetup -y --no-progress
 
       - name: Build Setup EXE Installer (Inno Setup)
         shell: pwsh
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          # Compila el instalador .exe con Inno Setup mediante scripts/build_installer.ps1.
-          $version = "${{ github.ref_name }}".TrimStart('v')
-          pwsh scripts/build_installer.ps1 -Version $version -NoPublish
-          $setupExe = Get-ChildItem -Path artifacts/dist -Filter "PolyglotCLI-*-x64-setup.exe" | Select-Object -First 1
-          if (-not $setupExe) {
-              Write-Error "No se encontro el archivo PolyglotCLI-*-x64-setup.exe generado por Inno Setup."
-              exit 1
-          }
+          pwsh scripts/build_installer.ps1 -Version $env:VERSION -NoPublish
+          if ($LASTEXITCODE -ne 0) { throw "build_installer.ps1 fallo con codigo $LASTEXITCODE" }
+          $setupExe = Get-ChildItem -Path artifacts/dist -Filter "PolyglotCLI-$env:VERSION-x64-setup.exe" | Select-Object -First 1
+          if (-not $setupExe) { throw "No se encontro PolyglotCLI-$env:VERSION-x64-setup.exe generado por Inno Setup." }
           Write-Host "Instalador Inno Setup generado: $($setupExe.FullName)"
 
       - name: Extract Changelog Section
         shell: pwsh
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          $version = "${{ github.ref_name }}"
-          try {
-              pwsh scripts/extract_changelog.ps1 $version > release_notes.md
-              Write-Host "Notas de release extraidas con exito."
-          } catch {
-              Set-Content -Path release_notes.md -Value "Consulte el [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) para mas detalles sobre los cambios de la version $version."
+          pwsh scripts/extract_changelog.ps1 $env:TAG > release_notes.md
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path release_notes.md) -or (Get-Item release_notes.md).Length -eq 0) {
+              Set-Content -Path release_notes.md -Encoding UTF8 -Value "Consulte el [CHANGELOG.md](https://github.com/$env:REPOSITORY/blob/master/docs/CHANGELOG.md) para mas detalles sobre los cambios de la version $env:TAG."
               Write-Host "No se pudieron extraer las notas; se utilizo texto de fallback."
+              $global:LASTEXITCODE = 0
+          } else {
+              Write-Host "Notas de release extraidas con exito."
           }
 
       - name: Create Draft GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
           files: |
-            PolyglotCLI-*.msix
             artifacts/dist/PolyglotCLI-*-x64-setup.exe
           body_path: release_notes.md
-          name: ${{ github.ref_name }}
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

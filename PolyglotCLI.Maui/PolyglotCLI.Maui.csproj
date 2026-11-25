@@ -3,20 +3,17 @@
     <PropertyGroup>
         <!-- Multi-targeting móvil desactivado por ahora: NETSDK1147
              (workloads android/ios/maccatalyst no instalados) bloquea
-             el build entero. Solo dejamos el target de Windows, que es
-             lo único que se puede compilar en este entorno. Para
-             reactivar mobile, descomentar las líneas siguientes.
-        <TargetFrameworks>net10.0-android</TargetFrameworks>
-        <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+             el build entero. Solo dejamos el target de Windows.
+             Para reactivar mobile hay que (1) descomentar las líneas
+             siguientes y (2) restaurar las carpetas Platforms/Android,
+             Platforms/iOS y Platforms/MacCatalyst desde el historial de
+             git (se eliminaron al preparar la publicación en Microsoft
+             Store; existen en el commit 3f4be21 y anteriores; ver
+             docs/STORE_SUBMISSION.md o usar git checkout sobre esa ruta).
+        <TargetFrameworks>net11.0-android</TargetFrameworks>
+        <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net11.0-ios;net11.0-maccatalyst</TargetFrameworks>
         -->
-        <TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
-
-        <!-- Note for MacCatalyst:
-            The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.
-            When specifying both architectures, use the plural <RuntimeIdentifiers> instead of the singular <RuntimeIdentifier>.
-            The Mac App Store will NOT accept apps with ONLY maccatalyst-arm64 indicated;
-            either BOTH runtimes must be indicated or ONLY macatalyst-x64. -->
-        <!-- For example: <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers> -->
+        <TargetFrameworks>net11.0-windows10.0.19041.0</TargetFrameworks>
 
         <OutputType>Exe</OutputType>
         <RootNamespace>PolyglotCLI.Maui</RootNamespace>
@@ -32,62 +29,59 @@
              Panel de control (vía Inno Setup UninstallDisplayIcon). -->
         <ApplicationIcon>..\assets\icons\app.ico</ApplicationIcon>
 
-        <!-- Enable XAML source generation for faster build times and improved performance.
-             This generates C# code from XAML at compile time instead of runtime inflation.
-             To disable, remove this line.
-             For individual files, you can override by setting Inflator metadata:
-               <MauiXaml Update="MyPage.xaml" Inflator="Default" /> (reverts to defaults: Runtime for Debug, XamlC for Release)
-               <MauiXaml Update="MyPage.xaml" Inflator="Runtime" /> (force runtime inflation) -->
+        <!-- Generación de código XAML en compilación (más rápido que inflar en runtime). -->
         <MauiXamlInflator>SourceGen</MauiXamlInflator>
 
-        <!-- Display name -->
-        <ApplicationTitle>PolyglotCLI.Maui</ApplicationTitle>
+        <!-- Nombre visible -->
+        <ApplicationTitle>PolyglotCLI</ApplicationTitle>
 
-        <!-- App Identifier -->
-        <ApplicationId>com.companyname.polyglotcli.maui</ApplicationId>
+        <!-- Identificador de la aplicación -->
+        <ApplicationId>com.fittyar.polyglotcli</ApplicationId>
 
-        <!-- Versions -->
-        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+        <!-- Versiones: $(Version) viene de Directory.Build.props (raíz del
+             repo) y es la misma para web y escritorio. ApplicationVersion
+             debe ser un entero; no se usa en Windows sin empaquetar. -->
+        <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
 
-        <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
+        <!-- La app se publica sin empaquetar (exe + carpeta). El MSIX para
+             Microsoft Store se arma aparte en .github/workflows/release.yml
+             con assets/msix/AppxManifest.xml (ver docs/STORE_SUBMISSION.md). -->
         <WindowsPackageType>None</WindowsPackageType>
 
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
         <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
-
-        <!-- XA4301: bblanchon.PDFium.Android agrega <AndroidNativeLibrary> via su
-             .targets Y MAUI/Android también autodescubre libs en
-             runtimes/android-*. El primer entry gana (la build NO falla,
-             sólo avisa) pero ensucia la consola. Suprimimos sólo para
-             el target Android — en iOS/MacCatalyst/Windows no aplica. -->
-        <NoWarn Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">$(NoWarn);XA4301</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
-        <!-- App Icon (cross-platform SVG).
-             El build de Android genera mipmap/appicon y mipmap/appicon_round
-             a partir de estos SVGs. El .ico de assets\icons\app.ico sólo se
-             usa para el ejecutable de Windows (ApplicationIcon arriba) — no
-             sirve para MauiIcon porque Android no puede rasterizar un .ico
-             a las densidades xhdpi/xxhdpi/xxxhdpi que necesita. -->
-        <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+        <!-- Icono de la app (ventana / barra de tareas) generado a partir del
+             arte de marca (assets/brand). Fondo transparente. -->
+        <MauiIcon Include="Resources\AppIcon\appicon.png" />
 
-        <!-- Splash Screen -->
-        <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+        <!-- Splash Screen (solo plataformas que lo usan; Windows sin
+             empaquetar no lo muestra). -->
+        <MauiSplashScreen Include="Resources\Splash\splash.png" Color="#0F172A" BaseSize="128,128" />
+    </ItemGroup>
 
-        <!-- Images -->
-        <MauiImage Include="Resources\Images\*" />
-        <MauiImage Update="Resources\Images\dotnet_bot.svg" BaseSize="168,208" />
-
-        <!-- Custom Fonts -->
-        <MauiFont Include="Resources\Fonts\*" />
-
-        <!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
-        <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    <!--
+      Build para Microsoft Store (MSIX). Solo se activa con -p:PolyglotMsix=true
+      (ver .github/workflows/release.yml). El paquete MSIX necesita UN único
+      resources.pri en la raíz cuyo índice se llame igual que la identidad del
+      paquete: WinUI/MRT Core lo usa para resolver ms-appx:///...xbf y el shell
+      de Windows para los logos del manifiesto. Por eso:
+        - se agregan los logos de assets/msix/Assets como contenido (Assets\*),
+          para que el generador de PRI los indexe con sus calificadores
+          scale-XXX / targetsize-XX;
+        - el workflow pasa además ProjectPriFileName=resources.pri y
+          ProjectPriIndexName=<Identity Name de Partner Center>.
+      Un resources.pri generado aparte solo con los logos (makepri sobre
+      Assets\) ocultaría el PRI de la app y WinUI no arrancaría.
+    -->
+    <ItemGroup Condition="'$(PolyglotMsix)' == 'true'">
+        <Content Include="..\assets\msix\Assets\*.png" Link="Assets\%(Filename)%(Extension)">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
     </ItemGroup>
 
     <!--
@@ -104,12 +98,12 @@
     </Target>
 
     <ItemGroup>
-        <PackageReference Include="CommunityToolkit.Maui" Version="13.0.0" />
+        <PackageReference Include="CommunityToolkit.Maui" Version="17.0.0" />
         <PackageReference Include="BlazorPanzoom" Version="0.2.1" />
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
-        <PackageReference Include="Radzen.Blazor" Version="11.1.7" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0" />
+        <PackageReference Include="Radzen.Blazor" Version="13.3.0" />
     </ItemGroup>
 
     <ItemGroup>

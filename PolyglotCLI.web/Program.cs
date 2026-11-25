@@ -5,12 +5,23 @@ using Radzen;
 using BlazorPanzoom;
 using PolyglotCLI;
 using PolyglotCLI.Update;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
 
 namespace PolyglotCLI.web
 {
     public static class Program
     {
+        /// <summary>URL local única donde escucha el servidor (solo loopback).</summary>
+        public const string LocalBaseUrl = "http://localhost:5000";
+
+        /// <summary>
+        /// Tamaño máximo aceptado para importar un paquete .zpg (2 GB),
+        /// coherente con el límite que muestra ImportJobDialog.
+        /// </summary>
+        private const long MaxImportPackageBytes = 2L * 1024 * 1024 * 1024;
+
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
@@ -22,12 +33,22 @@ namespace PolyglotCLI.web
             builder.Services.AddSingleton(new ApplicationMode(isWebMode: true));
 
             // Forzar la URL a localhost:5000
-            builder.WebHost.UseUrls("http://localhost:5000");
+            builder.WebHost.UseUrls(LocalBaseUrl);
+
+            // Defensa contra DNS rebinding: aunque Kestrel solo escucha en
+            // loopback, una web maliciosa puede re-resolver su dominio a
+            // 127.0.0.1 y hablar con el server como "same-origin". Filtrar el
+            // header Host deja pasar únicamente nombres locales.
+            builder.Services.Configure<Microsoft.AspNetCore.HostFiltering.HostFilteringOptions>(o =>
+            {
+                o.AllowedHosts = new[] { "localhost", "127.0.0.1", "[::1]" };
+            });
 
             // Registrar componentes de Razor y Radzen
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents(options => {
-                    options.DetailedErrors = true;
+                    // Stack traces al navegador solo en desarrollo.
+                    options.DetailedErrors = builder.Environment.IsDevelopment();
                 })
                 .AddHubOptions(options => {
                     // El visor de página transmite imágenes base64 sobre SignalR;
@@ -41,9 +62,12 @@ namespace PolyglotCLI.web
 
             // HttpClient para que componentes (p.ej. el importador de .zpg) suban archivos directamente
             // al endpoint HTTP sin pasar por SignalR, evitando el límite de tamaño del hub.
+            // Timeout infinito: la subida de un .zpg grande puede superar los
+            // 100 s por defecto; la cancelación la controla el diálogo.
             builder.Services.AddSingleton(sp => new HttpClient
             {
-                BaseAddress = new Uri("http://localhost:5000")
+                BaseAddress = new Uri(LocalBaseUrl),
+                Timeout = Timeout.InfiniteTimeSpan
             });
 
             // Servicio de empaquetado de trabajos, separado por modo de ejecución
@@ -120,9 +144,22 @@ namespace PolyglotCLI.web
                         return Results.NotFound(new { error = $"Job '{jobId}' not found" });
                     }
 
-                    var stream = new MemoryStream();
-                    JobPackageService.ExportJobPackage(jobDir, stream);
-                    stream.Position = 0;
+                    // Se escribe el zip a un archivo temporal (no a memoria) para
+                    // no retener en RAM trabajos de varios GB. El archivo se
+                    // borra automáticamente al cerrarse el stream.
+                    string tempPath = Path.Combine(Path.GetTempPath(), $"polyglot-export-{Guid.NewGuid():N}.zpg");
+                    var stream = new FileStream(tempPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None,
+                        bufferSize: 81920, FileOptions.DeleteOnClose);
+                    try
+                    {
+                        JobPackageService.ExportJobPackage(jobDir, stream);
+                        stream.Position = 0;
+                    }
+                    catch
+                    {
+                        stream.Dispose();
+                        throw;
+                    }
 
                     string fileName = $"{jobId}{JobPackageService.PackageExtension}";
                     return Results.File(stream, JobPackageService.PackageMimeType, fileName);
@@ -184,12 +221,16 @@ namespace PolyglotCLI.web
                     AppLogger.Error("Failed to import job package", ex);
                     return Results.Problem(detail: ex.Message, statusCode: 500, title: "Import failed");
                 }
-            }); // (sin DisableAntiforgery: la defensa contra CSRF se hace vía IsTrustedImportClient)
+            }) // (sin DisableAntiforgery: la defensa contra CSRF se hace vía IsTrustedImportClient)
+            // Kestrel limita el body a 30 MB y los formularios multipart a
+            // 128 MB por defecto; ampliamos al máximo anunciado en la UI.
+            .WithMetadata(new RequestSizeLimitAttribute(MaxImportPackageBytes))
+            .WithMetadata(new RequestFormLimitsAttribute { MultipartBodyLengthLimit = MaxImportPackageBytes });
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("==================================================");
             Console.WriteLine("  Servidor PolyglotCLI iniciado en Modo Web");
-            Console.WriteLine("  Abra su navegador en: http://localhost:5000");
+            Console.WriteLine($"  Abra su navegador en: {LocalBaseUrl}");
             Console.WriteLine("  Presione Ctrl+C para detener el servidor");
             Console.WriteLine("==================================================");
             Console.ResetColor();
@@ -231,19 +272,29 @@ namespace PolyglotCLI.web
             // local que UseUrls fijó (http://localhost:5000). Si el servidor
             // se expone detrás de un reverse proxy habría que ajustar esto,
             // pero la app es localhost-only.
-            const string localOrigin = "http://localhost:5000";
-            if (req.Headers.TryGetValue("Origin", out var origin) &&
-                origin.ToString().StartsWith(localOrigin, System.StringComparison.OrdinalIgnoreCase))
+            if (req.Headers.TryGetValue("Origin", out var origin) && IsLocalOrigin(origin.ToString()))
             {
                 return true;
             }
-            if (req.Headers.TryGetValue("Referer", out var referer) &&
-                referer.ToString().StartsWith(localOrigin, System.StringComparison.OrdinalIgnoreCase))
+            if (req.Headers.TryGetValue("Referer", out var referer) && IsLocalOrigin(referer.ToString()))
             {
                 return true;
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Compara esquema, host y puerto exactos contra <see cref="LocalBaseUrl"/>.
+        /// Un StartsWith aceptaría p.ej. "http://localhost:50001".
+        /// </summary>
+        private static bool IsLocalOrigin(string value)
+        {
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)) return false;
+            var local = new Uri(LocalBaseUrl);
+            return string.Equals(uri.Scheme, local.Scheme, System.StringComparison.OrdinalIgnoreCase)
+                && string.Equals(uri.Host, local.Host, System.StringComparison.OrdinalIgnoreCase)
+                && uri.Port == local.Port;
         }
     }
 }

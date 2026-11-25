@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -35,27 +36,25 @@ namespace PolyglotCLI
             AppLogger.Debug($"Created GeminiClient for {_apiUrl} with timeout of {timeoutSeconds}s.");
         }
 
-        public async Task<string> GetFirstLoadedModelAsync()
+        public async Task<string> GetFirstLoadedModelAsync(CancellationToken cancellationToken = default)
         {
-            var models = await GetAvailableModelsAsync();
+            var models = await GetAvailableModelsAsync(cancellationToken);
             return models.Count > 0 ? models[0] : string.Empty;
         }
 
-        public async Task<List<string>> GetAvailableModelsAsync()
+        public async Task<List<string>> GetAvailableModelsAsync(CancellationToken cancellationToken = default)
         {
             var models = new List<string>();
             try
             {
+                // La key viaja siempre en el header x-goog-api-key (ver
+                // constructor), nunca en la query string.
                 string url = $"{_apiUrl}/models";
-                if (!string.IsNullOrWhiteSpace(_apiKey) && !_httpClient.DefaultRequestHeaders.Contains("x-goog-api-key"))
-                {
-                    url += $"?key={_apiKey}";
-                }
 
-                var response = await _httpClient.GetAsync(url);
+                using var response = await _httpClient.GetAsync(url, cancellationToken);
                 if (response.IsSuccessStatusCode)
                 {
-                    var content = await response.Content.ReadAsStringAsync();
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
                     using var doc = JsonDocument.Parse(content);
                     if (doc.RootElement.TryGetProperty("models", out var modelsArr))
                     {
@@ -77,6 +76,10 @@ namespace PolyglotCLI
                     }
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 AppLogger.Debug($"Gemini GET /models failed ({ex.Message}).");
@@ -85,9 +88,9 @@ namespace PolyglotCLI
             return models;
         }
 
-        public async Task<string> SendTextRequestAsync(string systemPrompt, string userPrompt, string? modelName)
+        public async Task<string> SendTextRequestAsync(string systemPrompt, string userPrompt, string? modelName, CancellationToken cancellationToken = default)
         {
-            modelName = string.IsNullOrWhiteSpace(modelName) ? "gemini-1.5-flash" : modelName;
+            modelName = string.IsNullOrWhiteSpace(modelName) ? LlmProviderHelper.DefaultGeminiModel : modelName;
             if (modelName.StartsWith("models/")) modelName = modelName.Substring(7);
 
             AppLogger.Info($"POST /models/{modelName} (SK Gemini): Sending text request");
@@ -114,7 +117,7 @@ namespace PolyglotCLI
                     Temperature = (float)Temperature
                 };
 
-                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel);
+                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel, cancellationToken);
                 stopwatch.Stop();
                 AppLogger.Info($"POST Gemini generateContent (SK): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
@@ -128,9 +131,9 @@ namespace PolyglotCLI
             }
         }
 
-        public async Task<string> SendVisionRequestAsync(string systemPrompt, string userPrompt, byte[] imageBytes, string imageMimeType, string? modelName)
+        public async Task<string> SendVisionRequestAsync(string systemPrompt, string userPrompt, byte[] imageBytes, string imageMimeType, string? modelName, CancellationToken cancellationToken = default)
         {
-            modelName = string.IsNullOrWhiteSpace(modelName) ? "gemini-1.5-flash" : modelName;
+            modelName = string.IsNullOrWhiteSpace(modelName) ? LlmProviderHelper.DefaultGeminiModel : modelName;
             if (modelName.StartsWith("models/")) modelName = modelName.Substring(7);
 
             AppLogger.Info($"POST /models/{modelName} (SK Gemini Vision): Sending request");
@@ -163,7 +166,7 @@ namespace PolyglotCLI
                     Temperature = (float)Temperature
                 };
 
-                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel);
+                var response = await chatService.GetChatMessageContentAsync(history, settings, kernel, cancellationToken);
                 stopwatch.Stop();
                 AppLogger.Info($"POST Gemini generateContent (SK Vision): Finished in {stopwatch.ElapsedMilliseconds}ms.");
 
@@ -177,9 +180,9 @@ namespace PolyglotCLI
             }
         }
 
-        public Task<bool> UnloadModelAsync(string modelIdentifier) => Task.FromResult(true);
+        public Task<bool> UnloadModelAsync(string modelIdentifier, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
-        public Task UnloadAllExceptAsync(string keepModelIdentifier) => Task.CompletedTask;
+        public Task UnloadAllExceptAsync(string keepModelIdentifier, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         private string CleanResponse(string? content)
         {

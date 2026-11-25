@@ -17,6 +17,12 @@ namespace PolyglotCLI
 
     public static class LlmProviderHelper
     {
+        /// <summary>
+        /// Modelo Gemini por defecto cuando el usuario no eligió uno
+        /// (la familia 1.5 fue retirada por Google).
+        /// </summary>
+        public const string DefaultGeminiModel = "gemini-2.5-flash";
+
         public static string GetDefaultApiUrl(LlmProvider provider)
         {
             return provider switch
@@ -88,7 +94,7 @@ namespace PolyglotCLI
                 LlmProvider.LmStudio => new System.Collections.Generic.List<string> { "meta-llama-3-8b-instruct", "microsoft-phi-3-medium-4k-instruct", "mistral-7b-instruct" },
                 LlmProvider.LlamaCpp => new System.Collections.Generic.List<string> { "meta-llama-3-8b-instruct", "microsoft-phi-3-medium-4k-instruct" },
                 LlmProvider.OpenAi => new System.Collections.Generic.List<string> { "gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo" },
-                LlmProvider.Gemini => new System.Collections.Generic.List<string> { "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro" },
+                LlmProvider.Gemini => new System.Collections.Generic.List<string> { DefaultGeminiModel, "gemini-2.5-pro", "gemini-2.5-flash-lite" },
                 LlmProvider.Qwen => new System.Collections.Generic.List<string> { "qwen-turbo", "qwen-plus", "qwen-max" },
                 LlmProvider.Kimi => new System.Collections.Generic.List<string> { "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k" },
                 LlmProvider.MiniMax => new System.Collections.Generic.List<string> { "MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5", "MiniMax-M2.1", "MiniMax-M2" },
@@ -104,7 +110,7 @@ namespace PolyglotCLI
                 LlmProvider.LmStudio => new System.Collections.Generic.List<string> { "meta-llama-3-8b-instruct" },
                 LlmProvider.LlamaCpp => new System.Collections.Generic.List<string> { "meta-llama-3-8b-instruct" },
                 LlmProvider.OpenAi => new System.Collections.Generic.List<string> { "gpt-4o", "gpt-4o-mini", "gpt-4-vision-preview" },
-                LlmProvider.Gemini => new System.Collections.Generic.List<string> { "gemini-1.5-flash", "gemini-1.5-pro" },
+                LlmProvider.Gemini => new System.Collections.Generic.List<string> { DefaultGeminiModel, "gemini-2.5-pro" },
                 LlmProvider.Qwen => new System.Collections.Generic.List<string> { "qwen-vl-max", "qwen-vl-plus" },
                 LlmProvider.Kimi => new System.Collections.Generic.List<string> { "moonshot-v1-8k" },
                 LlmProvider.MiniMax => new System.Collections.Generic.List<string> { "MiniMax-M3", "MiniMax-M2.7" },

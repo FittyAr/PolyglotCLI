@@ -14,6 +14,9 @@ namespace PolyglotCLI
 
         public string PromptsDirectory => _promptsDirectory;
 
+        private static readonly object BootstrapLock = new();
+        private static bool _bootstrapDone;
+
         private static string ResolvePromptsDirectory(string? explicitPath)
         {
             if (!string.IsNullOrWhiteSpace(explicitPath) && Directory.Exists(explicitPath))
@@ -21,10 +24,23 @@ namespace PolyglotCLI
                 return explicitPath;
             }
 
-            // 1) Ubicación "canónica" del usuario: %AppData%\FittyAr\
-            //    PolyglotCLI\prompts\ . Si ya existe (con archivos) el
-            //    usuario la está usando — sus ediciones mandan.
             string? userPrompts = GetUserPromptsDirectory();
+            string? bundlePrompts = FindBundledPromptsDirectory();
+
+            // 1) Bootstrap NO destructivo desde el bundle hacia la carpeta
+            //    del usuario (%AppData%\FittyAr\PolyglotCLI\prompts\).
+            //    Corre siempre (una vez por proceso), no sólo en la primera
+            //    ejecución: así los prompts que agrega una versión nueva
+            //    (p.ej. error_analysis_prompt.md) llegan también a usuarios
+            //    existentes. Nunca pisa archivos que el usuario ya tiene,
+            //    por lo que sus ediciones se preservan.
+            bool bootstrapOk = false;
+            if (!string.IsNullOrEmpty(bundlePrompts) && Directory.Exists(bundlePrompts))
+            {
+                bootstrapOk = EnsureUserPromptsBootstrapped(userPrompts, bundlePrompts);
+            }
+
+            // 2) Ubicación canónica del usuario si ya tiene los prompts.
             if (!string.IsNullOrEmpty(userPrompts)
                 && Directory.Exists(userPrompts)
                 && File.Exists(Path.Combine(userPrompts, "translation_prompt.md")))
@@ -32,29 +48,14 @@ namespace PolyglotCLI
                 return userPrompts;
             }
 
-            // 2) Primera corrida: bootstrap desde el bundle que viene
-            //    con la app (assets/prompts o prompts, relativo a
-            //    BaseDir / CurrentDir / búsqueda hacia arriba). Si lo
-            //    encontramos, lo copiamos a la ubicación del usuario
-            //    para que pueda editar y mantener los cambios a
-            //    través de updates.
-            string? bundlePrompts = FindBundledPromptsDirectory();
-            if (!string.IsNullOrEmpty(bundlePrompts) && Directory.Exists(bundlePrompts))
+            // 3) Si la copia falló (permisos, etc.) usamos el bundle en
+            //    modo lectura. Las ediciones se perderán al actualizar.
+            if (!bootstrapOk && !string.IsNullOrEmpty(bundlePrompts) && Directory.Exists(bundlePrompts))
             {
-                if (TryBootstrapUserPromptsFromBundle(userPrompts, bundlePrompts))
-                {
-                    // TryBootstrap garantiza que userPrompts no es
-                    // null cuando devuelve true.
-                    return userPrompts!;
-                }
-                // Si la copia falla (permisos, etc.) caemos al bundle
-                // en modo lectura. El usuario podrá seguir editando
-                // los prompts en el bundle, pero los cambios se
-                // perderán al actualizar la app.
                 return bundlePrompts;
             }
 
-            // 3) Fallback: ubicación del usuario aunque esté vacía
+            // 4) Fallback: ubicación del usuario aunque esté vacía
             //    (la app igualmente puede crearla al guardar).
             if (!string.IsNullOrEmpty(userPrompts))
             {
@@ -62,8 +63,27 @@ namespace PolyglotCLI
                 return userPrompts;
             }
 
-            // 4) Último recurso: BaseDir/prompts (aunque no exista).
+            // 5) Último recurso: BaseDir/prompts (aunque no exista).
             return Path.Combine(AppContext.BaseDirectory, "prompts");
+        }
+
+        /// <summary>
+        /// Ejecuta <see cref="TryBootstrapUserPromptsFromBundle"/> una sola
+        /// vez por proceso (PromptLoader se instancia muchas veces).
+        /// </summary>
+        private static bool EnsureUserPromptsBootstrapped(string? userPrompts, string bundlePrompts)
+        {
+            lock (BootstrapLock)
+            {
+                if (_bootstrapDone)
+                {
+                    return !string.IsNullOrEmpty(userPrompts)
+                        && File.Exists(Path.Combine(userPrompts, "translation_prompt.md"));
+                }
+                bool ok = TryBootstrapUserPromptsFromBundle(userPrompts, bundlePrompts);
+                _bootstrapDone = ok;
+                return ok;
+            }
         }
 
         /// <summary>

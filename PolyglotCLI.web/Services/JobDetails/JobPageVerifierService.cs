@@ -50,8 +50,9 @@ public class JobPageVerifierService : IJobPageVerifierService
                     var pages = JsonSerializer.Deserialize<List<DocumentPageData>>(jsonStr);
                     pageCount = pages?.Count ?? 0;
                 }
-                catch
+                catch (System.Exception ex)
                 {
+                    AppLogger.Warn($"JobPageVerifierService.ListJsonFiles: no se pudo leer {filePath}: {ex.Message}");
                 }
 
                 entries.Add(new JsonFileEntry
@@ -62,8 +63,9 @@ public class JobPageVerifierService : IJobPageVerifierService
                 });
             }
         }
-        catch
+        catch (System.Exception ex)
         {
+            AppLogger.Warn($"JobPageVerifierService.ListJsonFiles: error listando {jobDir}: {ex.Message}");
         }
         return entries;
     }
@@ -79,8 +81,9 @@ public class JobPageVerifierService : IJobPageVerifierService
                 return JsonSerializer.Deserialize<List<DocumentPageData>>(jsonStr) ?? new List<DocumentPageData>();
             }
         }
-        catch
+        catch (System.Exception ex)
         {
+            AppLogger.Warn($"JobPageVerifierService.LoadPageData: no se pudo leer {jsonFileName} de {jobDir}: {ex.Message}");
         }
         return new List<DocumentPageData>();
     }
@@ -96,8 +99,9 @@ public class JobPageVerifierService : IJobPageVerifierService
                 return System.Convert.ToBase64String(bytes);
             }
         }
-        catch
+        catch (System.Exception ex)
         {
+            AppLogger.Warn($"JobPageVerifierService.LoadPageImageBase64: no se pudo leer la imagen de {docName} p.{pageNumber}: {ex.Message}");
         }
         return null;
     }

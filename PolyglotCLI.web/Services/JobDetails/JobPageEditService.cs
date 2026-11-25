@@ -89,11 +89,23 @@ public class JobPageEditService : IJobPageEditService
             return;
         }
 
+        // Idioma y carpeta de salida del TRABAJO, no de la configuración
+        // actual: si el usuario cambió el idioma destino después de
+        // traducir, escribir con el idioma actual pisaría otro archivo y
+        // dejaría desactualizado el original.
+        string targetLanguage = !string.IsNullOrWhiteSpace(fileManifest.TargetLanguage)
+            ? fileManifest.TargetLanguage
+            : (!string.IsNullOrWhiteSpace(job.TargetLanguage) ? job.TargetLanguage : config.TargetLanguage);
+        string outputDir = !string.IsNullOrWhiteSpace(job.OutputDirectory)
+            ? new AppConfig { OutputDirectory = job.OutputDirectory }.AbsoluteOutputDirectory
+            : config.AbsoluteOutputDirectory;
+        Directory.CreateDirectory(outputDir);
+
         string sourceFileName = jsonFileName.Replace("_data.json", string.Empty, System.StringComparison.OrdinalIgnoreCase);
-        string outputPath = Path.Combine(config.AbsoluteOutputDirectory, $"{sourceFileName}_{config.TargetLanguage}.md");
+        string outputPath = Path.Combine(outputDir, $"{sourceFileName}_{targetLanguage}.md");
 
         var mergedForExport = BuildDocumentPageDataForExport(pageDataList, pendingTranslationEdits);
-        MarkdownWriter.ExportToMarkdown(outputPath, sourceFileName, config.TargetLanguage, mergedForExport, false);
+        MarkdownWriter.ExportToMarkdown(outputPath, sourceFileName, targetLanguage, mergedForExport, false);
 
         string outputsDir = Path.Combine(jobDir, "outputs");
         if (!Directory.Exists(outputsDir))

@@ -32,7 +32,7 @@ namespace PolyglotCLI
             {
                 return (false, "Target Language cannot be empty.");
             }
-            if (!Regex.IsMatch(targetLang, @"^[a-zA-Z\s\-]+$"))
+            if (!Regex.IsMatch(targetLang, @"^[\p{L}\s\-]+$"))
             {
                 return (false, "Target Language must contain only letters, spaces, or hyphens (e.g., 'English' or 'Brazilian-Portuguese').");
             }

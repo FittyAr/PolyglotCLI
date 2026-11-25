@@ -93,7 +93,6 @@
         if (!string.IsNullOrEmpty(selected))
         {
             exportDirectory = selected;
-            StateHasChanged();
         }
     }
 
@@ -150,7 +149,6 @@
         }
 
         isProcessing = true;
-        StateHasChanged();
 
         try
         {
@@ -165,7 +163,8 @@
                     var tempConfig = new AppConfig
                     {
                         OutputDirectory = exportDirectory,
-                        TargetLanguage = Config.TargetLanguage,
+                        // Idioma con el que se tradujo el trabajo, no el actual.
+                        TargetLanguage = !string.IsNullOrWhiteSpace(Job.TargetLanguage) ? Job.TargetLanguage : Config.TargetLanguage,
                         OutputFormats = string.Join(",", selectedFormatsList),
                         SaveMarkdown = true // Siempre guardamos markdown temporalmente para poder convertir
                     };
@@ -185,8 +184,14 @@
                     // Convertir formatos según corresponda
                     if (selectedFormatsList.Count > 0)
                     {
+                        // Trabajos nuevos guardan los datos en data/; los
+                        // antiguos (legacy) en la raíz del trabajo.
                         string dataDir = Path.Combine(jobDir, "data");
-                        var files = Directory.GetFiles(dataDir, "*_data.json");
+                        var files = (Directory.Exists(dataDir)
+                                ? Directory.GetFiles(dataDir, "*_data.json")
+                                : Array.Empty<string>())
+                            .Concat(Directory.GetFiles(jobDir, "*_data.json"))
+                            .ToArray();
 
                         foreach (var file in files)
                         {
@@ -254,7 +259,6 @@
         finally
         {
             isProcessing = false;
-            StateHasChanged();
         }
     }
 }

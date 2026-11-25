@@ -1,3 +1,4 @@
+@inject NotificationService NotificationService
 @using PolyglotCLI
 
 <RadzenRow Gap="1rem" class="rz-mb-4">
@@ -101,7 +102,6 @@
     private async Task FetchModelsForProvider()
     {
         isLoadingModels = true;
-        StateHasChanged();
         try
         {
             using var client = LlmClientFactory.CreateClientForOcr(null, AppConfig, AppConfig.ModelCheckTimeoutSeconds);
@@ -112,11 +112,13 @@
                 currentModels = fetched;
             }
         }
-        catch {}
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "No se pudieron cargar los modelos", ex.Message, duration: 6000);
+        }
         finally
         {
             isLoadingModels = false;
-            StateHasChanged();
         }
     }
 }

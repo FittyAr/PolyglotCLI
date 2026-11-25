@@ -52,12 +52,48 @@ namespace PolyglotCLI.Update
         public static bool CanSelfUpdate => IsInnoInstalled && !IsMsixInstalled;
 
         /// <summary>
-        /// Detección de MSIX: el ejecutable vive dentro de la carpeta
-        /// protegida <c>WindowsApps</c> propiedad de
-        /// <c>Microsoft\Windows\CurrentVersion\Appx</c>. Esta heurística
-        /// funciona en .NET 10 (no requiere referencias a WinRT).
+        /// Código de retorno de <c>GetCurrentPackageFullName</c> cuando el
+        /// proceso NO tiene identidad de paquete.
+        /// </summary>
+        private const int AppModelErrorNoPackage = 15700;
+
+        /// <summary>
+        /// Código de retorno cuando el buffer es insuficiente: implica que
+        /// SÍ hay identidad de paquete (el nombre no entra en 0 chars).
+        /// </summary>
+        private const int ErrorInsufficientBuffer = 122;
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        private static extern int GetCurrentPackageFullName(ref int packageFullNameLength, char[]? packageFullName);
+
+        /// <summary>
+        /// Detección de MSIX. En Windows 8+ se consulta la identidad de
+        /// paquete del proceso con <c>GetCurrentPackageFullName</c>
+        /// (fuente autoritativa: también cubre instalaciones MSIX fuera de
+        /// WindowsApps). Si la API no está disponible (otro SO, Windows 7,
+        /// P/Invoke fallido) se cae a la heurística de ruta
+        /// <c>\WindowsApps\</c>.
         /// </summary>
         private static bool DetectMsix()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    int length = 0;
+                    int rc = GetCurrentPackageFullName(ref length, null);
+                    if (rc == AppModelErrorNoPackage) return false;
+                    if (rc == ErrorInsufficientBuffer || rc == 0) return true;
+                }
+                catch (Exception ex) when (ex is EntryPointNotFoundException || ex is DllNotFoundException)
+                {
+                    // API no disponible: heurística de ruta.
+                }
+            }
+            return DetectMsixByPath();
+        }
+
+        private static bool DetectMsixByPath()
         {
             try
             {
@@ -82,7 +118,11 @@ namespace PolyglotCLI.Update
         /// Detecta la raíz de instalación de Inno Setup buscando la
         /// estructura de carpetas que el .iss genera:
         /// <c>%ProgramFiles%\FittyAr\PolyglotCLI\Server\serverapp\PolyglotCLI.exe</c>.
-        /// Devuelve <c>null</c> si no se encuentra (modo dev o MSIX).
+        /// Devuelve <c>null</c> si no se encuentra (modo dev, portable o MSIX).
+        /// Sólo se mira la ruta del ejecutable ACTUAL: un fallback a
+        /// "%ProgramFiles%\FittyAr\PolyglotCLI existe" haría que una copia
+        /// de desarrollo/portable (o la de la Store) se creyera instalación
+        /// Inno y se auto-actualizara.
         /// </summary>
         private static string? ResolveInnoInstallRoot()
         {
@@ -90,7 +130,7 @@ namespace PolyglotCLI.Update
             {
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return null;
 
-                // 1. Inferencia a partir de la ruta del ejecutable actual
+                // Inferencia a partir de la ruta del ejecutable actual
                 string? exe = Environment.ProcessPath;
                 if (string.IsNullOrEmpty(exe))
                 {
@@ -111,13 +151,6 @@ namespace PolyglotCLI.Update
                     }
                 }
 
-                // 2. Fallback: ruta estándar
-                string? programFiles = Environment.GetEnvironmentVariable("ProgramFiles");
-                if (!string.IsNullOrEmpty(programFiles))
-                {
-                    string std = Path.Combine(programFiles, "FittyAr", "PolyglotCLI");
-                    if (Directory.Exists(std)) return std;
-                }
             }
             catch
             {

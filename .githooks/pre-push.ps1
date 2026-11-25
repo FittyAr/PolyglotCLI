@@ -2,10 +2,9 @@
 # push. Si algo falla, bloquea el push para que veas el error antes
 # de subir algo roto a master.
 #
-# El wrapper pre-push.bat llama a este script. La razón de tener
-# dos archivos es que git en Windows no puede ejecutar archivos
-# .ps1 directamente como hooks sin el wrapper, pero SI puede
-# ejecutar .bat / .cmd.
+# Git solo ejecuta un hook llamado exactamente `pre-push` (sin
+# extensión): ese archivo es un script sh que hace exec de
+# powershell.exe -File sobre este .ps1.
 #
 # Configurar con:
 #   git config core.hooksPath .githooks
@@ -59,7 +58,7 @@ Write-Host "==> pre-push: build OK. Corriendo dotnet test..." -ForegroundColor C
 $testLog = Join-Path $env:TEMP "polyglotcli-prepush-test.log"
 $testErr = Join-Path $env:TEMP "polyglotcli-prepush-test.err"
 
-& dotnet test PolyglotCLI.test/PolyglotCLI.test.csproj --no-build *>$testLog 2>$testErr
+& dotnet test --project PolyglotCLI.test/PolyglotCLI.test.csproj --no-build *>$testLog 2>$testErr
 $testExit = $LASTEXITCODE
 
 if (Test-Path $testLog) { Get-Content -LiteralPath $testLog -Encoding UTF8 | Write-Host }

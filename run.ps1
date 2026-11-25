@@ -38,7 +38,7 @@ function Show-MainMenu {
         switch ($opt) {
             "1" {
                 Write-Host "[INFO] Iniciando PolyglotCLI.Maui en modo Desktop..." -ForegroundColor Yellow
-                dotnet run --project PolyglotCLI.Maui -f net10.0-windows10.0.19041.0
+                dotnet run --project PolyglotCLI.Maui -f net11.0-windows10.0.19041.0
                 Read-Host "Presione Enter para continuar..."
             }
             "2" {

@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Version unica de PolyglotCLI compartida por todos los proyectos
+    (web, MAUI, core, tests). scripts/bump_version.ps1 actualiza este
+    valor; release.yml lo sobreescribe con -p:Version=<tag> al publicar.
+    MAUI la reutiliza como ApplicationDisplayVersion.
+  -->
+  <PropertyGroup>
+    <Version>1.2.2</Version>
+  </PropertyGroup>
+</Project>

@@ -34,14 +34,13 @@ public partial class Home : ComponentBase, IDisposable
     public string? ResumeJobId { get; set; }
 
     protected CommandLineOptions options = new CommandLineOptions();
-    protected bool isProcessing 
-    { 
-        get => TranslationSession.IsProcessing; 
-        set => TranslationSession.IsProcessing = value; 
-    }
+    // Traducción en curso (global, compartida entre pestañas) o una
+    // operación local de esta pestaña (mejorar/analizar prompt).
+    protected bool isProcessing => TranslationSession.IsProcessing || isBusyLocal;
+    private bool isBusyLocal = false;
     protected bool isConsoleExpanded = false;
     protected bool isAutoscrollEnabled = true;
-    protected List<LogEntry> logs => TranslationSession.Logs;
+    protected IReadOnlyList<LogEntry> logs = Array.Empty<LogEntry>();
     protected List<string> availableModels = new List<string>();
     private bool hasResumed = false;
     
@@ -83,7 +82,9 @@ public partial class Home : ComponentBase, IDisposable
         currentDirectory = Config.LastScanDirectory;
         if (string.IsNullOrEmpty(currentDirectory) || !Directory.Exists(currentDirectory))
         {
-            currentDirectory = Directory.GetCurrentDirectory();
+            // Nunca el directorio de trabajo: en MSIX es la carpeta de
+            // instalación (WindowsApps) o System32.
+            currentDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         }
         currentDirectory = Path.GetFullPath(currentDirectory);
 
@@ -95,12 +96,15 @@ public partial class Home : ComponentBase, IDisposable
 
         LoadDirectory(currentDirectory);
 
-        AppLogger.OnLogMessage += HandleLog;
+        logs = TranslationSession.GetLogsSnapshot();
+        TranslationSession.LogsChanged += HandleLogsChanged;
+        TranslationSession.StateChanged += HandleSessionStateChanged;
     }
 
     public void Dispose()
     {
-        AppLogger.OnLogMessage -= HandleLog;
+        TranslationSession.LogsChanged -= HandleLogsChanged;
+        TranslationSession.StateChanged -= HandleSessionStateChanged;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -131,6 +135,9 @@ public partial class Home : ComponentBase, IDisposable
             }
 
             hasResumed = true;
+            // Quitar ?resumeJobId= de la URL: si no, un F5 al terminar
+            // volvería a lanzar el trabajo.
+            NavigationManager.NavigateTo("/", replace: true);
             // Esperar un momento breve para asegurar que el callback de logs esté registrado y el componente renderizado
             await Task.Delay(500);
 
@@ -148,22 +155,18 @@ public partial class Home : ComponentBase, IDisposable
         }
     }
 
-    private void HandleLog(string message, LogLevel level)
+    private void HandleSessionStateChanged()
     {
-        string cssClass = level switch {
-            LogLevel.DEBUG => "log-debug",
-            LogLevel.INFO => "log-info",
-            LogLevel.WARN => "log-warn",
-            LogLevel.ERROR => "log-error",
-            LogLevel.FATAL => "log-fatal",
-            _ => "log-info"
-        };
-        
-        InvokeAsync(async () => {
-            logs.Add(new LogEntry { Message = $"[{DateTime.Now:HH:mm:ss}] {message}", CssClass = cssClass });
-            if(logs.Count > 100) logs.RemoveAt(0); // keep max 100 lines
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleLogsChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            logs = TranslationSession.GetLogsSnapshot();
             StateHasChanged();
-            
+
             if (isAutoscrollEnabled)
             {
                 try
@@ -172,7 +175,10 @@ public partial class Home : ComponentBase, IDisposable
                     await Task.Delay(10);
                     await JSRuntime.InvokeVoidAsync("eval", "var el = document.getElementById('consoleOutput'); if(el) el.scrollTop = el.scrollHeight;");
                 }
-                catch {}
+                catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException or ObjectDisposedException)
+                {
+                    // Circuito cerrado o componente descartado: nada que hacer.
+                }
             }
         });
     }
@@ -269,8 +275,11 @@ public partial class Home : ComponentBase, IDisposable
             selectedRows = new List<FileSystemItem>(); // Clear highlighted items on directory change
 
             // Save last scanned directory in config
-            Config.LastScanDirectory = currentDirectory;
-            Config.Save();
+            if (!string.Equals(Config.LastScanDirectory, currentDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                Config.LastScanDirectory = currentDirectory;
+                Config.Save();
+            }
             
             // Set drive selection to match current path
             if (drives.Count > 0)
@@ -348,7 +357,7 @@ public partial class Home : ComponentBase, IDisposable
         string url = Config.ApiUrl;
         string model = Config.DefaultModel ?? "";
 
-        isProcessing = true;
+        isBusyLocal = true;
         StateHasChanged();
         
         string? improvedResult = null;
@@ -368,7 +377,7 @@ public partial class Home : ComponentBase, IDisposable
         }
         finally
         {
-            isProcessing = false;
+            isBusyLocal = false;
             StateHasChanged();
         }
 
@@ -404,7 +413,7 @@ public partial class Home : ComponentBase, IDisposable
         string model = Config.DefaultModel ?? "";
         string visionModel = Config.DefaultVisionModel ?? "";
 
-        isProcessing = true;
+        isBusyLocal = true;
         var progressState = new ProgressState { Status = "Preparando análisis..." };
         
         // Show progress dialog
@@ -436,7 +445,7 @@ public partial class Home : ComponentBase, IDisposable
         finally
         {
             DialogService.Close(); // Close progress dialog
-            isProcessing = false;
+            isBusyLocal = false;
             StateHasChanged();
         }
 
@@ -534,16 +543,18 @@ public partial class Home : ComponentBase, IDisposable
             AppLogger.Info($"Iniciando reanudación interactiva del trabajo '{args.ResumeJobId}'...");
         }
 
-        isProcessing = true;
-        logs.Clear();
-        TranslationSession.Cts = new System.Threading.CancellationTokenSource();
+        if (!TranslationSession.TryBegin(args.ResumeJobId, out var cts))
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Warning, Summary = "Trabajo en curso", Detail = "Ya hay una traducción en ejecución (posiblemente en otra pestaña). Esperá a que termine o detenela." });
+            return;
+        }
         StateHasChanged();
 
         try
         {
-            int exitCode = await Task.Run(() => TranslationOrchestrator.ExecuteAsync(args, Config, TranslationSession.Cts.Token));
+            int exitCode = await Task.Run(() => TranslationOrchestrator.ExecuteAsync(args, Config, cts.Token));
 
-            if (TranslationSession.Cts.IsCancellationRequested || exitCode == 130)
+            if (cts.IsCancellationRequested || exitCode == 130)
             {
                 // 130 = SIGINT-style exit code del orchestrator cuando
                 // detecta cancellation. NO es un fallo.
@@ -564,7 +575,7 @@ public partial class Home : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            if (TranslationSession.Cts.IsCancellationRequested || ex is OperationCanceledException || ex.InnerException is OperationCanceledException)
+            if (cts.IsCancellationRequested || ex is OperationCanceledException || ex.InnerException is OperationCanceledException)
             {
                 AppLogger.WarnConsole("\n[SYSTEM] El proceso fue cancelado por el usuario.");
             }
@@ -575,31 +586,27 @@ public partial class Home : ComponentBase, IDisposable
         }
         finally
         {
-            isProcessing = false;
-            TranslationSession.Cts?.Dispose();
-            TranslationSession.Cts = null;
+            TranslationSession.End(cts);
             StateHasChanged();
         }
     }
 
     protected void CancelProcess()
     {
-        if (TranslationSession.Cts != null)
+        if (TranslationSession.IsProcessing)
         {
             AppLogger.WarnConsole("\n[USER] Solicitando detención inmediata. Cancelando tareas...");
-            TranslationSession.Cts.Cancel();
+            TranslationSession.Cancel();
         }
     }
 
     protected void ToggleConsoleExpansion()
     {
         isConsoleExpanded = !isConsoleExpanded;
-        StateHasChanged();
     }
 
     protected void ToggleAutoscroll()
     {
         isAutoscrollEnabled = !isAutoscrollEnabled;
-        StateHasChanged();
     }
 }

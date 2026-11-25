@@ -1,27 +1,65 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PolyglotCLI
 {
     public static class PromptHelperService
     {
-        private static LlmProvider ParseProviderByUrl(string apiUrl)
+        /// <summary>
+        /// Resuelve qué proveedor configurado corresponde a
+        /// <paramref name="apiUrl"/> y qué key usar. La key SÓLO se envía
+        /// si la URL coincide (mismo esquema, host y puerto) con la URL
+        /// configurada para ese proveedor; una URL desconocida se trata
+        /// como proveedor Custom SIN key, para no filtrar credenciales a
+        /// un host arbitrario.
+        /// </summary>
+        internal static (LlmProvider Provider, string? ApiKey) ResolveProviderForUrl(AppConfig config, string apiUrl)
         {
-            string url = apiUrl.ToLowerInvariant();
-            if (url.Contains("minimax")) return LlmProvider.MiniMax;
-            if (url.Contains("moonshot") || url.Contains("kimi")) return LlmProvider.Kimi;
-            if (url.Contains("dashscope") || url.Contains("qwen")) return LlmProvider.Qwen;
-            if (url.Contains("openai")) return LlmProvider.OpenAi;
-            if (url.Contains("generativelanguage") || url.Contains("gemini")) return LlmProvider.Gemini;
-            if (url.Contains("ollama")) return LlmProvider.Ollama;
-            if (url.Contains("1234")) return LlmProvider.LmStudio;
-            if (url.Contains("8080")) return LlmProvider.LlamaCpp;
-            return LlmProvider.Custom;
+            if (!Uri.TryCreate(apiUrl?.Trim(), UriKind.Absolute, out var target))
+            {
+                return (LlmProvider.Custom, null);
+            }
+
+            var candidates = new List<string>();
+            if (!string.IsNullOrWhiteSpace(config.Provider)) candidates.Add(config.Provider);
+            foreach (var name in new[] { config.TranslationProvider, config.OcrProvider, config.ReviewProvider })
+            {
+                if (!string.IsNullOrWhiteSpace(name)) candidates.Add(name);
+            }
+            candidates.AddRange(config.ProviderConfigs.Keys);
+
+            foreach (var providerName in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var pCfg = config.GetProviderConfig(providerName);
+                if (Uri.TryCreate(pCfg.ApiUrl?.Trim(), UriKind.Absolute, out var configured) && SameOrigin(configured, target))
+                {
+                    string? key = !string.IsNullOrWhiteSpace(pCfg.ApiKey)
+                        ? pCfg.ApiKey
+                        : (config.ProviderApiKeys.TryGetValue(providerName, out var k) ? k : null);
+                    if (providerName.Equals(config.Provider, StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(key))
+                    {
+                        key = config.ApiKey;
+                    }
+                    return (LlmProviderHelper.ParseProvider(providerName), key);
+                }
+            }
+
+            AppLogger.Warn($"PromptHelperService: la URL '{apiUrl}' no coincide con ningún proveedor configurado; se usará sin API key.");
+            return (LlmProvider.Custom, null);
         }
 
-        public static async Task<string> ImprovePromptAsync(string rawInput, string apiUrl, string model, int timeoutSeconds, double temperature)
+        private static bool SameOrigin(Uri a, Uri b)
+        {
+            return string.Equals(a.Scheme, b.Scheme, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(a.Host, b.Host, StringComparison.OrdinalIgnoreCase)
+                && a.Port == b.Port;
+        }
+
+        public static async Task<string> ImprovePromptAsync(string rawInput, string apiUrl, string model, int timeoutSeconds, double temperature, CancellationToken cancellationToken = default)
         {
             string promptTemplate = "";
             try
@@ -37,13 +75,12 @@ namespace PolyglotCLI
             string systemMessage = promptTemplate.Replace("{user_input}", rawInput);
 
             var config = AppConfig.Load();
-            var provider = ParseProviderByUrl(apiUrl);
-            string? apiKey = config.GetApiKeyForProvider(provider.ToString());
+            var (provider, apiKey) = ResolveProviderForUrl(config, apiUrl);
 
             using var client = LlmClientFactory.CreateClient(provider, apiUrl, apiKey, timeoutSeconds);
             client.Temperature = temperature;
 
-            return await client.SendTextRequestAsync("You are an expert translation system prompt engineer.", systemMessage, model);
+            return await client.SendTextRequestAsync("You are an expert translation system prompt engineer.", systemMessage, model, cancellationToken);
         }
 
         public static async Task<string> GenerateContextPromptAsync(
@@ -54,7 +91,8 @@ namespace PolyglotCLI
             string apiUrl, 
             string model, 
             string visionModel,
-            Action<string> updateStatus)
+            Action<string> updateStatus,
+            CancellationToken cancellationToken = default)
         {
             string ocrPrompt = "You are a precise OCR system. Output the text exactly as it is shown in the image.";
             try
@@ -64,7 +102,8 @@ namespace PolyglotCLI
             }
             catch {}
 
-            using var client = LlmClientFactory.CreateClient(LlmProviderHelper.ParseProvider(config.Provider), apiUrl, config.ApiKey, config.TranslationTimeoutSeconds);
+            var (provider, apiKey) = ResolveProviderForUrl(config, apiUrl);
+            using var client = LlmClientFactory.CreateClient(provider, apiUrl, apiKey, config.TranslationTimeoutSeconds);
             var ocrService = new OcrService(client, ocrPrompt, visionModel);
             var pageRenderer = new PdfPageRenderer();
 
@@ -80,7 +119,10 @@ namespace PolyglotCLI
             updateStatus("Extracting text content from file...");
 
             var extractor = new DocumentExtractorFactory().GetExtractor(filePath);
-            var pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer);
+            // Contexto aislado: sin carpeta de job ni callbacks, así este
+            // análisis nunca interfiere con un trabajo en curso.
+            var context = new ExtractionContext { CancellationToken = cancellationToken };
+            var pageStates = await extractor.ExtractTextAsync(filePath, target, ocrService, pageRenderer, context);
 
             var sb = new StringBuilder();
             foreach (var s in pageStates)
@@ -113,13 +155,13 @@ namespace PolyglotCLI
 
             string userMessage = $"Here is the text content of the document to analyze:\n\n{fileText}";
 
-            using var translationClient = LlmClientFactory.CreateClient(LlmProviderHelper.ParseProvider(config.Provider), apiUrl, config.ApiKey, config.PromptImproveTimeoutSeconds);
+            using var translationClient = LlmClientFactory.CreateClient(provider, apiUrl, apiKey, config.PromptImproveTimeoutSeconds);
             translationClient.Temperature = config.Temperature;
 
-            return await translationClient.SendTextRequestAsync(systemPrompt, userMessage, model);
+            return await translationClient.SendTextRequestAsync(systemPrompt, userMessage, model, cancellationToken);
         }
 
-        public static async Task<string> AnalyzeErrorsAsync(string errorReport, string apiUrl, string model, int timeoutSeconds, double temperature)
+        public static async Task<string> AnalyzeErrorsAsync(string errorReport, string apiUrl, string model, int timeoutSeconds, double temperature, CancellationToken cancellationToken = default)
         {
             string promptTemplate = "";
             try 
@@ -133,13 +175,12 @@ namespace PolyglotCLI
             }
 
             var config = AppConfig.Load();
-            var provider = ParseProviderByUrl(apiUrl);
-            string? apiKey = config.GetApiKeyForProvider(provider.ToString());
+            var (provider, apiKey) = ResolveProviderForUrl(config, apiUrl);
 
             using var client = LlmClientFactory.CreateClient(provider, apiUrl, apiKey, timeoutSeconds);
             client.Temperature = temperature;
 
-            return await client.SendTextRequestAsync(promptTemplate, errorReport, model);
+            return await client.SendTextRequestAsync(promptTemplate, errorReport, model, cancellationToken);
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PolyglotCLI
@@ -8,8 +9,9 @@ namespace PolyglotCLI
     {
         public static async Task<string> DetectAndCleanVramAsync(
             CommandLineOptions options, 
-            AppConfig config, 
-            bool requiresVisionModel)
+            AppConfig config,
+            bool requiresVisionModel,
+            CancellationToken cancellationToken = default)
         {
             // Determinar el proveedor principal de traducción
             string transProviderStr = !string.IsNullOrWhiteSpace(options.TranslationProvider) 
@@ -26,7 +28,7 @@ namespace PolyglotCLI
                 try
                 {
                     using var checkClient = LlmClientFactory.CreateClientForTranslation(options, config, config.ModelCheckTimeoutSeconds);
-                    loadedModel = await checkClient.GetFirstLoadedModelAsync();
+                    loadedModel = await checkClient.GetFirstLoadedModelAsync(cancellationToken);
                     if (string.IsNullOrWhiteSpace(loadedModel))
                     {
                         AppLogger.WarnConsole($"Warning: Could not detect any loaded models in {transProviderStr}.");
@@ -41,10 +43,10 @@ namespace PolyglotCLI
                     if (!string.IsNullOrEmpty(textModel))
                     {
                         AppLogger.Info($"VRAM Management: Cleaning up loaded models except '{textModel}'...");
-                        await checkClient.UnloadAllExceptAsync(textModel);
+                        await checkClient.UnloadAllExceptAsync(textModel, cancellationToken);
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     AppLogger.Warn($"Failed to validate/clean VRAM for translation provider {transProviderStr}: {ex.Message}");
                 }
@@ -65,16 +67,16 @@ namespace PolyglotCLI
                     try
                     {
                         using var ocrCheckClient = LlmClientFactory.CreateClientForOcr(options, config, config.ModelCheckTimeoutSeconds);
-                        string ocrLoaded = await ocrCheckClient.GetFirstLoadedModelAsync();
+                        string ocrLoaded = await ocrCheckClient.GetFirstLoadedModelAsync(cancellationToken);
                         
                         string visionModel = options.VisionModelName ?? ocrLoaded;
                         if (!string.IsNullOrEmpty(visionModel))
                         {
                             AppLogger.Info($"VRAM Management (OCR): Cleaning up loaded models except '{visionModel}'...");
-                            await ocrCheckClient.UnloadAllExceptAsync(visionModel);
+                            await ocrCheckClient.UnloadAllExceptAsync(visionModel, cancellationToken);
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         AppLogger.Warn($"Failed to validate/clean VRAM for OCR provider {ocrProviderStr}: {ex.Message}");
                     }
@@ -84,18 +86,25 @@ namespace PolyglotCLI
             return loadedModel;
         }
 
+        /// <summary>
+        /// Descarga el modelo de visión del proveedor de OCR (el mismo
+        /// servidor/URL que se usó para el OCR de esta ejecución) para
+        /// liberar VRAM antes de traducir. Usa la configuración de la
+        /// ejecución recibida, nunca recarga el config desde disco.
+        /// </summary>
         public static async Task TransitionModelAsync(
-            string apiUrl, 
-            int timeoutSeconds, 
+            CommandLineOptions? options,
+            AppConfig config,
+            int timeoutSeconds,
             string visionModel,
-            AppConfig? config = null)
+            CancellationToken cancellationToken = default)
         {
-            config ??= AppConfig.Load();
+            if (config == null) throw new ArgumentNullException(nameof(config));
             AppLogger.InfoConsole($"Transitioning models: Unloading OCR Vision model ({visionModel}) to free VRAM...", ConsoleColor.Cyan);
             try
             {
-                using var client = LlmClientFactory.CreateClient(config, timeoutSeconds);
-                bool unloaded = await client.UnloadModelAsync(visionModel);
+                using var client = LlmClientFactory.CreateClientForOcr(options, config, timeoutSeconds);
+                bool unloaded = await client.UnloadModelAsync(visionModel, cancellationToken);
                 if (unloaded)
                 {
                     AppLogger.InfoConsole($"Successfully unloaded model '{visionModel}'.", ConsoleColor.Green);
@@ -105,18 +114,28 @@ namespace PolyglotCLI
                     AppLogger.Info($"Model '{visionModel}' was not active or could not be unloaded.");
                 }
             }
-            catch (Exception unloadEx)
+            catch (Exception unloadEx) when (unloadEx is not OperationCanceledException)
             {
                 AppLogger.WarnConsole($"Warning: Failed to unload model '{visionModel}': {unloadEx.Message}");
             }
         }
 
-        public static async Task<(bool Success, string Message)> TestApiConnectionAsync(AppConfig config, int timeoutSeconds = 3)
+        /// <summary>
+        /// Prueba la conexión con el proveedor activo. Los clientes LLM
+        /// devuelven una lista vacía cuando el servidor no responde (no
+        /// lanzan), así que 0 modelos se informa como fallo: sin modelos
+        /// la app no puede trabajar de todos modos.
+        /// </summary>
+        public static async Task<(bool Success, string Message)> TestApiConnectionAsync(AppConfig config, int timeoutSeconds = 3, CancellationToken cancellationToken = default)
         {
             try
             {
                 using var client = LlmClientFactory.CreateClient(config, timeoutSeconds);
-                var models = await client.GetAvailableModelsAsync();
+                var models = await client.GetAvailableModelsAsync(cancellationToken);
+                if (models.Count == 0)
+                {
+                    return (false, $"Connection failed: no se pudo contactar a {config.Provider} o el servidor no expone ningún modelo.");
+                }
                 return (true, $"Connection successful!\nDetected {models.Count} available models for {config.Provider}.");
             }
             catch (Exception ex)
