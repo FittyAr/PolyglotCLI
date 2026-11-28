@@ -126,3 +126,36 @@ Probar al menos:
 - [ ] *Pricing and availability*: precio / mercados / visibilidad.
 - [ ] *Notes for certification*: indicar que la app necesita un servidor de modelos de IA para traducir. Sugerido: "Para probar la traducción se necesita LM Studio u Ollama en localhost, o una clave de API de OpenAI/Gemini (Configuración → Proveedores). Sin proveedor la interfaz funciona pero la traducción muestra un error de conexión."
 - [ ] Revisar que la política de privacidad esté publicada y accesible antes de enviar.
+
+## 9. Publicación automática (actualizaciones)
+
+A partir de la primera versión publicada, `.github/workflows/release.yml` puede subir cada versión nueva a la Store sin pasar por Partner Center. El job `store` usa la [Microsoft Store Developer CLI](https://learn.microsoft.com/windows/apps/publish/msstore-dev-cli/overview) (`msstore publish`):
+
+1. Crea un envío nuevo a partir del **último publicado**, así que fichas, idiomas, capturas, precio y opciones se conservan. Si había un borrador pendiente, lo descarta.
+2. Reemplaza el paquete por el MSIX del release (`PolyglotCLI-vX.Y.Z-x64-store.msix`).
+3. Lo envía a certificación. Al aprobarse se publica solo.
+
+### Configuración (una sola vez)
+
+1. **Partner Center → Configuración de la cuenta → Administración de usuarios → Aplicaciones de Microsoft Entra**: crear (o agregar) una aplicación con rol **Manager**.
+2. En esa aplicación, **Agregar clave** y copiar el valor (solo se muestra una vez; vence según el plazo elegido).
+3. Anotar el **Tenant ID** y el **Client ID** de la aplicación, y el **Seller ID** (Configuración de la cuenta → Información legal / Detalles de la cuenta).
+4. En GitHub → *Settings → Secrets and variables → Actions*, crear los secrets:
+
+   | Secret | Valor |
+   |---|---|
+   | `PARTNER_CENTER_TENANT_ID` | Tenant ID |
+   | `PARTNER_CENTER_SELLER_ID` | Seller ID |
+   | `PARTNER_CENTER_CLIENT_ID` | Client ID de la aplicación de Entra |
+   | `PARTNER_CENTER_CLIENT_SECRET` | La clave creada en el paso 2 |
+
+5. Opcional: en *Settings → Environments → microsoft-store*, agregar **Required reviewers** para que cada publicación espere una aprobación manual. El Environment se crea solo en la primera ejecución.
+6. Opcional: la variable `MS_STORE_PRODUCT_ID` cambia el Store ID (por defecto `9P5KVCHTJQNK`).
+
+Sin estos secrets el job se saltea con un aviso y hay que subir el MSIX del artefacto a mano, como antes. Los secrets no llegan a pull requests de forks: el workflow solo corre con tags `vX.Y.Z` o a mano desde *Actions*.
+
+### Qué sigue siendo manual
+
+- **Textos y capturas de las fichas** (`docs/store-listing/`): se mantienen los del último envío. El campo *What's new* conviene actualizarlo en Partner Center cuando la versión trae novedades visibles.
+- **Idiomas nuevos de la interfaz**: si se agrega un idioma al manifiesto, Partner Center exige su ficha antes de certificar; crearla a mano primero.
+- **Certificación**: la hace Microsoft (de horas a 3 días hábiles). El estado se ve en Partner Center o con `msstore submission status 9P5KVCHTJQNK`.

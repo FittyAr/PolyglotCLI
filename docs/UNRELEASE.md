@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Releases can now be published to the Microsoft Store automatically: the release workflow uploads the MSIX and submits it for certification once the `PARTNER_CENTER_*` secrets are configured (see `docs/STORE_SUBMISSION.md`).
+
 ### Deprecated
 
 ### Removed
