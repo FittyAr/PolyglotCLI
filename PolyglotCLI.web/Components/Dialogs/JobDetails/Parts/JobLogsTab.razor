@@ -2,16 +2,16 @@
 
 <JobFilePickerPane
     Items="@logFiles"
-    ListTitle="Archivos de Bitácora"
-    EmptyMessage="No se encontraron archivos de log en este trabajo."
+    ListTitle="@L["JobDetails.LogFilesTitle"]"
+    EmptyMessage="@L["JobDetails.NoLogFiles"]"
     IconStyle="font-size: 1.2rem; color: #f59e0b;"
     GetIcon="@(_ => "receipt_long")"
     SelectedFileName="@selectedLogFileName"
     PreviewContent="@selectedLogFileContent"
-    PreviewTitle="Contenido"
-    DefaultSelectionHint="Selecciona un log"
+    PreviewTitle="@L["JobDetails.LogContentTitle"]"
+    DefaultSelectionHint="@L["JobDetails.SelectLogHint"]"
     PreviewColor="#f59e0b"
-    PreviewEmptyMessage="Selecciona una bitácora para previsualizar los eventos registrados en el backend."
+    PreviewEmptyMessage="@L["JobDetails.LogPreviewEmpty"]"
     OnFileSelected="@HandleLogFileSelected" />
 
 @code {
@@ -30,6 +30,6 @@
     private void HandleLogFileSelected(string path)
     {
         selectedLogFileName = Path.GetFileName(path);
-        selectedLogFileContent = ArtifactsService.ReadTextFile(JobDir, path, "Error al leer los logs");
+        selectedLogFileContent = ArtifactsService.ReadTextFile(JobDir, path, L["JobDetails.LogReadError"]);
     }
 }

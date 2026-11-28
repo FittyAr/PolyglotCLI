@@ -1,0 +1,39 @@
+{
+  "description": "PolyglotCLI traduit des documents entiers — PDF, Word (DOCX/DOC), OpenDocument (ODT) et texte brut — à l’aide des modèles d’IA de votre choix : des modèles locaux exécutés sur votre propre PC (LM Studio ou Ollama) ou des fournisseurs cloud comme OpenAI ou Google Gemini.\n\nConçu pour les livres, les manuels et les longs documents, PolyglotCLI travaille page par page et enregistre chaque résultat immédiatement. Si vous fermez l’application ou annulez une tâche, vous pouvez la reprendre plus tard exactement là où elle s’était arrêtée, sans retraduire (ni payer à nouveau) les pages déjà terminées.\n\nDes documents numérisés ? Passez en mode image : chaque page est rendue en image, puis un modèle de vision effectue l’OCR avant la traduction, en conservant titres, listes et paragraphes.\n\nLA CONFIDENTIALITÉ AVANT TOUT\nAvec un modèle local, vos documents ne quittent jamais votre PC. Aucun compte, aucune télémétrie, aucun serveur à nous : les documents sont envoyés uniquement au fournisseur d’IA que vous configurez, et les clés API sont stockées chiffrées sur votre appareil.\n\nUN CONTRÔLE TOTAL SUR LE RÉSULTAT\n• Vérificateur de pages : comparez côte à côte la page originale, l’OCR et la traduction, et corrigez ce qui doit l’être.\n• Relecture facultative : une seconde passe d’IA peaufine la traduction.\n• Éditeur de prompts : adaptez les instructions d’OCR, de traduction et de relecture à votre style ou à votre glossaire.\n• Exportez en Markdown, Word (DOCX), PDF ou OpenDocument (ODT).\n• Historique des tâches avec progression, reprise et paquets exportables (.zpg) pour continuer sur un autre PC.\n\nConfiguration requise : pour traduire, vous avez besoin d’un modèle d’IA, soit local (LM Studio ou Ollama, tous deux gratuits), soit une clé API d’un fournisseur cloud. L’interface est disponible en 10 langues et suit automatiquement la langue de Windows.\n\nPolyglotCLI est un logiciel open source : https://github.com/FittyAr/PolyglotCLI",
+  "whatsNew": "• L’interface est désormais disponible en 10 langues : anglais, espagnol, portugais, français, allemand, italien, russe, chinois (simplifié), japonais et coréen.\n• L’application suit automatiquement la langue de Windows, et vous pouvez la modifier dans Paramètres > Général.",
+  "features": [
+    "Traduit les fichiers PDF, Word (DOCX/DOC), OpenDocument (ODT) et texte brut",
+    "OCR avec des modèles de vision pour les documents numérisés",
+    "Fonctionne avec des modèles locaux (LM Studio, Ollama) ou dans le cloud (OpenAI, Gemini)",
+    "Confidentialité : avec un modèle local, vos documents ne quittent jamais votre PC",
+    "Traduction page par page avec enregistrement incrémentiel",
+    "Reprend les tâches interrompues sans retraduire les pages terminées",
+    "Vérificateur de pages : original, OCR et traduction côte à côte",
+    "Seconde passe d’IA facultative pour relire la traduction",
+    "Éditeur de prompts pour l’OCR, la traduction et la relecture",
+    "Exporte en Markdown, DOCX, PDF et ODT",
+    "Historique des tâches et paquets exportables pour changer de PC",
+    "Clés API chiffrées sur votre appareil ; ni compte ni télémétrie"
+  ],
+  "shortDescription": "Traduisez des documents PDF, Word, ODT et texte entiers avec l’IA, grâce à des modèles locaux (LM Studio, Ollama) ou des fournisseurs cloud (OpenAI, Google Gemini). Page par page, avec reprise, OCR des documents numérisés et confidentialité totale en local.",
+  "systemRequirements": "Minimum : Windows 10 version 1809 ou ultérieure (x64), 4 Go de RAM.\nRecommandé : 8 Go de RAM ou plus. Pour les modèles d’IA locaux, 16 Go de RAM et un GPU dédié sont recommandés.\nUn modèle d’IA est nécessaire : LM Studio ou Ollama sur votre PC, ou une clé API d’un fournisseur cloud (OpenAI, Google Gemini ou toute API compatible OpenAI).",
+  "keywords": [
+    "traducteur de documents",
+    "traduire PDF",
+    "OCR",
+    "traduction IA",
+    "LM Studio",
+    "Ollama",
+    "traduction"
+  ],
+  "captions": [
+    "Vérificateur de pages : comparez la page originale avec la traduction et corrigez ce qu’il faut.",
+    "Tableau de bord : choisissez vos documents et le mode (texte ou OCR), puis suivez la progression en temps réel.",
+    "Fichiers générés : votre traduction prête en Markdown et Word, avec aperçu intégré.",
+    "Configurez des fournisseurs locaux ou cloud et le modèle d’IA de chaque étape.",
+    "Éditeur de prompts : adaptez les instructions de l’IA à votre style et à votre glossaire.",
+    "Historique des tâches : progression, reprise et export de chaque traduction."
+  ],
+  "copyright": "© 2026 FittyAr. Licence MIT.",
+  "developedBy": "FittyAr"
+}

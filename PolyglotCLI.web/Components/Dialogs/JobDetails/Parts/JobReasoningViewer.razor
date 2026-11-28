@@ -2,7 +2,7 @@
     <Template>
         <div class="page-tabs-tab">
             <RadzenIcon Icon="psychology" class="page-tabs-tab__icon page-tabs-tab__icon--reasoning" />
-            <span>Pensamiento</span>
+            <span>@L["JobDetails.Reasoning"]</span>
         </div>
     </Template>
     <ChildContent>
@@ -10,9 +10,9 @@
             <div class="text-pane__header text-pane__header--readonly">
                 <span class="text-pane__mode">
                     <RadzenIcon Icon="auto_awesome" Style="font-size: 0.95rem;" />
-                    Trazas del modelo (sólo lectura)
+                    @L["JobDetails.ModelTracesReadOnly"]
                 </span>
-                <span class="text-pane__counter">@(Text?.Length ?? 0) caracteres</span>
+                <span class="text-pane__counter">@(L["JobDetails.CharCount", Text?.Length ?? 0])</span>
             </div>
             <div class="text-pane__body">
                 @if (!string.IsNullOrEmpty(Text))
@@ -23,7 +23,7 @@
                 {
                     <div class="text-pane__placeholder">
                         <RadzenIcon Icon="psychology_alt" Style="font-size: 2rem; color: #475569;" />
-                        <div>No hay trazas de razonamiento (&lt;think&gt;) disponibles para esta página.</div>
+                        <div>@(L["JobDetails.NoReasoningTraces", "<think>"])</div>
                     </div>
                 }
             </div>

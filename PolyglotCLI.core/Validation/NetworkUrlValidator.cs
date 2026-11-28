@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using PolyglotCLI.Localization;
 
 namespace PolyglotCLI.Validation
 {
@@ -33,21 +34,21 @@ namespace PolyglotCLI.Validation
         public static ValidationResult<Uri> SanitizeApiUrl(string? url)
         {
             if (string.IsNullOrWhiteSpace(url))
-                return ValidationResult<Uri>.Failure("La URL está vacía.");
+                return ValidationResult<Uri>.Failure(CoreText.Get("Core.UrlEmpty", "The URL is empty."));
 
             if (url.Length > MaxUrlLength)
                 return ValidationResult<Uri>.Failure(
-                    $"La URL es demasiado larga ({url.Length} > {MaxUrlLength}).");
+                    CoreText.Format("Core.UrlTooLong", "The URL is too long ({0} > {1}).", url.Length, MaxUrlLength));
 
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-                return ValidationResult<Uri>.Failure($"La URL no es válida: '{url}'.");
+                return ValidationResult<Uri>.Failure(CoreText.Format("Core.UrlInvalid", "The URL is not valid: '{0}'.", url));
 
             if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
                 return ValidationResult<Uri>.Failure(
-                    $"Solo se permiten URLs http/https (recibido '{uri.Scheme}').");
+                    CoreText.Format("Core.UrlSchemeNotAllowed", "Only http/https URLs are allowed (got '{0}').", uri.Scheme));
 
             if (string.IsNullOrEmpty(uri.Host))
-                return ValidationResult<Uri>.Failure($"La URL no tiene host: '{url}'.");
+                return ValidationResult<Uri>.Failure(CoreText.Format("Core.UrlNoHost", "The URL has no host: '{0}'.", url));
 
             return ValidationResult<Uri>.Success(uri);
         }

@@ -146,7 +146,7 @@ public partial class JobPageVerifierTab : ComponentBase
             NotificationService.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = "Error al guardar cambios",
+                Summary = L["JobDetails.SaveChangesError"],
                 Detail = ex.Message
             });
         }
@@ -164,8 +164,8 @@ public partial class JobPageVerifierTab : ComponentBase
         if (TranslationSession.IsProcessing)
         {
             NotificationService.Notify(NotificationSeverity.Warning,
-                "Traducción en curso",
-                "No se puede re-procesar una página mientras hay una traducción en ejecución.",
+                L["JobDetails.TranslationInProgress"],
+                L["JobDetails.CannotReprocessWhileRunning"],
                 duration: 7000);
             return;
         }
@@ -183,8 +183,8 @@ public partial class JobPageVerifierTab : ComponentBase
                 NotificationService.Notify(new NotificationMessage
                 {
                     Severity = NotificationSeverity.Error,
-                    Summary = "Reprocesamiento",
-                    Detail = "No se pudo asociar el archivo de datos con el archivo de origen."
+                    Summary = L["JobDetails.Reprocessing"],
+                    Detail = L["JobDetails.ReprocessNoSourceMatch"]
                 });
                 return;
             }
@@ -195,8 +195,8 @@ public partial class JobPageVerifierTab : ComponentBase
                 NotificationService.Notify(new NotificationMessage
                 {
                     Severity = NotificationSeverity.Success,
-                    Summary = "Reprocesamiento",
-                    Detail = $"Página {SelectedPageData.PageNumber} procesada con éxito."
+                    Summary = L["JobDetails.Reprocessing"],
+                    Detail = L["JobDetails.ReprocessSuccess", SelectedPageData.PageNumber]
                 });
                 await HandleJsonFileSelected(SelectedJsonEntry!);
             }
@@ -205,8 +205,8 @@ public partial class JobPageVerifierTab : ComponentBase
                 NotificationService.Notify(new NotificationMessage
                 {
                     Severity = NotificationSeverity.Error,
-                    Summary = "Reprocesamiento",
-                    Detail = "El proceso finalizó pero no se pudieron actualizar los datos."
+                    Summary = L["JobDetails.Reprocessing"],
+                    Detail = L["JobDetails.ReprocessNoUpdate"]
                 });
             }
         }
@@ -215,7 +215,7 @@ public partial class JobPageVerifierTab : ComponentBase
             NotificationService.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = "Error",
+                Summary = L["Common.Error"],
                 Detail = ex.Message
             });
         }
@@ -230,8 +230,8 @@ public partial class JobPageVerifierTab : ComponentBase
         NotificationService.Notify(new NotificationMessage
         {
             Severity = NotificationSeverity.Warning,
-            Summary = "Visor",
-            Detail = "El visor aún no está inicializado."
+            Summary = L["JobDetails.Viewer"],
+            Detail = L["JobDetails.ViewerNotReady"]
         });
         return Task.CompletedTask;
     }

@@ -10,13 +10,13 @@
                      JustifyContent="JustifyContent.Center"
                      Gap="0.5rem"
                      class="rz-px-3">
-            <RadzenButton Text="Traductor" Icon="translate" ButtonStyle="ButtonStyle.Secondary"
+            <RadzenButton Text="@L["Layout.NavTranslator"]" Icon="translate" ButtonStyle="ButtonStyle.Secondary"
                           Click="@(() => Nav.NavigateTo("/"))"
                           class="@(IsActive("/") ? "header-nav-btn header-nav-btn--active" : "header-nav-btn")" />
-            <RadzenButton Text="Historial de Trabajos" Icon="history" ButtonStyle="ButtonStyle.Secondary"
+            <RadzenButton Text="@L["Layout.NavHistory"]" Icon="history" ButtonStyle="ButtonStyle.Secondary"
                           Click="@(() => Nav.NavigateTo("/history"))"
                           class="@(IsActive("/history") ? "header-nav-btn header-nav-btn--active" : "header-nav-btn")" />
-            <RadzenButton Text="Configuración" Icon="settings" ButtonStyle="ButtonStyle.Secondary"
+            <RadzenButton Text="@L["Layout.NavSettings"]" Icon="settings" ButtonStyle="ButtonStyle.Secondary"
                           Click="@(() => Nav.NavigateTo("/config"))"
                           class="@(IsActive("/config") ? "header-nav-btn header-nav-btn--active" : "header-nav-btn")" />
         </RadzenStack>
@@ -38,8 +38,8 @@
         <RadzenFooter>
             <div class="footer-line">
                 <span class="footer-credit">PolyglotCLI © 2026 FittyAr</span>
-                <span class="footer-love" title="Si te resulta útil, considerá dejar una estrella en GitHub">
-                    Hecho con <span class="footer-heart" aria-hidden="true">♥</span> para la comunidad de traducción
+                <span class="footer-love" title="@L["Layout.FooterStarHint"]">
+                    @L["Layout.FooterMadeWith"] <span class="footer-heart" aria-hidden="true">♥</span> @L["Layout.FooterForCommunity"]
                 </span>
             </div>
         </RadzenFooter>

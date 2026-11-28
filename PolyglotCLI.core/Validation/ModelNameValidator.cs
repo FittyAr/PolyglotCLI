@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using PolyglotCLI.Localization;
 
 namespace PolyglotCLI.Validation
 {
@@ -37,21 +38,21 @@ namespace PolyglotCLI.Validation
         public static ValidationResult<string> SanitizeModelName(string? name)
         {
             if (string.IsNullOrWhiteSpace(name))
-                return ValidationResult<string>.Failure("El nombre del modelo está vacío.");
+                return ValidationResult<string>.Failure(CoreText.Get("Core.ModelNameEmpty", "The model name is empty."));
 
             string trimmed = name.Trim();
             if (trimmed.Length == 0)
-                return ValidationResult<string>.Failure("El nombre del modelo está vacío (solo whitespace).");
+                return ValidationResult<string>.Failure(CoreText.Get("Core.ModelNameWhitespace", "The model name is empty (whitespace only)."));
 
             if (trimmed.Length > MaxNameLength)
                 return ValidationResult<string>.Failure(
-                    $"El nombre del modelo es demasiado largo ({trimmed.Length} > {MaxNameLength}).");
+                    CoreText.Format("Core.ModelNameTooLong", "The model name is too long ({0} > {1}).", trimmed.Length, MaxNameLength));
 
             foreach (char c in ForbiddenChars)
             {
                 if (trimmed.Contains(c))
                     return ValidationResult<string>.Failure(
-                        $"El nombre del modelo contiene un carácter inválido '{c}'.");
+                        CoreText.Format("Core.ModelNameInvalidChar", "The model name contains an invalid character '{0}'.", c));
             }
 
             // El primer y último char no pueden ser un separador.
@@ -59,11 +60,11 @@ namespace PolyglotCLI.Validation
             if (trimmed[0] == '.' || trimmed[0] == '-' || trimmed[0] == '_' ||
                 trimmed[0] == '/' || trimmed[0] == ':' || trimmed[0] == '+')
                 return ValidationResult<string>.Failure(
-                    $"El nombre del modelo no puede empezar con '{trimmed[0]}'.");
+                    CoreText.Format("Core.ModelNameBadStart", "The model name cannot start with '{0}'.", trimmed[0]));
 
             if (trimmed[^1] == '/' || trimmed[^1] == ':' || trimmed[^1] == '+')
                 return ValidationResult<string>.Failure(
-                    $"El nombre del modelo no puede terminar con '{trimmed[^1]}'.");
+                    CoreText.Format("Core.ModelNameBadEnd", "The model name cannot end with '{0}'.", trimmed[^1]));
 
             return ValidationResult<string>.Success(trimmed);
         }
@@ -76,12 +77,12 @@ namespace PolyglotCLI.Validation
         public static ValidationResult<string> SanitizeProviderName(string? name)
         {
             if (string.IsNullOrWhiteSpace(name))
-                return ValidationResult<string>.Failure("El nombre del proveedor está vacío.");
+                return ValidationResult<string>.Failure(CoreText.Get("Core.ProviderNameEmpty", "The provider name is empty."));
 
             string trimmed = name.Trim();
             if (trimmed.Length > 50)
                 return ValidationResult<string>.Failure(
-                    $"El nombre del proveedor es demasiado largo ({trimmed.Length} > 50).");
+                    CoreText.Format("Core.ProviderNameTooLong", "The provider name is too long ({0} > {1}).", trimmed.Length, 50));
 
             // Solo alfanum, guion bajo, guion, espacio (para "LM
             // Studio"). No slash, no dos puntos, no punto.
@@ -89,8 +90,7 @@ namespace PolyglotCLI.Validation
             {
                 if (!char.IsLetterOrDigit(c) && c != '_' && c != '-' && c != ' ')
                     return ValidationResult<string>.Failure(
-                        $"El nombre del proveedor contiene un carácter inválido '{c}' " +
-                        $"(solo letras, dígitos, '_', '-' y espacio).");
+                        CoreText.Format("Core.ProviderNameInvalidChar", "The provider name contains an invalid character '{0}' (only letters, digits, '_', '-' and spaces are allowed).", c));
             }
 
             return ValidationResult<string>.Success(trimmed);

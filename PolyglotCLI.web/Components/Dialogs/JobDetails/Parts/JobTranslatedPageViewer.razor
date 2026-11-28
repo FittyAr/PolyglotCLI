@@ -2,7 +2,7 @@
     <Template>
         <div class="page-tabs-tab">
             <RadzenIcon Icon="translate" class="page-tabs-tab__icon page-tabs-tab__icon--translate" />
-            <span>Traducción</span>
+            <span>@L["JobDetails.Translation"]</span>
         </div>
     </Template>
     <ChildContent>
@@ -10,10 +10,10 @@
             <div class="text-pane__header" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0; padding: 5px 10px; background: rgba(15, 23, 42, 0.55); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px;">
                 <span class="text-pane__mode" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #94a3b8;">
                     <RadzenIcon Icon="@(IsEditingTranslation ? "edit_note" : "visibility")" Style="font-size: 0.95rem;" />
-                    @(IsEditingTranslation ? "Editando" : "Vista previa")
+                    @(IsEditingTranslation ? L["JobDetails.Editing"] : L["JobDetails.Preview"])
                 </span>
                 <RadzenButton Icon="@(IsEditingTranslation ? "visibility" : "edit")"
-                              Text="@(IsEditingTranslation ? "Vista previa" : "Editar")"
+                              Text="@(IsEditingTranslation ? L["JobDetails.Preview"] : L["JobDetails.Edit"])"
                               ButtonStyle="ButtonStyle.Light"
                               Size="ButtonSize.ExtraSmall"
                               Click="@ToggleEditing"
@@ -36,7 +36,7 @@
                         }
                         else
                         {
-                            <div class="text-pane__empty">Sin contenido para previsualizar.</div>
+                            <div class="text-pane__empty">@L["JobDetails.NoPreviewContent"]</div>
                         }
                     </div>
                 }

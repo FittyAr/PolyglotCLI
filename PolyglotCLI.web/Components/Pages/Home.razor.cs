@@ -127,8 +127,8 @@ public partial class Home : ComponentBase, IDisposable
                 NotificationService.Notify(new NotificationMessage
                 {
                     Severity = NotificationSeverity.Warning,
-                    Summary = "ID de trabajo inválido",
-                    Detail = $"El identificador '{ResumeJobId}' no es válido. Volvé a la pantalla de Historial y reintentá desde ahí."
+                    Summary = L["Home.InvalidJobIdSummary"],
+                    Detail = L["Home.InvalidJobIdDetail", ResumeJobId]
                 });
                 hasResumed = true; // Marcamos como procesado para no spamear.
                 return;
@@ -200,14 +200,14 @@ public partial class Home : ComponentBase, IDisposable
                 NotificationService.Notify(new NotificationMessage
                 {
                     Severity = NotificationSeverity.Warning,
-                    Summary = "Directorio inválido",
+                    Summary = L["Home.InvalidDirectory"],
                     // FirstError es string? (nullable) y Detail es
                     // string (no-nullable en Radzen). El compilador
                     // no puede probar que Errors.Count > 0 cuando
                     // IsValid=false, así que usamos ?? con un
                     // fallback defensivo. En la práctica nunca
                     // debería verse.
-                    Detail = pathValidation.FirstError ?? "Error de validación desconocido"
+                    Detail = pathValidation.FirstError ?? L["Common.UnknownValidationError"]
                 });
                 return;
             }
@@ -322,7 +322,7 @@ public partial class Home : ComponentBase, IDisposable
     {
         if (string.IsNullOrEmpty(currentDirectory) || !Directory.Exists(currentDirectory))
         {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Warning, Summary = "Validación", Detail = "Por favor especifique un directorio de exploración válido." });
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Warning, Summary = L["Home.ValidationSummary"], Detail = L["Home.InvalidScanDirectory"] });
             return;
         }
 
@@ -335,11 +335,11 @@ public partial class Home : ComponentBase, IDisposable
                 !string.IsNullOrEmpty(options.SelectedFormat),
                 options.SelectedFormat
             );
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Preajustes Guardados", Detail = "Los ajustes por defecto han sido guardados en config.json" });
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = L["Home.PresetsSavedSummary"], Detail = L["Home.PresetsSavedDetail"] });
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error al Guardar", Detail = ex.Message });
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = L["Home.SaveErrorSummary"], Detail = ex.Message });
         }
     }
 
@@ -350,7 +350,7 @@ public partial class Home : ComponentBase, IDisposable
         var promptValidation = JobValidator.ValidatePromptImprovementSettings(Config, rawInput);
         if (!promptValidation.IsValid)
         {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error de Configuración", Detail = promptValidation.ErrorMessage ?? "Error al validar la configuración para mejorar prompt." });
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = L["Home.ConfigErrorSummary"], Detail = promptValidation.ErrorMessage ?? L["Home.ImprovePromptValidationFallback"] });
             return;
         }
 
@@ -373,7 +373,7 @@ public partial class Home : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error al Mejorar Prompt", Detail = ex.Message });
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = L["Home.ImprovePromptErrorSummary"], Detail = ex.Message });
         }
         finally
         {
@@ -383,7 +383,7 @@ public partial class Home : ComponentBase, IDisposable
 
         if (!string.IsNullOrEmpty(improvedResult))
         {
-            var result = await DialogService.OpenAsync<ImprovedPromptDialog>("Previsualización de Prompt Mejorado por IA", new Dictionary<string, object?>
+            var result = await DialogService.OpenAsync<ImprovedPromptDialog>(L["Home.ImprovedPromptPreviewTitle"], new Dictionary<string, object?>
             {
                 { "RawInput", rawInput },
                 { "ImprovedResult", improvedResult }
@@ -392,7 +392,7 @@ public partial class Home : ComponentBase, IDisposable
             if (result == true)
             {
                 options.AdditionalPrompt = improvedResult;
-                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Prompt actualizado con la versión mejorada por IA." });
+                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = L["Common.Success"], Detail = L["Home.PromptUpdatedDetail"] });
             }
         }
     }
@@ -405,7 +405,7 @@ public partial class Home : ComponentBase, IDisposable
         var fileAnalysisValidation = JobValidator.ValidateFileAnalysisSettings(Config, 0, 1);
         if (!fileAnalysisValidation.IsValid)
         {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error de Configuración", Detail = fileAnalysisValidation.ErrorMessage ?? "Error al validar la configuración para analizar archivo." });
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = L["Home.ConfigErrorSummary"], Detail = fileAnalysisValidation.ErrorMessage ?? L["Home.AnalyzeFileValidationFallback"] });
             return;
         }
 
@@ -414,10 +414,10 @@ public partial class Home : ComponentBase, IDisposable
         string visionModel = Config.DefaultVisionModel ?? "";
 
         isBusyLocal = true;
-        var progressState = new ProgressState { Status = "Preparando análisis..." };
+        var progressState = new ProgressState { Status = L["Home.PreparingAnalysis"] };
         
         // Show progress dialog
-        var progressDialog = DialogService.OpenAsync<ProgressDialog>("Analizando Archivo", new Dictionary<string, object?>
+        var progressDialog = DialogService.OpenAsync<ProgressDialog>(L["Home.AnalyzingFileTitle"], new Dictionary<string, object?>
         {
             { "State", progressState }
         }, new DialogOptions { ShowTitle = true, ShowClose = false, Width = "400px" });
@@ -440,7 +440,7 @@ public partial class Home : ComponentBase, IDisposable
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error al Analizar Archivo", Detail = ex.Message });
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = L["Home.AnalyzeFileErrorSummary"], Detail = ex.Message });
         }
         finally
         {
@@ -451,7 +451,7 @@ public partial class Home : ComponentBase, IDisposable
 
         if (!string.IsNullOrEmpty(improvedPromptResult))
         {
-            var result = await DialogService.OpenAsync<AnalyzeFilePromptDialog>("Previsualización de Prompt Basado en Contexto de Archivo", new Dictionary<string, object?>
+            var result = await DialogService.OpenAsync<AnalyzeFilePromptDialog>(L["Home.FilePromptPreviewTitle"], new Dictionary<string, object?>
             {
                 { "FileName", file.Name },
                 { "ImprovedPromptResult", improvedPromptResult }
@@ -460,7 +460,7 @@ public partial class Home : ComponentBase, IDisposable
             if (result == true)
             {
                 options.AdditionalPrompt = improvedPromptResult;
-                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Instrucciones de traducción actualizadas con el análisis del archivo." });
+                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = L["Common.Success"], Detail = L["Home.InstructionsUpdatedDetail"] });
             }
         }
     }
@@ -474,7 +474,7 @@ public partial class Home : ComponentBase, IDisposable
             if (selectedFiles.Count == 0)
             {
                 AppLogger.Warn("No hay archivos seleccionados para traducir.");
-                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Warning, Summary = "Validación", Detail = "Debe seleccionar al menos un archivo para traducir." });
+                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Warning, Summary = L["Home.ValidationSummary"], Detail = L["Home.SelectAtLeastOneFile"] });
                 return;
             }
 
@@ -483,7 +483,7 @@ public partial class Home : ComponentBase, IDisposable
             if (!jobSettingsValidation.IsValid)
             {
                 AppLogger.Error(jobSettingsValidation.ErrorMessage ?? "Configuración de trabajo inválida.");
-                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Configuración Inválida", Detail = jobSettingsValidation.ErrorMessage ?? "Error de configuración de trabajo." });
+                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = L["Home.InvalidConfigSummary"], Detail = jobSettingsValidation.ErrorMessage ?? L["Home.JobConfigErrorFallback"] });
                 return;
             }
 
@@ -500,7 +500,7 @@ public partial class Home : ComponentBase, IDisposable
             if (!ocrValidation.IsValid)
             {
                 AppLogger.Error(ocrValidation.ErrorMessage ?? "Error de validación del modelo de visión.");
-                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Modelo de Visión Requerido", Detail = ocrValidation.ErrorMessage ?? "Se requiere un modelo de visión para OCR." });
+                NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = L["Home.VisionModelRequiredSummary"], Detail = ocrValidation.ErrorMessage ?? L["Home.VisionModelRequiredFallback"] });
                 return;
             }
 
@@ -511,9 +511,8 @@ public partial class Home : ComponentBase, IDisposable
                 {
                     if (!CommandLineOptions.IsValidPageRange(file.PageRange))
                     {
-                        string errorMsg = $"El rango de páginas '{file.PageRange}' para el archivo '{file.Name}' no es válido.";
-                        AppLogger.Error(errorMsg);
-                        NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Rango de páginas inválido", Detail = errorMsg });
+                        AppLogger.Error($"El rango de páginas '{file.PageRange}' para el archivo '{file.Name}' no es válido.");
+                        NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = L["Home.InvalidPageRangeSummary"], Detail = L["Home.InvalidPageRangeDetail", file.PageRange, file.Name] });
                         return;
                     }
                 }
@@ -545,7 +544,7 @@ public partial class Home : ComponentBase, IDisposable
 
         if (!TranslationSession.TryBegin(args.ResumeJobId, out var cts))
         {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Warning, Summary = "Trabajo en curso", Detail = "Ya hay una traducción en ejecución (posiblemente en otra pestaña). Esperá a que termine o detenela." });
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Warning, Summary = L["Home.JobInProgressSummary"], Detail = L["Home.JobInProgressDetail"] });
             return;
         }
         StateHasChanged();

@@ -2,17 +2,17 @@
 
 <JobFilePickerPane
     Items="@tempImages"
-    ListTitle="Páginas (PNG)"
-    EmptyMessage="No se encontraron imágenes."
+    ListTitle="@L["JobDetails.ImagesListTitle"]"
+    EmptyMessage="@L["JobDetails.NoImagesFound"]"
     ListStyle="width: 100%; flex-grow: 1; height: 100%; min-height: 0; background: transparent; border: none; font-size: 0.8rem;"
     IconStyle="font-size: 1rem; color: #10b981; min-width: 16px;"
     GetIcon="@(_ => "image")"
     SelectedFileName="@selectedImageName"
     PreviewContent="@selectedImageBase64"
     ShowImagePreview="@(selectedImageBase64 != null)"
-    PreviewTitle="Visor"
-    DefaultSelectionHint="Selecciona una página"
-    PreviewEmptyMessage="Selecciona una página de la lista para visualizar la imagen renderizada del PDF."
+    PreviewTitle="@L["JobDetails.Viewer"]"
+    DefaultSelectionHint="@L["JobDetails.SelectPageHint"]"
+    PreviewEmptyMessage="@L["JobDetails.ImagePreviewEmpty"]"
     OnFileSelected="@HandleImageSelected" />
 
 @code {
@@ -31,15 +31,16 @@
     private void HandleImageSelected(string path)
     {
         selectedImageName = Path.GetFileName(path);
-        string? content = ArtifactsService.ReadFileAsBase64(JobDir, path);
+        string errorPrefix = L["Services.ImageReadError"];
+        string? content = ArtifactsService.ReadFileAsBase64(JobDir, path, errorPrefix);
         if (content == null)
         {
             selectedImageBase64 = null;
         }
-        else if (content.StartsWith("Error", StringComparison.OrdinalIgnoreCase))
+        else if (content.StartsWith(errorPrefix, StringComparison.OrdinalIgnoreCase))
         {
             selectedImageBase64 = null;
-            selectedImageName = $"Error al cargar la imagen: {content}";
+            selectedImageName = L["JobDetails.ImageLoadError", content];
         }
         else
         {

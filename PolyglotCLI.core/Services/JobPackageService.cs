@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using PolyglotCLI.Localization;
 using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
@@ -41,9 +42,9 @@ namespace PolyglotCLI
         public static void ExportJobPackage(string jobDir, Stream output)
         {
             if (string.IsNullOrWhiteSpace(jobDir))
-                throw new ArgumentException("Job directory is required.", nameof(jobDir));
+                throw new ArgumentException(CoreText.Get("Core.JobDirectoryRequired", "The job folder is required."), nameof(jobDir));
             if (!Directory.Exists(jobDir))
-                throw new DirectoryNotFoundException($"Job directory not found: {jobDir}");
+                throw new DirectoryNotFoundException(CoreText.Format("Core.JobDirectoryNotFound", "Job folder not found: {0}", jobDir));
 
             var manifestPath = Path.Combine(jobDir, "manifest.json");
             bool isIncomplete = false;
@@ -180,14 +181,14 @@ namespace PolyglotCLI
                 catch (Exception ex) when (ex is InvalidDataException or ArgumentException or IOException)
                 {
                     throw new InvalidJobPackageException(
-                        "El archivo no es un ZIP válido o está corrupto.", ex);
+                        CoreText.Get("Core.PackageNotZip", "The file is not a valid ZIP archive or is corrupted."), ex);
                 }
 
                 using (archive)
                 {
                     if (archive.Entries.Count == 0)
                     {
-                        throw new InvalidJobPackageException("El archivo zip está vacío.");
+                        throw new InvalidJobPackageException(CoreText.Get("Core.PackageEmpty", "The ZIP file is empty."));
                     }
 
                     EnsureWithinSizeLimits(archive);
@@ -198,9 +199,7 @@ namespace PolyglotCLI
                         var sample = string.Join(", ",
                             archive.Entries.Take(5).Select(e => e.FullName));
                         throw new InvalidJobPackageException(
-                            $"El archivo no contiene una carpeta raíz de trabajo reconocible. " +
-                            $"Asegúrate de exportar el archivo desde el Historial de Trabajos. " +
-                            $"Entradas detectadas (primeras 5): {sample}");
+                            CoreText.Format("Core.PackageNoRootFolder", "The file does not contain a recognizable job root folder. Make sure it was exported from the job history. Entries found (first 5): {0}", sample));
                     }
 
                     // Extraer directamente al stagingDir: las entradas del tipo
@@ -214,7 +213,7 @@ namespace PolyglotCLI
                     catch (Exception ex)
                     {
                         throw new InvalidJobPackageException(
-                            $"No se pudo extraer el archivo: {ex.Message}", ex);
+                            CoreText.Format("Core.PackageExtractFailed", "The file could not be extracted: {0}", ex.Message), ex);
                     }
 
                     extractedRoot = Path.Combine(stagingDir, topLevel);
@@ -225,10 +224,9 @@ namespace PolyglotCLI
                 {
                     var found = Directory.Exists(extractedRoot)
                         ? string.Join(", ", Directory.GetFiles(extractedRoot).Select(Path.GetFileName))
-                        : "(directorio no encontrado)";
+                        : CoreText.Get("Core.PackageFolderNotFound", "(folder not found)");
                     throw new InvalidJobPackageException(
-                        $"El paquete fue extraído pero no contiene un manifest.json en su raíz. " +
-                        $"Archivos encontrados: {found}");
+                        CoreText.Format("Core.PackageNoManifest", "The package was extracted but has no manifest.json at its root. Files found: {0}", found));
                 }
 
                 JobManifest? manifest;
@@ -239,19 +237,19 @@ namespace PolyglotCLI
                     if (manifest == null || string.IsNullOrWhiteSpace(manifest.JobId))
                     {
                         throw new InvalidJobPackageException(
-                            "El manifest.json del paquete está vacío o es inválido.");
+                            CoreText.Get("Core.PackageManifestEmpty", "The package's manifest.json is empty or invalid."));
                     }
                 }
                 catch (JsonException jx)
                 {
-                    throw new InvalidJobPackageException("El manifest.json no es un JSON válido.", jx);
+                    throw new InvalidJobPackageException(CoreText.Get("Core.PackageManifestInvalidJson", "The manifest.json is not valid JSON."), jx);
                 }
 
                 var originalJobId = SanitizeJobId(manifest.JobId);
                 if (string.IsNullOrEmpty(originalJobId))
                 {
                     throw new InvalidJobPackageException(
-                        "El manifest.json tiene un JobId inválido tras la normalización.");
+                        CoreText.Get("Core.PackageInvalidJobId", "The manifest.json has an invalid JobId after normalization."));
                 }
 
                 // El manifest exportado en otra máquina trae SourceFilePath
@@ -343,7 +341,7 @@ namespace PolyglotCLI
             if (archive.Entries.Count > MaxEntryCount)
             {
                 throw new InvalidJobPackageException(
-                    $"El paquete tiene demasiadas entradas ({archive.Entries.Count}; máximo {MaxEntryCount}).");
+                    CoreText.Format("Core.PackageTooManyEntries", "The package has too many entries ({0}; maximum {1}).", archive.Entries.Count, MaxEntryCount));
             }
 
             long total = 0;
@@ -351,13 +349,13 @@ namespace PolyglotCLI
             {
                 if (entry.Length < 0)
                 {
-                    throw new InvalidJobPackageException($"La entrada '{entry.FullName}' declara un tamaño inválido.");
+                    throw new InvalidJobPackageException(CoreText.Format("Core.PackageEntryInvalidSize", "The entry '{0}' declares an invalid size.", entry.FullName));
                 }
                 total += entry.Length;
                 if (total > MaxTotalUncompressedBytes)
                 {
                     throw new InvalidJobPackageException(
-                        $"El paquete descomprimido supera el máximo permitido ({MaxTotalUncompressedBytes / (1024 * 1024)} MB).");
+                        CoreText.Format("Core.PackageTooLarge", "The uncompressed package exceeds the maximum allowed size ({0} MB).", MaxTotalUncompressedBytes / (1024 * 1024)));
                 }
             }
         }

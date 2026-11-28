@@ -1,17 +1,17 @@
-<RadzenText TextStyle="TextStyle.Body1" class="rz-mb-4">Edite las directrices del sistema utilizadas por el motor de traducción e inteligencia artificial. Estos archivos se guardarán directamente en la carpeta <code>assets/prompts/</code>.</RadzenText>
+<RadzenText TextStyle="TextStyle.Body1" class="rz-mb-4">@L["Config.PromptsIntroBefore"] <code>assets/prompts/</code>@L["Config.PromptsIntroAfter"]</RadzenText>
 
 <RadzenAccordion>
     <Items>
-        <RadzenAccordionItem Text="Prompt de OCR (ocr_prompt.md)" Icon="visibility">
+        <RadzenAccordionItem Text="@L["Config.OcrPrompt"]" Icon="visibility">
             <RadzenTextArea Value="@OcrPromptText" ValueChanged="@OnOcrPromptTextChanged" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
         </RadzenAccordionItem>
-        <RadzenAccordionItem Text="Prompt de Traducción (translation_prompt.md)" Icon="translate">
+        <RadzenAccordionItem Text="@L["Config.TranslationPrompt"]" Icon="translate">
             <RadzenTextArea Value="@TranslationPromptText" ValueChanged="@OnTranslationPromptTextChanged" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
         </RadzenAccordionItem>
-        <RadzenAccordionItem Text="Prompt de Revisión (review_prompt.md)" Icon="rate_review">
+        <RadzenAccordionItem Text="@L["Config.ReviewPrompt"]" Icon="rate_review">
             <RadzenTextArea Value="@ReviewPromptText" ValueChanged="@OnReviewPromptTextChanged" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
         </RadzenAccordionItem>
-        <RadzenAccordionItem Text="Prompt de Mejora de Prompt (prompt_improver_prompt.md)" Icon="upgrade">
+        <RadzenAccordionItem Text="@L["Config.PromptImproverPrompt"]" Icon="upgrade">
             <RadzenTextArea Value="@PromptImproverPromptText" ValueChanged="@OnPromptImproverPromptTextChanged" Rows="12" class="rz-w-100" style="font-family: monospace; font-size: 0.85rem;" />
         </RadzenAccordionItem>
     </Items>

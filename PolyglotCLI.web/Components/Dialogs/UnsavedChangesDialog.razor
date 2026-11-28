@@ -10,22 +10,22 @@
     <div style="display: flex; align-items: center; gap: 0.75rem;">
         <RadzenIcon Icon="warning_amber" Style="font-size: 2rem; color: #fbbf24;" />
         <RadzenText TextStyle="TextStyle.Body1" style="margin: 0;">
-            Tenés <strong>cambios sin guardar</strong> en la configuración.
+            @L["Dialogs.UnsavedBefore"] <strong>@L["Dialogs.UnsavedStrong"]</strong> @L["Dialogs.UnsavedAfter"]
         </RadzenText>
     </div>
 
     <RadzenText TextStyle="TextStyle.Body2" style="color: #94a3b8; margin: 0;">
-        ¿Querés guardar los cambios antes de salir, descartarlos, o cancelar y quedarte en la página?
+        @L["Dialogs.UnsavedQuestion"]
     </RadzenText>
 
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-        <RadzenButton Text="Cancelar" Icon="close"
+        <RadzenButton Text="@L["Common.Cancel"]" Icon="close"
                       ButtonStyle="ButtonStyle.Secondary"
                       Click="@(() => DialogService.Close(Choice.Cancel))" />
-        <RadzenButton Text="Descartar cambios" Icon="delete_outline"
+        <RadzenButton Text="@L["Dialogs.DiscardChanges"]" Icon="delete_outline"
                       ButtonStyle="ButtonStyle.Danger"
                       Click="@(() => DialogService.Close(Choice.Discard))" />
-        <RadzenButton Text="Guardar y salir" Icon="save"
+        <RadzenButton Text="@L["Dialogs.SaveAndLeave"]" Icon="save"
                       ButtonStyle="ButtonStyle.Primary"
                       Click="@(() => DialogService.Close(Choice.Save))" />
     </RadzenStack>

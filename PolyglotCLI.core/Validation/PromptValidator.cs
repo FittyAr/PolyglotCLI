@@ -1,4 +1,5 @@
 using System;
+using PolyglotCLI.Localization;
 
 namespace PolyglotCLI.Validation
 {
@@ -39,8 +40,7 @@ namespace PolyglotCLI.Validation
 
             if (prompt.Length > maxLength)
                 return ValidationResult<string>.Failure(
-                    $"El prompt es demasiado largo ({prompt.Length} > {maxLength} caracteres). " +
-                    $"Considerá reducirlo o partirlo en chunks.");
+                    CoreText.Format("Core.PromptTooLong", "The prompt is too long ({0} > {1} characters). Consider shortening it or splitting it into parts.", prompt.Length, maxLength));
 
             // Caracteres de control: NUL es el más peligroso. Tab,
             // newline y CR son normales en texto. Otros (0x01-0x1F
@@ -51,16 +51,15 @@ namespace PolyglotCLI.Validation
                 char c = prompt[i];
                 if (c == 0x00)
                     return ValidationResult<string>.Failure(
-                        $"El prompt contiene un carácter NUL (posición {i}). " +
-                        $"Esto puede truncar el string al pasarlo al LLM.");
+                        CoreText.Format("Core.PromptNulChar", "The prompt contains a NUL character (position {0}). It could truncate the text sent to the model.", i));
 
                 if (c < 0x20 && c != '\t' && c != '\n' && c != '\r')
                     return ValidationResult<string>.Failure(
-                        $"El prompt contiene un carácter de control 0x{(int)c:X2} (posición {i}).");
+                        CoreText.Format("Core.PromptControlChar", "The prompt contains control character 0x{0:X2} (position {1}).", (int)c, i));
 
                 if (c == 0x7F)
                     return ValidationResult<string>.Failure(
-                        $"El prompt contiene un carácter DEL (0x7F, posición {i}).");
+                        CoreText.Format("Core.PromptDelChar", "The prompt contains a DEL character (0x7F, position {0}).", i));
             }
 
             return ValidationResult<string>.Success(prompt);

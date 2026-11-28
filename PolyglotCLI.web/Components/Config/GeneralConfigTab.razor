@@ -14,7 +14,7 @@
 
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Proveedor LLM" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.LlmProvider"]" class="rz-mb-2" />
         <RadzenDropDown Data="@providerOptions"
                         Value="@AppConfig.Provider"
                         Change="@OnProviderChanged"
@@ -35,14 +35,14 @@
         {
             <div class="api-key-display rz-mb-2"
                  style="display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; background: var(--rz-input-background-color); border: 1px solid var(--rz-border-color); border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em;">
-                <span title="API Key almacenada (enmascarada)">@MaskedApiKey</span>
+                <span title="@L["Config.StoredApiKeyMasked"]">@MaskedApiKey</span>
                 <RadzenButton Icon="delete_outline"
                               ButtonStyle="ButtonStyle.Danger"
                               Variant="Variant.Text"
                               Size="ButtonSize.Small"
                               Click="@ClearApiKey"
                               Disabled="@(!IsCloudProvider)"
-                              title="Eliminar API Key almacenada"
+                              title="@L["Config.DeleteStoredApiKey"]"
                               class="rz-ml-auto" />
             </div>
         }
@@ -57,24 +57,44 @@
 
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12">
-        <RadzenLabel Text="URL Base de la API" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.ApiBaseUrl"]" class="rz-mb-2" />
         <div style="display: flex; gap: 0.5rem;">
             <RadzenTextBox @bind-Value="AppConfig.ApiUrl" style="flex-grow: 1;" />
-            <RadzenButton Text="Probar Conexión" Icon="sync" ButtonStyle="ButtonStyle.Secondary"
+            <RadzenButton Text="@L["Config.TestConnection"]" Icon="sync" ButtonStyle="ButtonStyle.Secondary"
                           Click="@(async () => await OnTestConnection.InvokeAsync())"
-                          IsBusy="@IsTestingConnection" BusyText="Conectando..." />
+                          IsBusy="@IsTestingConnection" BusyText="@L["Config.Connecting"]" />
         </div>
     </RadzenColumn>
 </RadzenRow>
 
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="8">
-        <RadzenLabel Text="Directorio de Salida" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.OutputDirectory"]" class="rz-mb-2" />
         <RadzenTextBox @bind-Value="AppConfig.OutputDirectory" class="rz-w-100" />
     </RadzenColumn>
     <RadzenColumn Size="4" class="rz-align-self-end rz-pb-1">
         <RadzenCheckBox @bind-Value="AppConfig.Debug" Name="cfgDebug" />
-        <RadzenLabel Text="Modo Debug (2 primeras pág.)" Component="cfgDebug" class="rz-ml-2" />
+        <RadzenLabel Text="@L["Config.DebugMode"]" Component="cfgDebug" class="rz-ml-2" />
+    </RadzenColumn>
+</RadzenRow>
+
+<RadzenRow Gap="1rem" class="rz-mb-4">
+    <RadzenColumn Size="6">
+        <RadzenLabel Text="@L["Settings.UiLanguage"]" Component="cfgUiLanguage" class="rz-mb-2" />
+        @*
+            Vacío = idioma de Windows. El cambio se aplica al guardar
+            (Config.razor.cs recarga la página para re-renderizar todo
+            en el idioma nuevo).
+        *@
+        <RadzenDropDown TValue="string"
+                        Name="cfgUiLanguage"
+                        Data="@UiLanguageOptions"
+                        TextProperty="@nameof(UiLanguageOption.Name)"
+                        ValueProperty="@nameof(UiLanguageOption.Code)"
+                        @bind-Value="UiLanguageValue"
+                        AllowClear="false"
+                        class="rz-w-100" />
+        <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2" style="color: #b0bec5; display: block;">@L["Settings.UiLanguageHint"]</RadzenText>
     </RadzenColumn>
 </RadzenRow>
 
@@ -100,6 +120,41 @@
         "MiniMax",
         "Custom"
     };
+
+    /// <summary>Opción del selector de idioma de interfaz.</summary>
+    public sealed record UiLanguageOption(string Code, string Name);
+
+    /// <summary>
+    /// Opciones del selector: primero "Predeterminado del sistema (…)"
+    /// con valor vacío, y luego cada idioma soportado por su nombre nativo.
+    /// </summary>
+    private IEnumerable<UiLanguageOption> UiLanguageOptions
+    {
+        get
+        {
+            var systemCode = Loc.Resolve(System.Globalization.CultureInfo.InstalledUICulture.Name);
+            var systemName = Loc.SupportedLanguages.FirstOrDefault(l => l.Code == systemCode).NativeName ?? systemCode;
+            yield return new UiLanguageOption("", L["Settings.UiLanguageSystem", systemName]);
+            foreach (var (code, nativeName) in Loc.SupportedLanguages)
+                yield return new UiLanguageOption(code, nativeName);
+        }
+    }
+
+    /// <summary>
+    /// Puente entre el dropdown (usa "" para "sistema") y
+    /// <see cref="AppConfig.UiLanguage"/> (null o vacío = sistema). No
+    /// reescribe null por "" ni al revés para no marcar la página como
+    /// modificada sin un cambio real.
+    /// </summary>
+    private string UiLanguageValue
+    {
+        get => AppConfig.UiLanguage ?? "";
+        set
+        {
+            if (string.IsNullOrEmpty(value) && string.IsNullOrEmpty(AppConfig.UiLanguage)) return;
+            AppConfig.UiLanguage = string.IsNullOrEmpty(value) ? null : value;
+        }
+    }
 
     /// <summary>
     /// True si el proveedor actual requiere API Key (modelo cloud).
@@ -131,10 +186,10 @@
     {
         get
         {
-            if (!IsCloudProvider) return "No requerida para proveedores locales";
+            if (!IsCloudProvider) return L["Config.ApiKeyNotRequired"];
             return string.IsNullOrEmpty(AppConfig.ApiKey)
                 ? "sk-..."
-                : "Ingresá una nueva API Key para reemplazar la actual";
+                : L["Config.ApiKeyReplacePlaceholder"];
         }
     }
 
@@ -195,7 +250,7 @@
         var previousProvider = AppConfig.Provider;
 
         var result = await DialogService.OpenAsync<ProviderCascadeDialog>(
-            title: "Replicar proveedor",
+            title: L["Config.ReplicateProviderTitle"],
             parameters: new Dictionary<string, object?>
             {
                 { "NewProvider",        providerStr            },

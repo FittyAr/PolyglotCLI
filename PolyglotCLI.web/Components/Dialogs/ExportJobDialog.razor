@@ -10,24 +10,24 @@
 
 <RadzenCard style="background: rgba(17, 24, 39, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
     <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-mb-4" style="color: #ffffff; font-weight: bold;">
-        Selecciona las opciones para exportar y convertir el trabajo
+        @L["Dialogs.ExportIntro"]
     </RadzenText>
 
     <!-- Carpeta de Destino -->
     <div class="rz-mb-4" style="margin-bottom: 20px;">
-        <RadzenText TextStyle="TextStyle.Caption" style="color: #94a3b8; display: block; margin-bottom: 6px;">Carpeta de Destino</RadzenText>
+        <RadzenText TextStyle="TextStyle.Caption" style="color: #94a3b8; display: block; margin-bottom: 6px;">@L["Dialogs.ExportDestination"]</RadzenText>
         <div style="display: flex; gap: 8px; align-items: center;">
             <RadzenTextBox @bind-Value="exportDirectory" class="rz-w-100" style="flex-grow: 1; background: rgba(10,15,26,0.8); border: 1px solid rgba(255,255,255,0.15); color: #ffffff;" />
             @if (FolderPickerService.IsSupported)
             {
-                <RadzenButton Icon="folder_open" ButtonStyle="ButtonStyle.Secondary" Click="@SelectFolder" Title="Seleccionar carpeta..." Style="flex-shrink: 0;" />
+                <RadzenButton Icon="folder_open" ButtonStyle="ButtonStyle.Secondary" Click="@SelectFolder" Title="@L["Dialogs.SelectFolder"]" Style="flex-shrink: 0;" />
             }
         </div>
     </div>
 
     <!-- Formatos a Exportar -->
     <div class="rz-mb-4" style="margin-bottom: 24px;">
-        <RadzenText TextStyle="TextStyle.Caption" style="color: #94a3b8; display: block; margin-bottom: 8px;">Formatos de Documento a Generar</RadzenText>
+        <RadzenText TextStyle="TextStyle.Caption" style="color: #94a3b8; display: block; margin-bottom: 8px;">@L["Dialogs.ExportFormats"]</RadzenText>
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 16px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px;">
             <div style="display: flex; align-items: center;">
                 <RadzenCheckBox @bind-Value="exportMd" Name="chkMd" />
@@ -57,8 +57,8 @@
     </div>
 
     <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px;">
-        <RadzenButton Text="Cancelar" Click="@(() => DialogService.Close(false))" ButtonStyle="ButtonStyle.Secondary" />
-        <RadzenButton Text="Exportar" Icon="save_alt" Click="@Export" ButtonStyle="ButtonStyle.Primary" IsBusy="@isProcessing" BusyText="Exportando..." />
+        <RadzenButton Text="@L["Common.Cancel"]" Click="@(() => DialogService.Close(false))" ButtonStyle="ButtonStyle.Secondary" />
+        <RadzenButton Text="@L["Dialogs.Export"]" Icon="save_alt" Click="@Export" ButtonStyle="ButtonStyle.Primary" IsBusy="@isProcessing" BusyText="@L["Dialogs.Exporting"]" />
     </div>
 </RadzenCard>
 
@@ -103,8 +103,8 @@
             NotificationService.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Warning,
-                Summary = "Exportación",
-                Detail = "Por favor selecciona una carpeta de destino válida."
+                Summary = L["Dialogs.ExportSummary"],
+                Detail = L["Dialogs.ExportSelectValidFolder"]
             });
             return;
         }
@@ -118,14 +118,14 @@
             NotificationService.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = "Carpeta de destino inválida",
+                Summary = L["Dialogs.ExportInvalidDestination"],
                 // FirstError es string? (nullable) y Detail es
                 // string (no-nullable en Radzen). Fallback
                 // defensivo: nunca debería verse porque si
                 // IsValid=false Errors siempre tiene al menos
                 // un elemento, pero el compilador no puede
                 // probarlo.
-                Detail = pathValidation.FirstError ?? "Error de validación desconocido",
+                Detail = pathValidation.FirstError ?? L["Common.UnknownValidationError"],
                 Duration = 8_000
             });
             return;
@@ -142,8 +142,8 @@
             NotificationService.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Warning,
-                Summary = "Exportación",
-                Detail = "Selecciona al menos un formato para la exportación."
+                Summary = L["Dialogs.ExportSummary"],
+                Detail = L["Dialogs.ExportSelectFormat"]
             });
             return;
         }
@@ -173,12 +173,12 @@
 
                     if (errors.Count > 0)
                     {
-                        return $"Se exportaron {count} archivos pero hubo errores:\n" + string.Join("\n", errors);
+                        return L["Dialogs.ExportedWithErrors", count] + "\n" + string.Join("\n", errors);
                     }
 
                     if (count == 0)
                     {
-                        return "No se encontraron datos para exportar en este trabajo.";
+                        return L["Dialogs.ExportNoData"];
                     }
 
                     // Convertir formatos según corresponda
@@ -232,7 +232,7 @@
                 NotificationService.Notify(new NotificationMessage
                 {
                     Severity = NotificationSeverity.Error,
-                    Summary = "Exportación con Errores",
+                    Summary = L["Dialogs.ExportWithErrorsTitle"],
                     Detail = errorMsg
                 });
             }
@@ -241,8 +241,8 @@
                 NotificationService.Notify(new NotificationMessage
                 {
                     Severity = NotificationSeverity.Success,
-                    Summary = "Exportación Completada",
-                    Detail = $"Los archivos se guardaron con éxito en: {exportDirectory}"
+                    Summary = L["Dialogs.ExportCompleted"],
+                    Detail = L["Dialogs.ExportSavedTo", exportDirectory]
                 });
                 DialogService.Close(true);
             }
@@ -252,7 +252,7 @@
             NotificationService.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Error,
-                Summary = "Error",
+                Summary = L["Common.Error"],
                 Detail = ex.Message
             });
         }

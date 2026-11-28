@@ -1,0 +1,39 @@
+{
+  "description": "PolyglotCLI translates entire documents —PDF, Word (DOCX/DOC), OpenDocument (ODT) and plain text— using the AI models you choose: local models running on your own PC (LM Studio or Ollama) or cloud providers such as OpenAI or Google Gemini.\n\nBuilt for books, manuals and long documents, PolyglotCLI works page by page and saves every result immediately. If you close the app or cancel a job, you can resume it later exactly where it stopped, without translating (or paying for) finished pages again.\n\nScanned documents? Switch to image mode: each page is rendered and a vision model performs OCR before translating, keeping headings, lists and paragraphs.\n\nPRIVACY FIRST\nWith a local model, your documents never leave your PC. No accounts, no telemetry, no servers of our own: documents are only sent to the AI provider you configure, and API keys are stored encrypted on your device.\n\nFULL CONTROL OVER THE RESULT\n• Page verifier: compare the original page with the OCR and the translation side by side, and fix anything you need.\n• Optional review: a second AI pass polishes the translation.\n• Prompt editor: tune the OCR, translation and review instructions to your style or glossary.\n• Export to Markdown, Word (DOCX), PDF or OpenDocument (ODT).\n• Job history with progress, resume and exportable packages (.zpg) to continue on another PC.\n\nRequirements: translating requires an AI model, either local (LM Studio or Ollama, both free) or an API key from a cloud provider. The user interface is available in 10 languages and automatically follows your Windows language.\n\nPolyglotCLI is open-source software: https://github.com/FittyAr/PolyglotCLI",
+  "whatsNew": "• The interface is now available in 10 languages: English, Spanish, Portuguese, French, German, Italian, Russian, Chinese (Simplified), Japanese and Korean.\n• The app follows your Windows language automatically, and you can change it in Settings > General.",
+  "features": [
+    "Translates PDF, Word (DOCX/DOC), OpenDocument (ODT) and plain text",
+    "OCR with vision models for scanned documents",
+    "Works with local models (LM Studio, Ollama) or the cloud (OpenAI, Gemini)",
+    "Privacy: with a local model your documents never leave your PC",
+    "Page-by-page translation with incremental saving",
+    "Resumes interrupted jobs without re-translating finished pages",
+    "Page verifier: original, OCR and translation side by side",
+    "Optional second AI pass to review the translation",
+    "Prompt editor for OCR, translation and review",
+    "Exports to Markdown, DOCX, PDF and ODT",
+    "Job history and exportable packages to move between PCs",
+    "API keys encrypted on your device; no accounts or telemetry"
+  ],
+  "shortDescription": "Translate entire PDF, Word, ODT and text documents with AI, using local models (LM Studio, Ollama) or cloud providers (OpenAI, Google Gemini). Page by page and resumable, with OCR for scanned documents and full privacy with local models.",
+  "systemRequirements": "Minimum: Windows 10 version 1809 or later (x64), 4 GB RAM.\nRecommended: 8 GB RAM or more. 16 GB RAM and a dedicated GPU are recommended for local AI models.\nAn AI model is required: LM Studio or Ollama on your PC, or an API key from a cloud provider (OpenAI, Google Gemini or any OpenAI-compatible API).",
+  "keywords": [
+    "document translator",
+    "translate PDF",
+    "OCR",
+    "AI translation",
+    "LM Studio",
+    "Ollama",
+    "translation"
+  ],
+  "captions": [
+    "Page verifier: compare the original page with the translation and fix what you need.",
+    "Dashboard: pick your documents and mode (text or OCR), and follow progress in real time.",
+    "Generated files: your translation ready as Markdown and Word, with a built-in preview.",
+    "Set up local or cloud providers and the AI model for each stage.",
+    "Prompt editor: adapt the AI instructions to your style and glossary.",
+    "Job history: progress, resume and export for every translation."
+  ],
+  "copyright": "© 2026 FittyAr. MIT License.",
+  "developedBy": "FittyAr"
+}

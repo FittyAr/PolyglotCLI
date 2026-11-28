@@ -26,7 +26,7 @@ Verificar además:
 
 - [ ] El nombre reservado de la app en Partner Center es **PolyglotCLI** (coincide con `DisplayName` del manifiesto). Si se reservó otro, actualizar `DisplayName` en `assets/msix/AppxManifest.xml`.
 - [ ] `ProcessorArchitecture="x64"`; `MinVersion 10.0.17763.0`; `MaxVersionTested 10.0.26100.0`.
-- [ ] Idioma del paquete: `es-ES` (`<Resource Language="es-ES" />`).
+- [ ] Idiomas del paquete: los 10 de la interfaz (`en`, `es`, `pt`, `fr`, `de`, `it`, `ru`, `zh-Hans`, `ja`, `ko`), declarados en `assets/msix/AppxManifest.xml`. Cada uno necesita su ficha en Partner Center.
 
 ## 3. Capacidad restringida `runFullTrust`
 
@@ -58,7 +58,7 @@ La app envía documentos al proveedor de IA que configure el usuario, así que *
 
 ## 6. Ficha de la Store (Store listings)
 
-- [ ] Idioma de la ficha: **Español (España) `es-ES`** (agregar otros idiomas solo si se traducen los textos; la UI está en español).
+- [ ] Una ficha por idioma del paquete (los 10 de la interfaz), con los textos de `docs/STORE_LISTING.md`. La ficha `es-ES` de la primera versión puede quedar como ficha adicional.
 - [ ] Descripción (≥ 200 caracteres recomendados), *What's new*, características destacadas (hasta 20), palabras clave de búsqueda (hasta 7: traducción, OCR, PDF, LLM, IA, documentos, Ollama).
 - [ ] **Capturas de pantalla** (obligatorio ≥ 1, recomendado 4–10), PNG 1366×768 o mayor (ideal 1920×1080 o 2560×1440), sin datos personales ni claves de API visibles:
   1. Panel principal con la lista de documentos y el log en tiempo real.

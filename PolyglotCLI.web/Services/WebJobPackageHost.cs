@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using PolyglotCLI.web.Localization;
 using Radzen;
 
 namespace PolyglotCLI.web.Services
@@ -26,24 +27,26 @@ namespace PolyglotCLI.web.Services
             if (!Directory.Exists(jobDir))
             {
                 throw new DirectoryNotFoundException(
-                    $"La carpeta del trabajo '{job.JobId}' no existe en disco.");
+                    Loc.T("Host.JobFolderMissing", job.JobId));
             }
 
             if (string.Equals(job.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
             {
                 bool? confirm = await _dialog.Confirm(
-                    $"El trabajo '{job.JobId}' aún está en progreso. Exportarlo ahora generará un paquete parcial: los archivos en 'data/' pueden estar a medio escribir y el zip incluirá una nota de exportación parcial.\n\n¿Deseas continuar?",
-                    "Exportar trabajo en curso",
-                    new ConfirmOptions { OkButtonText = "Exportar de todos modos", CancelButtonText = "Cancelar" });
+                    Loc.T("Host.ExportInProgressConfirm", job.JobId),
+                    Loc.T("Host.ExportInProgressTitle"),
+                    new ConfirmOptions { OkButtonText = Loc.T("Host.ExportAnyway"), CancelButtonText = Loc.T("Common.Cancel") });
 
                 if (confirm != true)
                 {
-                    return "Exportación cancelada por el usuario.";
+                    return Loc.T("Host.ExportCancelled");
                 }
             }
 
             string downloadUrl = $"api/jobs/{Uri.EscapeDataString(job.JobId)}/package";
             _nav.NavigateTo(downloadUrl, forceLoad: true);
+            // Centinela, no se muestra: History.razor oculta los mensajes
+            // que contienen "Descarga iniciada". No traducir.
             return $"Descarga iniciada: {job.JobId}{JobPackageService.PackageExtension}";
         }
 
@@ -54,7 +57,7 @@ namespace PolyglotCLI.web.Services
             string apiUrl = $"{_nav.BaseUri.TrimEnd('/')}/api/jobs/import";
 
             dynamic? resultObj = await _dialog.OpenAsync<Components.Dialogs.ImportJobDialog>(
-                "Importar trabajo (.zpg)",
+                Loc.T("Host.ImportDialogTitle"),
                 new Dictionary<string, object?>
                 {
                     { "ApiUrl", apiUrl }

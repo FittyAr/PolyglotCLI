@@ -3,27 +3,27 @@
 
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Proveedor LLM para OCR" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.OcrProvider"]" class="rz-mb-2" />
         <RadzenDropDown Data="@providerOptions" @bind-Value="AppConfig.OcrProvider" Change="@OnProviderChanged" class="rz-w-100" />
     </RadzenColumn>
     <RadzenColumn Size="6">
         <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
             <div style="flex-grow: 1;">
-                <RadzenLabel Text="Modelo de Visión (OCR)" class="rz-mb-2" />
-                <RadzenDropDown @bind-Value="AppConfig.DefaultVisionModel" Data="@currentModels" class="rz-w-100" Placeholder="Seleccionar o escribir modelo de visión..." AllowClear="true" AllowFiltering="true" AllowCustom="true" />
+                <RadzenLabel Text="@L["Config.VisionModel"]" class="rz-mb-2" />
+                <RadzenDropDown @bind-Value="AppConfig.DefaultVisionModel" Data="@currentModels" class="rz-w-100" Placeholder="@L["Config.VisionModelPlaceholder"]" AllowClear="true" AllowFiltering="true" AllowCustom="true" />
             </div>
-            <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@FetchModelsForProvider" Tooltip="Cargar modelos desde el servidor seleccionado" IsBusy="@isLoadingModels" />
+            <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@FetchModelsForProvider" Tooltip="@L["Config.LoadModelsTooltip"]" IsBusy="@isLoadingModels" />
         </div>
     </RadzenColumn>
 </RadzenRow>
 
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Temperatura OCR (0.0 - 1.0)" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.OcrTemperature"]" class="rz-mb-2" />
         <RadzenNumeric @bind-Value="AppConfig.OcrTemperature" TValue="double" Step="0.1" Min="@((decimal)0)" Max="@((decimal)1)" class="rz-w-100" />
     </RadzenColumn>
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Timeout OCR (segundos)" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.OcrTimeout"]" class="rz-mb-2" />
         <RadzenNumeric @bind-Value="AppConfig.OcrTimeoutSeconds" TValue="int" class="rz-w-100" />
     </RadzenColumn>
 </RadzenRow>
@@ -114,7 +114,7 @@
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(NotificationSeverity.Error, "No se pudieron cargar los modelos", ex.Message, duration: 6000);
+            NotificationService.Notify(NotificationSeverity.Error, L["Config.LoadModelsFailed"], ex.Message, duration: 6000);
         }
         finally
         {

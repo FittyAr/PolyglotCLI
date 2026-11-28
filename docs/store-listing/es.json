@@ -1,0 +1,39 @@
+{
+  "description": "PolyglotCLI traduce documentos completos —PDF, Word (DOCX/DOC), OpenDocument (ODT) y texto plano— usando modelos de inteligencia artificial que usted elige: modelos locales en su propio equipo (LM Studio u Ollama) o proveedores en la nube como OpenAI o Google Gemini.\n\nPensado para libros, manuales y documentos largos, PolyglotCLI procesa página por página y guarda cada resultado al instante. Si cierra la aplicación o cancela un trabajo, puede reanudarlo más tarde exactamente donde quedó, sin volver a traducir (ni volver a pagar) las páginas ya terminadas.\n\n¿Documentos escaneados? Active el modo imagen: cada página se renderiza y un modelo con visión hace el OCR antes de traducir, conservando títulos, listas y párrafos.\n\nPRIVACIDAD PRIMERO\nCon un modelo local, sus documentos nunca salen de su equipo. No hay cuentas, ni telemetría, ni servidores propios: los documentos solo se envían al proveedor de IA que usted configure, y las claves de API se guardan cifradas en su equipo.\n\nCONTROL TOTAL DEL RESULTADO\n• Verificador de páginas: compare la página original con el OCR y la traducción lado a lado, y corrija lo que haga falta.\n• Revisión opcional: un segundo paso de IA pule la traducción.\n• Editor de prompts: ajuste las instrucciones de OCR, traducción y revisión a su estilo o glosario.\n• Exporte a Markdown, Word (DOCX), PDF u OpenDocument (ODT).\n• Historial de trabajos con progreso, reanudación y paquetes exportables (.zpg) para continuar en otro equipo.\n\nRequisitos: para traducir necesita un modelo de IA, ya sea local (LM Studio u Ollama, gratuitos) o una clave de API de un proveedor en la nube. La interfaz está disponible en 10 idiomas y sigue automáticamente el idioma de Windows.\n\nPolyglotCLI es software de código abierto: https://github.com/FittyAr/PolyglotCLI",
+  "whatsNew": "• La interfaz ahora está disponible en 10 idiomas: inglés, español, portugués, francés, alemán, italiano, ruso, chino simplificado, japonés y coreano.\n• La app usa automáticamente el idioma de Windows, y puede cambiarlo en Configuración > General.",
+  "features": [
+    "Traduce PDF, Word (DOCX/DOC), OpenDocument (ODT) y texto plano",
+    "OCR con modelos de visión para documentos escaneados",
+    "Funciona con modelos locales (LM Studio, Ollama) o en la nube (OpenAI, Gemini)",
+    "Privacidad: con un modelo local sus documentos nunca salen del equipo",
+    "Traducción página por página con guardado incremental",
+    "Reanuda trabajos interrumpidos sin volver a traducir lo ya hecho",
+    "Verificador de páginas: original, OCR y traducción lado a lado",
+    "Revisión opcional de la traducción con un segundo paso de IA",
+    "Editor de prompts para OCR, traducción y revisión",
+    "Exporta a Markdown, DOCX, PDF y ODT",
+    "Historial de trabajos y paquetes exportables para cambiar de equipo",
+    "Claves de API cifradas en el equipo; sin cuentas ni telemetría"
+  ],
+  "shortDescription": "Traduzca documentos PDF, Word, ODT y de texto completos con IA, con modelos locales (LM Studio, Ollama) o proveedores en la nube (OpenAI, Google Gemini). Página por página y reanudable, con OCR para documentos escaneados y total privacidad con modelos locales.",
+  "systemRequirements": "Mínimo: Windows 10 versión 1809 o posterior (x64), 4 GB de RAM.\nRecomendado: 8 GB de RAM o más. Para usar modelos de IA locales se recomiendan 16 GB de RAM y una GPU dedicada.\nSe necesita un modelo de IA: LM Studio u Ollama en el equipo, o una clave de API de un proveedor en la nube (OpenAI, Google Gemini u otro compatible con la API de OpenAI).",
+  "keywords": [
+    "traductor de documentos",
+    "traducir PDF",
+    "OCR",
+    "inteligencia artificial",
+    "LM Studio",
+    "Ollama",
+    "traducción"
+  ],
+  "captions": [
+    "Verificador de páginas: compare la página original con la traducción y corrija lo que necesite.",
+    "Panel principal: elija los documentos, el modo (texto u OCR) y siga el progreso en tiempo real.",
+    "Archivos generados: la traducción lista en Markdown y Word, con vista previa integrada.",
+    "Configure proveedores locales o en la nube y el modelo de IA para cada etapa.",
+    "Editor de prompts: adapte las instrucciones de la IA a su estilo y glosario.",
+    "Historial de trabajos: progreso, reanudación y exportación de cada traducción."
+  ],
+  "copyright": "© 2026 FittyAr. Licencia MIT.",
+  "developedBy": "FittyAr"
+}

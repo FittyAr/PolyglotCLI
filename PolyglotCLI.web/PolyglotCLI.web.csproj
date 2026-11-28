@@ -21,6 +21,16 @@
     <ApplicationIcon>..\assets\icons\app.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <!-- Textos de la interfaz, un JSON por idioma (ver Localization/Loc.cs).
+       Se embeben en el ensamblado con un nombre fijo para que la app web y
+       la de escritorio (MAUI) los lean igual, sin archivos sueltos. -->
+  <ItemGroup>
+    <Content Remove="Localization\Strings\*.json" />
+    <None Remove="Localization\Strings\*.json" />
+    <EmbeddedResource Include="Localization\Strings\*.json"
+                      LogicalName="PolyglotCLI.web.Localization.Strings.%(Filename).json" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Include="..\assets\icons\app.ico" Link="wwwroot\app.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Web.WebView2.Core;
+using PolyglotCLI.web.Localization;
 
 namespace PolyglotCLI.Maui.WinUI
 {
@@ -108,9 +109,8 @@ namespace PolyglotCLI.Maui.WinUI
 			const int IDYES = 6;
 			int answer = MessageBoxW(
 				IntPtr.Zero,
-				"PolyglotCLI necesita Microsoft Edge WebView2 Runtime, que no está instalado en este equipo.\n\n" +
-				"¿Desea abrir la página de descarga oficial de Microsoft?\n" + WebView2DownloadUrl,
-				"PolyglotCLI - Falta WebView2 Runtime",
+				Loc.T("Host.WebView2MissingMessage", WebView2DownloadUrl),
+				Loc.T("Host.WebView2MissingCaption"),
 				MB_YESNO | MB_ICONERROR);
 
 			if (answer == IDYES)

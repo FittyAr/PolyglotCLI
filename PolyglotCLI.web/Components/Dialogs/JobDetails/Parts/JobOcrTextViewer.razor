@@ -2,7 +2,7 @@
     <Template>
         <div class="page-tabs-tab">
             <RadzenIcon Icon="description" class="page-tabs-tab__icon page-tabs-tab__icon--ocr" />
-            <span>Texto Extraído</span>
+            <span>@L["JobDetails.ExtractedText"]</span>
         </div>
     </Template>
     <ChildContent>
@@ -10,9 +10,9 @@
             <div class="text-pane__header text-pane__header--readonly">
                 <span class="text-pane__mode">
                     <RadzenIcon Icon="subject" Style="font-size: 0.95rem;" />
-                    OCR (sólo lectura)
+                    @L["JobDetails.OcrReadOnly"]
                 </span>
-                <span class="text-pane__counter">@(Text?.Length ?? 0) caracteres</span>
+                <span class="text-pane__counter">@(L["JobDetails.CharCount", Text?.Length ?? 0])</span>
             </div>
             <div class="text-pane__body">
                 <pre class="text-pane__preview text-pane__preview--ocr">@Text</pre>

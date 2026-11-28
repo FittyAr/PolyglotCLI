@@ -1,0 +1,39 @@
+{
+  "description": "PolyglotCLI 使用您选择的 AI 模型翻译完整文档（PDF、Word (DOCX/DOC)、OpenDocument (ODT) 和纯文本）：既可以是在您自己电脑上运行的本地模型（LM Studio 或 Ollama），也可以是 OpenAI、Google Gemini 等云端服务商。\n\nPolyglotCLI 专为书籍、手册和长篇文档而设计，逐页处理并即时保存每一页的结果。即使关闭应用或取消任务，之后也可以从中断处准确继续，已完成的页面无需重新翻译（也无需再次付费）。\n\n扫描文档？切换到图像模式：每一页都会渲染为图像，由视觉模型先进行 OCR 再翻译，并保留标题、列表和段落结构。\n\n隐私优先\n使用本地模型时，您的文档绝不会离开您的电脑。无需账户，没有遥测，也没有我们自己的服务器：文档只会发送给您配置的 AI 服务商，API 密钥以加密形式保存在您的设备上。\n\n全面掌控翻译结果\n• 页面校验器：并排对照原始页面、OCR 结果和译文，按需修改。\n• 可选审校：由 AI 进行第二轮处理，润色译文。\n• 提示词编辑器：根据您的风格或术语表调整 OCR、翻译和审校指令。\n• 导出为 Markdown、Word (DOCX)、PDF 或 OpenDocument (ODT)。\n• 任务历史记录：查看进度、继续任务，还可导出任务包 (.zpg)，在另一台电脑上继续。\n\n要求：翻译需要 AI 模型，可以是本地模型（LM Studio 或 Ollama，均免费），也可以是云端服务商的 API 密钥。界面提供 10 种语言，并会自动跟随 Windows 的语言设置。\n\nPolyglotCLI 是开源软件：https://github.com/FittyAr/PolyglotCLI",
+  "whatsNew": "• 界面现已支持 10 种语言：英语、西班牙语、葡萄牙语、法语、德语、意大利语、俄语、简体中文、日语和韩语。\n• 应用会自动跟随 Windows 的语言，您也可以在“设置 > 常规”中更改。",
+  "features": [
+    "翻译 PDF、Word (DOCX/DOC)、OpenDocument (ODT) 和纯文本",
+    "借助视觉模型对扫描文档进行 OCR",
+    "支持本地模型（LM Studio、Ollama）或云端模型（OpenAI、Gemini）",
+    "隐私保护：使用本地模型时，文档绝不离开您的电脑",
+    "逐页翻译，增量保存",
+    "继续被中断的任务，已完成的页面无需重新翻译",
+    "页面校验器：原文、OCR 与译文并排对照",
+    "可选由 AI 进行第二轮审校译文",
+    "提示词编辑器，可调整 OCR、翻译和审校指令",
+    "导出为 Markdown、DOCX、PDF 和 ODT",
+    "任务历史记录和可导出的任务包，便于更换电脑",
+    "API 密钥在设备上加密存储；无需账户，没有遥测"
+  ],
+  "shortDescription": "使用 AI 翻译完整的 PDF、Word、ODT 和文本文档，支持本地模型（LM Studio、Ollama）或云端服务商（OpenAI、Google Gemini）。逐页翻译、可断点续译，支持扫描文档 OCR，使用本地模型时充分保护隐私。",
+  "systemRequirements": "最低配置：Windows 10 版本 1809 或更高版本 (x64)，4 GB 内存。\n推荐配置：8 GB 或更多内存。使用本地 AI 模型时，建议配备 16 GB 内存和独立显卡。\n需要 AI 模型：电脑上的 LM Studio 或 Ollama，或者云端服务商的 API 密钥（OpenAI、Google Gemini 或任何兼容 OpenAI API 的服务）。",
+  "keywords": [
+    "文档翻译",
+    "PDF翻译",
+    "OCR",
+    "AI翻译",
+    "LM Studio",
+    "Ollama",
+    "翻译软件"
+  ],
+  "captions": [
+    "页面校验器：对照原始页面与译文，按需修改。",
+    "主面板：选择文档和模式（文本或 OCR），实时查看进度。",
+    "生成的文件：译文已生成 Markdown 和 Word 格式，并提供内置预览。",
+    "配置本地或云端服务商，并为每个阶段选择 AI 模型。",
+    "提示词编辑器：根据您的风格和术语表调整 AI 指令。",
+    "任务历史记录：查看每次翻译的进度，继续或导出任务。"
+  ],
+  "copyright": "© 2026 FittyAr. MIT 许可证",
+  "developedBy": "FittyAr"
+}

@@ -1,6 +1,8 @@
 # Ficha de Microsoft Store — textos e imágenes
 
-Textos listos para pegar en Partner Center (*Store listings*) en **Español (es-ES)** e **Inglés (en-US)**, y los prompts para generar el arte promocional con un generador de imágenes (ChatGPT / DALL·E).
+Textos listos para pegar en Partner Center (*Store listings*) en **Español** e **Inglés**, y los prompts para generar el arte promocional con un generador de imágenes (ChatGPT / DALL·E).
+
+Las fichas de los 10 idiomas (incluidos estos dos, con las novedades de la versión actual) están en [docs/store-listing/](store-listing/), un JSON por idioma con descripción, novedades, características, palabras clave y leyendas.
 
 Límites de Partner Center: descripción ≤ 10 000 caracteres · *What's new* ≤ 1 500 · hasta 20 características de ≤ 200 · hasta 7 términos de búsqueda (≤ 30 caracteres c/u, ≤ 21 palabras en total) · leyenda de captura ≤ 200.
 
@@ -31,7 +33,7 @@ CONTROL TOTAL DEL RESULTADO
 • Exporte a Markdown, Word (DOCX), PDF u OpenDocument (ODT).
 • Historial de trabajos con progreso, reanudación y paquetes exportables (.zpg) para continuar en otro equipo.
 
-Requisitos: para traducir necesita un modelo de IA, ya sea local (LM Studio u Ollama, gratuitos) o una clave de API de un proveedor en la nube. La interfaz de la aplicación está en español.
+Requisitos: para traducir necesita un modelo de IA, ya sea local (LM Studio u Ollama, gratuitos) o una clave de API de un proveedor en la nube. La interfaz está disponible en 10 idiomas y sigue automáticamente el idioma de Windows.
 
 PolyglotCLI es software de código abierto: https://github.com/FittyAr/PolyglotCLI
 ```
@@ -128,7 +130,7 @@ FULL CONTROL OVER THE RESULT
 • Export to Markdown, Word (DOCX), PDF or OpenDocument (ODT).
 • Job history with progress, resume and exportable packages (.zpg) to continue on another PC.
 
-Requirements: translating requires an AI model, either local (LM Studio or Ollama, both free) or an API key from a cloud provider. The app's user interface is in Spanish.
+Requirements: translating requires an AI model, either local (LM Studio or Ollama, both free) or an API key from a cloud provider. The user interface is available in 10 languages and automatically follows your Windows language.
 
 PolyglotCLI is open-source software: https://github.com/FittyAr/PolyglotCLI
 ```

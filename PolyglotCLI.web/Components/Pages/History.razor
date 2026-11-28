@@ -9,46 +9,46 @@
 @inject NotificationService NotificationService
 @using PolyglotCLI.web.Components.Dialogs
 
-<PageTitle>Historial de Trabajos - PolyglotCLI</PageTitle>
+<PageTitle>@L["History.Title"] - PolyglotCLI</PageTitle>
 
 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.H4">Historial de Trabajos</RadzenText>
-    <RadzenButton Icon="upload_file" Text="Importar trabajo (.zpg)" ButtonStyle="ButtonStyle.Light"
-                  title="Importar un trabajo desde un archivo .zpg"
+    <RadzenText TextStyle="TextStyle.H4">@L["History.Title"]</RadzenText>
+    <RadzenButton Icon="upload_file" Text="@L["History.ImportJob"]" ButtonStyle="ButtonStyle.Light"
+                  title="@L["History.ImportJobTooltip"]"
                   Click="@(() => OpenImportDialog())" />
 </RadzenStack>
 
 <RadzenDataGrid Data="@manifests" TItem="JobManifest" AllowFiltering="true" FilterMode="FilterMode.Simple" AllowPaging="true" PageSize="10" AllowSorting="true" class="rz-mb-4">
     <Columns>
-        <RadzenDataGridColumn TItem="JobManifest" Property="JobId" Title="ID Trabajo" Width="180px" />
-        <RadzenDataGridColumn TItem="JobManifest" Property="Status" Title="Estado" Width="120px">
+        <RadzenDataGridColumn TItem="JobManifest" Property="JobId" Title="@L["History.ColJobId"]" Width="180px" />
+        <RadzenDataGridColumn TItem="JobManifest" Property="Status" Title="@L["History.ColStatus"]" Width="120px">
             <Template Context="job">
-                <RadzenBadge BadgeStyle="@GetBadgeStyle(job.Status)" Text="@job.Status" />
+                <RadzenBadge BadgeStyle="@GetBadgeStyle(job.Status)" Text="@GetStatusLabel(job.Status)" />
             </Template>
         </RadzenDataGridColumn>
-        <RadzenDataGridColumn TItem="JobManifest" Property="CreatedAt" Title="Fecha" FormatString="{0:d/M/yyyy HH:mm}" Width="150px" />
-        <RadzenDataGridColumn TItem="JobManifest" Property="ModelName" Title="Modelo" Width="150px" />
-        <RadzenDataGridColumn TItem="JobManifest" Title="Acciones" Width="380px" Filterable="false" Sortable="false">
+        <RadzenDataGridColumn TItem="JobManifest" Property="CreatedAt" Title="@L["History.ColDate"]" FormatString="{0:d/M/yyyy HH:mm}" Width="150px" />
+        <RadzenDataGridColumn TItem="JobManifest" Property="ModelName" Title="@L["History.ColModel"]" Width="150px" />
+        <RadzenDataGridColumn TItem="JobManifest" Title="@L["History.ColActions"]" Width="380px" Filterable="false" Sortable="false">
             <Template Context="job">
-                <RadzenButton Icon="list" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" class="rz-mr-1" title="Ver Detalles del Trabajo"
+                <RadzenButton Icon="list" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" class="rz-mr-1" title="@L["History.ViewDetailsTooltip"]"
                                Click="@(() => ViewJobDetails(job))" />
 
-                <RadzenButton Icon="save_alt" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" class="rz-mr-1" title="Exportar y Convertir Documentos"
+                <RadzenButton Icon="save_alt" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small" class="rz-mr-1" title="@L["History.ExportConvertTitle"]"
                                Click="@(() => ExportJob(job))" />
 
-                <RadzenButton Icon="archive" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" class="rz-mr-1" title="Exportar trabajo completo como .zpg (Zip Polyglot)"
+                <RadzenButton Icon="archive" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" class="rz-mr-1" title="@L["History.ExportPackageTooltip"]"
                                Disabled="@(IsImportInProgress)" Click="@(() => DownloadJobPackage(job))" />
 
-                <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" class="rz-mr-1" title="Reanudar Trabajo"
+                <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small" class="rz-mr-1" title="@L["History.ResumeTooltip"]"
                               Disabled="@(job.Status == "Completed" || IsImportInProgress)" Click="@(() => ResumeJob(job))" />
 
                 @if(job.Status == "Failed" || job.Status == "InProgress")
                 {
-                    <RadzenButton Icon="psychology" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" class="rz-mr-1" title="Análisis de Errores IA"
+                    <RadzenButton Icon="psychology" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small" class="rz-mr-1" title="@L["History.AnalyzeErrorsTooltip"]"
                                   Disabled="@(IsImportInProgress)" Click="@(() => AnalyzeErrors(job))" />
                 }
 
-                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" class="rz-mr-1" title="Borrar Trabajo"
+                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" class="rz-mr-1" title="@L["History.DeleteTooltip"]"
                               Disabled="@(IsImportInProgress)" Click="@(() => DeleteJob(job))" />
             </Template>
         </RadzenDataGridColumn>
@@ -58,7 +58,7 @@
 @if (selectedManifest != null && analysisResult != null)
 {
     <RadzenCard class="rz-mt-4">
-        <RadzenText TextStyle="TextStyle.H6">Análisis de Errores - @selectedManifest.JobId</RadzenText>
+        <RadzenText TextStyle="TextStyle.H6">@(L["History.AnalysisTitle", selectedManifest.JobId])</RadzenText>
         @* XSS defense: analysisResult viene del LLM (PromptHelperService.
            AnalyzeErrorsAsync), que recibe como input los OcrError /
            TranslationError del manifest. Esos campos son user-controlled
@@ -69,7 +69,7 @@
            Ahora escapamos el HTML y preservamos los saltos de línea con
            `white-space: pre-wrap` (CSS ya en .virtual-console). *@
         <div class="virtual-console">@SafeAnalysisHtml(analysisResult)</div>
-        <RadzenButton Text="Cerrar" class="rz-mt-2" Click="@(() => analysisResult = null)" />
+        <RadzenButton Text="@L["Common.Close"]" class="rz-mt-2" Click="@(() => analysisResult = null)" />
     </RadzenCard>
 }
 
@@ -117,6 +117,21 @@
         };
     }
 
+    /// <summary>
+    /// Texto visible del estado. El valor persistido en el manifest
+    /// ("Completed", "Failed"...) no se traduce; solo su etiqueta.
+    /// </summary>
+    string GetStatusLabel(string status)
+    {
+        return status switch {
+            "Completed" => L["History.StatusCompleted"],
+            "Failed" => L["History.StatusFailed"],
+            "InProgress" => L["History.StatusInProgress"],
+            "Cancelled" => L["History.StatusCancelled"],
+            _ => status
+        };
+    }
+
     async Task ResumeJob(JobManifest job)
     {
         // Validar que la carpeta del job exista antes de intentar
@@ -124,8 +139,8 @@
         // y abortar. Sin esto, Home.razor recibe el resumeJobId,
         // busca la carpeta, no la encuentra y falla con un error
         // críptico (o se cuelga mostrando el último job).
-        if (!await EnsureJobConsistent(job, "reanudar")) return;
-        if (RejectIfTranslationRunning("reanudar este trabajo")) return;
+        if (!await EnsureJobConsistent(job, L["History.ActionResume"])) return;
+        if (RejectIfTranslationRunning(L["History.ActionResumeThisJob"])) return;
 
         NavigationManager.NavigateTo($"/?resumeJobId={job.JobId}");
     }
@@ -139,18 +154,18 @@
     {
         if (!TranslationSession.IsProcessing) return false;
         NotificationService.Notify(NotificationSeverity.Warning,
-            "Traducción en curso",
-            $"No se puede {action} mientras hay una traducción en ejecución. Esperá a que termine o detenela.",
+            L["History.TranslationRunningTitle"],
+            L["History.TranslationRunningDetail", action],
             duration: 7000);
         return true;
     }
 
     async Task AnalyzeErrors(JobManifest job)
     {
-        if (!await EnsureJobConsistent(job, "analizar")) return;
+        if (!await EnsureJobConsistent(job, L["History.ActionAnalyze"])) return;
 
         selectedManifest = job;
-        analysisResult = "Analizando errores con IA... por favor espera.";
+        analysisResult = L["History.AnalyzingErrors"];
         StateHasChanged();
 
         try
@@ -159,7 +174,7 @@
 
             if (string.IsNullOrWhiteSpace(combinedErrors))
             {
-                analysisResult = "No se encontraron mensajes de error registrados en el manifiesto.";
+                analysisResult = L["History.NoErrorsFound"];
                 return;
             }
 
@@ -174,7 +189,7 @@
         }
         catch (Exception ex)
         {
-            analysisResult = $"Error durante el análisis: {ex.Message}";
+            analysisResult = L["History.AnalysisError", ex.Message];
         }
         StateHasChanged();
     }
@@ -185,9 +200,9 @@
         // no existe, todos los sub-componentes (visor de páginas
         // originales, logs, etc.) van a mostrar errores crípticos.
         // Validamos ANTES de abrir el dialog.
-        if (!await EnsureJobConsistent(job, "ver los detalles")) return;
+        if (!await EnsureJobConsistent(job, L["History.ActionViewDetails"])) return;
 
-        await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.JobDetailsDialog>($"Detalles del Trabajo: {job.JobId}", new Dictionary<string, object?>
+        await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.JobDetailsDialog>(L["History.JobDetailsTitle", job.JobId], new Dictionary<string, object?>
         {
             { "Job", job }
         }, new DialogOptions
@@ -205,13 +220,13 @@
     {
         // ── LOG: entrada al handler ───────────────────────────────────
         AppLogger.Info($"DeleteJob: handler called for job '{job.JobId}'.");
-        if (RejectIfTranslationRunning("eliminar trabajos")) return;
+        if (RejectIfTranslationRunning(L["History.ActionDeleteJobs"])) return;
 
         // 1) Confirmación
         bool? confirm = await DialogService.Confirm(
-            $"¿Estás seguro de que deseas eliminar el trabajo '{job.JobId}' y toda su carpeta de datos del disco?",
-            "Confirmar Eliminación",
-            new ConfirmOptions { OkButtonText = "Eliminar", CancelButtonText = "Cancelar" });
+            L["History.DeleteConfirm", job.JobId],
+            L["History.DeleteConfirmTitle"],
+            new ConfirmOptions { OkButtonText = L["Common.Delete"], CancelButtonText = L["Common.Cancel"] });
 
         AppLogger.Info($"DeleteJob: DialogService.Confirm returned {(confirm.HasValue ? confirm.Value.ToString() : "null")}.");
 
@@ -240,25 +255,18 @@
             // renombrada a mano con sufijo _old, _backup, _copy, etc.)
             var similarDirs = JobManifestService.FindSimilarJobDirectories(job.JobId);
 
-            string message =
-                $"La carpeta del trabajo '{job.JobId}' no existe en disco.\n\n" +
-                $"Ruta esperada: {jobDir}\n\n" +
-                $"Esto suele pasar cuando la carpeta fue renombrada, movida o " +
-                $"borrada manualmente fuera de PolyglotCLI (por ejemplo, " +
-                $"renombrar '{job.JobId}' → '{job.JobId}_old' durante pruebas).\n\n" +
-                $"El trabajo sigue apareciendo en la lista porque su manifest.json " +
-                $"todavía existe, pero está huérfano.";
+            string message = L["History.OrphanMessage", job.JobId, jobDir];
 
             if (similarDirs.Count > 0)
             {
-                message += $"\n\nCarpetas con nombres similares encontradas:\n";
+                message += "\n\n" + L["History.SimilarFoldersFound"] + "\n";
                 foreach (var sd in similarDirs.Take(5))
                 {
                     message += $"  • {Path.GetFileName(sd)}\n";
                 }
                 if (similarDirs.Count > 5)
                 {
-                    message += $"  ... y {similarDirs.Count - 5} más\n";
+                    message += "  " + L["History.AndMore", similarDirs.Count - 5] + "\n";
                 }
             }
 
@@ -270,7 +278,7 @@
             //                            porque no existe)
             //  - "Cancelar" → no hacer nada
             var choice = await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.OrphanJobDialog>(
-                "Trabajo huérfano detectado",
+                L["History.OrphanDialogTitle"],
                 new Dictionary<string, object?>
                 {
                     { "JobId", job.JobId },
@@ -306,20 +314,15 @@
                     .ToList();
                 AppLogger.Info($"DeleteJob: orphan removed from list. Quedan {manifests.Count} jobs.");
                 await DialogService.Alert(
-                    $"El trabajo '{job.JobId}' fue removido de la lista.\n\n" +
-                    $"Nota: el manifest.json sigue existiendo en la carpeta renombrada " +
-                    $"(si la encontrás, podés borrarla a mano o renombrarla de vuelta " +
-                    $"a '{job.JobId}' para que vuelva a aparecer).",
-                    "Trabajo removido de la lista");
+                    L["History.OrphanRemovedMessage", job.JobId],
+                    L["History.OrphanRemovedTitle"]);
                 StateHasChanged();
             }
             else if (string.Equals(choice as string, "delete", StringComparison.OrdinalIgnoreCase))
             {
                 await DialogService.Alert(
-                    $"No se puede eliminar '{job.JobId}' del disco porque la carpeta " +
-                    $"no existe. Si querés limpiar el manifest huérfano, elegí " +
-                    $"'Quitar de la lista' en su lugar.",
-                    "Carpeta no encontrada");
+                    L["History.OrphanCannotDelete", job.JobId],
+                    L["History.FolderNotFoundTitle"]);
             }
 
             return; // No seguimos con el flujo normal de borrado.
@@ -338,9 +341,9 @@
         }
 
         // 4) Progress dialog
-        var progressState = new ProgressState { Status = "Preparando eliminación..." };
+        var progressState = new ProgressState { Status = L["History.PreparingDelete"] };
         var progressDialog = DialogService.OpenAsync<ProgressDialog>(
-            $"Eliminando trabajo {job.JobId}",
+            L["History.DeletingJobTitle", job.JobId],
             new Dictionary<string, object?>
             {
                 { "State", progressState }
@@ -365,7 +368,7 @@
                     if (!Directory.Exists(jobDir))
                     {
                         AppLogger.Info("DeleteJob: jobDir desapareció durante el borrado.");
-                        progressState.UpdateStatus("La carpeta del trabajo ya no existe.");
+                        progressState.UpdateStatus(L["History.FolderAlreadyGone"]);
                         deletedOk = true;
                         return;
                     }
@@ -376,8 +379,8 @@
 
                     progressState.UpdateStatus(
                         totalFiles == 0
-                            ? "Carpeta vacía, eliminando..."
-                            : $"Eliminando 0 / {totalFiles} archivo(s)...");
+                            ? L["History.EmptyFolderDeleting"]
+                            : L["History.DeletingFiles", 0, totalFiles]);
 
                     int deleted = 0;
                     foreach (var file in files)
@@ -391,10 +394,10 @@
                             AppLogger.Warn($"DeleteJob: no se pudo borrar {file}: {fileEx.Message}");
                         }
                         deleted++;
-                        progressState.UpdateStatus($"Eliminando {deleted} / {totalFiles} archivo(s)...");
+                        progressState.UpdateStatus(L["History.DeletingFiles", deleted, totalFiles]);
                     }
 
-                    progressState.UpdateStatus("Eliminando carpetas vacías...");
+                    progressState.UpdateStatus(L["History.DeletingEmptyFolders"]);
                     foreach (var dir in dirs.OrderByDescending(d => d.Length))
                     {
                         try
@@ -424,7 +427,7 @@
 
                     AppLogger.Info($"DeleteJob: post-delete, jobDir exists = {Directory.Exists(jobDir)}");
 
-                    progressState.UpdateStatus("Actualizando lista de trabajos...");
+                    progressState.UpdateStatus(L["History.UpdatingJobList"]);
                     deletedOk = true;
                 }
                 catch (Exception ex)
@@ -450,8 +453,8 @@
         if (!deletedOk && !string.IsNullOrEmpty(deleteError))
         {
             await DialogService.Alert(
-                $"Error al eliminar la carpeta del trabajo: {deleteError}",
-                "Error");
+                L["History.DeleteError", deleteError],
+                L["Common.Error"]);
         }
 
         AppLogger.Info($"DeleteJob: finished. deletedOk={deletedOk}, error={deleteError ?? "(none)"}");
@@ -482,7 +485,7 @@
             $"Carpetas similares encontradas: {resolution.SimilarDirectories.Count}.");
 
         var choice = await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.InconsistentJobDialog>(
-            "Inconsistencia de trabajo",
+            L["History.InconsistentDialogTitle"],
             new Dictionary<string, object?>
             {
                 { "JobId", job.JobId },
@@ -533,10 +536,10 @@
         // ExportJobDialog lee archivos del jobDir. Sin validación
         // previa, abriría el dialog y al confirmar daría error
         // "No se encontraron datos para exportar" sin contexto.
-        if (!await EnsureJobConsistent(job, "exportar")) return;
+        if (!await EnsureJobConsistent(job, L["History.ActionExport"])) return;
 
         await DialogService.OpenAsync<PolyglotCLI.web.Components.Dialogs.ExportJobDialog>(
-            "Exportar y Convertir Documentos",
+            L["History.ExportConvertTitle"],
             new Dictionary<string, object?> { { "Job", job } },
             new DialogOptions { Width = "550px", Resizable = false, Draggable = true }
         );
@@ -547,7 +550,7 @@
         // El package service lee archivos del jobDir para zipearlos.
         // Si la carpeta no existe, falla con error críptico de
         // IO. Validamos antes.
-        if (!await EnsureJobConsistent(job, "descargar")) return;
+        if (!await EnsureJobConsistent(job, L["History.ActionDownload"])) return;
 
         try
         {
@@ -555,12 +558,12 @@
             if (!string.IsNullOrEmpty(status) && !status.Contains("Descarga iniciada"))
             {
                 // Mensaje visible cuando el usuario cancela o cuando MAUI devuelve la ruta
-                await DialogService.Alert(status, "Exportación de trabajo");
+                await DialogService.Alert(status, L["History.JobExportTitle"]);
             }
         }
         catch (Exception ex)
         {
-            await DialogService.Alert($"Error al exportar el trabajo: {ex.Message}", "Error");
+            await DialogService.Alert(L["History.ExportPackageError", ex.Message], L["Common.Error"]);
         }
     }
 
@@ -576,12 +579,12 @@
             {
                 LoadManifests();
                 StateHasChanged();
-                await DialogService.Alert($"Trabajo importado correctamente como '{newJobId}'. Aparecerá en la lista.", "Importación exitosa");
+                await DialogService.Alert(L["History.ImportSuccess", newJobId], L["History.ImportSuccessTitle"]);
             }
         }
         catch (Exception ex)
         {
-            await DialogService.Alert($"Error durante la importación: {ex.Message}", "Error");
+            await DialogService.Alert(L["History.ImportError", ex.Message], L["Common.Error"]);
         }
         finally
         {

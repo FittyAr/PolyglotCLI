@@ -32,8 +32,20 @@
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
   </Dependencies>
 
+  <!-- Idiomas de la interfaz (PolyglotCLI.web/Localization/Strings). La
+       Store muestra esta lista como "Idiomas admitidos" y exige una ficha
+       en Partner Center por cada uno. El primero es el idioma por defecto. -->
   <Resources>
-    <Resource Language="es-ES" />
+    <Resource Language="en" />
+    <Resource Language="es" />
+    <Resource Language="pt" />
+    <Resource Language="fr" />
+    <Resource Language="de" />
+    <Resource Language="it" />
+    <Resource Language="ru" />
+    <Resource Language="zh-Hans" />
+    <Resource Language="ja" />
+    <Resource Language="ko" />
   </Resources>
 
   <Applications>
@@ -42,7 +54,7 @@
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="PolyglotCLI"
-        Description="Herramienta de Traducción Documental PolyglotCLI"
+        Description="PolyglotCLI document translator"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

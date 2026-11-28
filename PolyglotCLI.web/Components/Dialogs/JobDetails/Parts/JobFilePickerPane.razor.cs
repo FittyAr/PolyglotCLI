@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using PolyglotCLI.web.Localization;
 
 namespace PolyglotCLI.web.Components.Dialogs.JobDetails.Parts;
 
@@ -15,7 +16,7 @@ public partial class JobFilePickerPane : ComponentBase
     public string ListTitle { get; set; } = string.Empty;
 
     [Parameter]
-    public string EmptyMessage { get; set; } = "No hay elementos disponibles.";
+    public string EmptyMessage { get; set; } = Loc.T("JobDetails.NoItems");
 
     [Parameter]
     public string ListStyle { get; set; } = "width: 100%; flex-grow: 1; height: 100%; min-height: 0; background: transparent; border: none;";
@@ -33,16 +34,16 @@ public partial class JobFilePickerPane : ComponentBase
     public string? PreviewContent { get; set; }
 
     [Parameter]
-    public string PreviewTitle { get; set; } = "Previsualización";
+    public string PreviewTitle { get; set; } = Loc.T("JobDetails.PreviewTitle");
 
     [Parameter]
-    public string DefaultSelectionHint { get; set; } = "Selecciona un archivo";
+    public string DefaultSelectionHint { get; set; } = Loc.T("JobDetails.SelectFileHint");
 
     [Parameter]
     public string PreviewColor { get; set; } = "#cbd5e1";
 
     [Parameter]
-    public string PreviewEmptyMessage { get; set; } = "Selecciona un elemento para ver su contenido.";
+    public string PreviewEmptyMessage { get; set; } = Loc.T("JobDetails.SelectItemHint");
 
     [Parameter]
     public bool ShowImagePreview { get; set; }

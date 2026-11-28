@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using PolyglotCLI.web.Services.JobDetails;
 
@@ -19,6 +19,13 @@ public class JobArtifactsServiceTests : IDisposable
 
     public JobArtifactsServiceTests()
     {
+        // Los mensajes vienen de las tablas de idioma: se fija el inglés para
+        // que las aserciones no dependan del idioma de Windows del equipo.
+        System.Globalization.CultureInfo.DefaultThreadCurrentUICulture =
+            System.Globalization.CultureInfo.GetCultureInfo("en");
+        System.Globalization.CultureInfo.CurrentUICulture =
+            System.Globalization.CultureInfo.GetCultureInfo("en");
+
         _jobDir = Path.Combine(Path.GetTempPath(), $"job_arts_{Guid.NewGuid():N}");
         _outsideDir = Path.Combine(Path.GetTempPath(), $"job_arts_outside_{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(_jobDir, "temp"));
@@ -43,7 +50,7 @@ public class JobArtifactsServiceTests : IDisposable
 
         Assert.NotNull(result);
         Assert.StartsWith("Error", result);
-        Assert.Contains("fuera del directorio del trabajo", result);
+        Assert.Contains("outside the job folder", result);
     }
 
     [Fact]
@@ -53,7 +60,7 @@ public class JobArtifactsServiceTests : IDisposable
         var result = _svc.ReadTextFile(_jobDir, "..\\..\\Windows\\System32\\drivers\\etc\\hosts");
 
         Assert.NotNull(result);
-        Assert.Contains("fuera del directorio del trabajo", result);
+        Assert.Contains("outside the job folder", result);
     }
 
     [Fact]
@@ -66,7 +73,7 @@ public class JobArtifactsServiceTests : IDisposable
 
         Assert.NotNull(result);
         Assert.StartsWith("Error", result);
-        Assert.Contains("fuera del directorio del trabajo", result);
+        Assert.Contains("outside the job folder", result);
     }
 
     [Fact]
@@ -112,7 +119,7 @@ public class JobArtifactsServiceTests : IDisposable
         {
             var result = _svc.ReadTextFile(_jobDir, tricky);
             Assert.NotNull(result);
-            Assert.Contains("fuera del directorio del trabajo", result);
+            Assert.Contains("outside the job folder", result);
         }
         finally
         {
@@ -131,7 +138,7 @@ public class JobArtifactsServiceTests : IDisposable
         {
             var result = _svc.ReadFileAsBase64(_jobDir, tricky);
             Assert.NotNull(result);
-            Assert.Contains("fuera del directorio del trabajo", result);
+            Assert.Contains("outside the job folder", result);
         }
         finally
         {

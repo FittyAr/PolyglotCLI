@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using PolyglotCLI.Validation;
+using PolyglotCLI.web.Localization;
 
 namespace PolyglotCLI.web.Services.JobDetails;
 
@@ -15,9 +16,10 @@ public interface IJobArtifactsService
     /// dentro de <paramref name="jobDir"/>. Si el path apunta fuera del
     /// directorio del trabajo (path traversal, rutas absolutas a
     /// <c>config.json</c>, etc.) devuelve el prefijo de error sin abrir
-    /// el archivo.
+    /// el archivo. <paramref name="errorPrefix"/> nulo = texto genérico
+    /// localizado.
     /// </summary>
-    string? ReadTextFile(string jobDir, string path, string errorPrefix = "Error al leer el archivo");
+    string? ReadTextFile(string jobDir, string path, string? errorPrefix = null);
 
     /// <summary>
     /// Igual que <see cref="ReadTextFile"/> pero devuelve el contenido en
@@ -25,7 +27,7 @@ public interface IJobArtifactsService
     /// manifest manipulado exfiltre <c>config.json</c> u otros archivos
     /// del usuario al cliente Blazor.
     /// </summary>
-    string? ReadFileAsBase64(string jobDir, string path, string errorPrefix = "Error al leer la imagen");
+    string? ReadFileAsBase64(string jobDir, string path, string? errorPrefix = null);
 }
 
 public class JobArtifactsService : IJobArtifactsService
@@ -45,11 +47,12 @@ public class JobArtifactsService : IJobArtifactsService
         return ListFiles(Path.Combine(jobDir, "logs"));
     }
 
-    public string? ReadTextFile(string jobDir, string path, string errorPrefix = "Error al leer el archivo")
+    public string? ReadTextFile(string jobDir, string path, string? errorPrefix = null)
     {
+        errorPrefix ??= Loc.T("Services.FileReadError");
         if (!PathTraversalGuard.TryResolveInside(jobDir, path, out var fullPath))
         {
-            return $"{errorPrefix}: ruta fuera del directorio del trabajo.";
+            return Loc.T("Services.PathOutsideJobDir", errorPrefix);
         }
         try
         {
@@ -61,11 +64,12 @@ public class JobArtifactsService : IJobArtifactsService
         }
     }
 
-    public string? ReadFileAsBase64(string jobDir, string path, string errorPrefix = "Error al leer la imagen")
+    public string? ReadFileAsBase64(string jobDir, string path, string? errorPrefix = null)
     {
+        errorPrefix ??= Loc.T("Services.ImageReadError");
         if (!PathTraversalGuard.TryResolveInside(jobDir, path, out var fullPath))
         {
-            return $"{errorPrefix}: ruta fuera del directorio del trabajo.";
+            return Loc.T("Services.PathOutsideJobDir", errorPrefix);
         }
         try
         {

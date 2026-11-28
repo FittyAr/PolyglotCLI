@@ -18,7 +18,7 @@
     <div style="display: flex; align-items: center; gap: 0.75rem;">
         <RadzenIcon Icon="folder_off" Style="font-size: 2rem; color: #fbbf24;" />
         <RadzenText TextStyle="TextStyle.Body1" style="margin: 0;">
-            <strong>Trabajo huérfano detectado</strong>
+            <strong>@L["History.OrphanDialogTitle"]</strong>
         </RadzenText>
     </div>
 
@@ -28,22 +28,22 @@
 
     <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" Variant="Variant.Flat"
                  Icon="info" class="rz-mt-2" style="font-size: 0.8rem;">
-        <strong>¿Qué querés hacer?</strong>
+        <strong>@L["Dialogs.OrphanWhatToDo"]</strong>
         <ul style="margin: 0.4rem 0 0 0; padding-left: 1.2rem;">
-            <li><strong>Quitar de la lista</strong>: deja la carpeta renombrada como está, pero el trabajo deja de aparecer en PolyglotCLI.</li>
-            <li><strong>Intentar eliminar del disco</strong>: va a fallar (la carpeta no existe), pero es útil para confirmar el error.</li>
-            <li><strong>Cancelar</strong>: no hace nada. La carpeta renombrada queda donde está.</li>
+            <li><strong>@L["Dialogs.RemoveFromList"]</strong>: @L["Dialogs.RemoveFromListDesc"]</li>
+            <li><strong>@L["Dialogs.TryDeleteFromDisk"]</strong>: @L["Dialogs.TryDeleteFromDiskDesc"]</li>
+            <li><strong>@L["Common.Cancel"]</strong>: @L["Dialogs.OrphanCancelDesc"]</li>
         </ul>
     </RadzenAlert>
 
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-        <RadzenButton Text="Cancelar" Icon="close"
+        <RadzenButton Text="@L["Common.Cancel"]" Icon="close"
                       ButtonStyle="ButtonStyle.Secondary"
                       Click="@(() => DialogService.Close(null))" />
-        <RadzenButton Text="Intentar eliminar del disco" Icon="delete_outline"
+        <RadzenButton Text="@L["Dialogs.TryDeleteFromDisk"]" Icon="delete_outline"
                       ButtonStyle="ButtonStyle.Warning"
                       Click="@(() => DialogService.Close("delete"))" />
-        <RadzenButton Text="Quitar de la lista" Icon="remove_circle_outline"
+        <RadzenButton Text="@L["Dialogs.RemoveFromList"]" Icon="remove_circle_outline"
                       ButtonStyle="ButtonStyle.Primary"
                       Click="@(() => DialogService.Close("remove"))" />
     </RadzenStack>

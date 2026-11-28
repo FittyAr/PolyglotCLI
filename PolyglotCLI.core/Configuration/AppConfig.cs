@@ -141,6 +141,12 @@ namespace PolyglotCLI
         public string OutputDirectory { get; set; } = "output";
         public string LastScanDirectory { get; set; } = ".";
         public bool Debug { get; set; } = false;
+        /// <summary>
+        /// Idioma de la interfaz ("en", "es", "pt"…). Vacío o nulo = idioma
+        /// de Windows. No afecta al idioma de destino de las traducciones
+        /// (<see cref="TargetLanguage"/>).
+        /// </summary>
+        public string? UiLanguage { get; set; }
         public string? AdditionalPrompt { get; set; }
         public int TranslationTimeoutSeconds { get; set; } = 300;
         public int PromptImproveTimeoutSeconds { get; set; } = 300;

@@ -3,7 +3,7 @@
 
 <RadzenStack Gap="1rem">
     <RadzenText TextStyle="TextStyle.Body1">
-        Selecciona un archivo <b>.zpg</b> (ZIP Polyglot) exportado previamente de PolyglotCLI para restaurar el trabajo en este equipo.
+        @L["Dialogs.ImportIntroBefore"] <b>.zpg</b> @L["Dialogs.ImportIntroAfter"]
     </RadzenText>
 
     <div>
@@ -13,7 +13,7 @@
     @if (!string.IsNullOrEmpty(selectedFileName))
     {
         <RadzenText TextStyle="TextStyle.Caption">
-            Archivo seleccionado: <b>@selectedFileName</b> (@(selectedFileSizeLabel))
+            @L["Dialogs.ImportSelectedFile"] <b>@selectedFileName</b> (@(selectedFileSizeLabel))
         </RadzenText>
     }
 
@@ -30,11 +30,11 @@
     }
 
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-        <RadzenButton Text="Importar" Icon="cloud_upload"
+        <RadzenButton Text="@L["Dialogs.Import"]" Icon="cloud_upload"
                       ButtonStyle="ButtonStyle.Primary"
                       Disabled="@(busy || selectedFile == null)"
                       Click="@UploadSelectedFile" />
-        <RadzenButton Text="Cerrar" Icon="close"
+        <RadzenButton Text="@L["Common.Close"]" Icon="close"
                       ButtonStyle="ButtonStyle.Light"
                       Disabled="@busy"
                       Click="@(() => DialogService.Close())" />
@@ -68,7 +68,7 @@
 
         if (file.Size > maxImportBytes)
         {
-            errorMessage = $"El archivo es demasiado grande (máximo permitido: {maxImportBytes / (1024 * 1024)} MB).";
+            errorMessage = L["Dialogs.ImportFileTooLarge", maxImportBytes / (1024 * 1024)];
             selectedFile = null;
             selectedFileName = null;
             selectedFileSizeLabel = string.Empty;
@@ -109,7 +109,7 @@
 
             if (!response.IsSuccessStatusCode)
             {
-                errorMessage = TryExtractError(body) ?? $"Error del servidor: HTTP {(int)response.StatusCode}.";
+                errorMessage = TryExtractError(body) ?? L["Dialogs.ImportServerError", (int)response.StatusCode];
                 return;
             }
 
@@ -118,7 +118,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error durante la importación: {ex.Message}";
+            errorMessage = L["History.ImportError", ex.Message];
         }
         finally
         {

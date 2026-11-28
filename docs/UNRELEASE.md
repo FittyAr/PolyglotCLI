@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added a privacy policy (`docs/PRIVACY.md`), linked from the About tab, and a Microsoft Store submission guide (`docs/STORE_SUBMISSION.md`).
-- Added a self-contained MSIX package for the Microsoft Store, with Store logos at every scale and Spanish (es-ES) resources.
+- Added a self-contained MSIX package for the Microsoft Store, with Store logos at every scale.
+- The interface is now available in 10 languages: English, Spanish, Portuguese, French, German, Italian, Russian, Simplified Chinese, Japanese and Korean. It follows the Windows display language (English for any other language) and can be changed under Settings > General > Interface language.
 - The desktop app now shows a download link when the WebView2 runtime is missing and logs unhandled errors.
 
 ### Improved

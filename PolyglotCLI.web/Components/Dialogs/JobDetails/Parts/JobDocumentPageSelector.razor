@@ -1,9 +1,9 @@
 <RadzenCard
     style="flex: 1 1 0%; background: rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 10px; min-height: 0; height: 50%; padding: 10px 12px !important;">
-    <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold; flex-shrink: 0;">1. Documentos</RadzenText>
+    <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold; flex-shrink: 0;">@L["JobDetails.DocumentsHeader"]</RadzenText>
     @if (JsonFiles == null || JsonFiles.Count == 0)
     {
-        <div style="padding: 6px; color: #b0bec5; font-size: 0.85rem;">No hay documentos JSON disponibles.</div>
+        <div style="padding: 6px; color: #b0bec5; font-size: 0.85rem;">@L["JobDetails.NoJsonDocuments"]</div>
     }
     else
     {
@@ -25,16 +25,16 @@
     @if (PageDataList != null && PageDataList.Count > 0)
     {
         <RadzenText TextStyle="TextStyle.Subtitle2" style="font-weight: bold; margin-top: 8px; flex-shrink: 0;">
-            2. Selecciona Página
+            @L["JobDetails.SelectPageHeader"]
             @if (FilteredPageDataList.Count != PageDataList.Count)
             {
                 <span style="color: #b0bec5; font-weight: normal; font-size: 0.75rem;">
-                    (@FilteredPageDataList.Count de @PageDataList.Count)
+                    @(L["JobDetails.FilteredCount", FilteredPageDataList.Count, PageDataList.Count])
                 </span>
             }
         </RadzenText>
 
-        <RadzenTextBox Placeholder="Buscar página..." @bind-Value="PageFilter" Change="@OnPageFilterChanged"
+        <RadzenTextBox Placeholder="@L["JobDetails.SearchPagePlaceholder"]" @bind-Value="PageFilter" Change="@OnPageFilterChanged"
             Style="width: 100%; flex-shrink: 0;" />
 
         <RadzenListBox Data="@FilteredPageDataList" TValue="DocumentPageData" Value="@SelectedPageData"
@@ -42,12 +42,12 @@
             style="flex-grow: 1; min-height: 0; max-height: 480px; overflow-y: auto; background: transparent; border: 1px solid rgba(255,255,255,0.08);">
             <Template Context="p">
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                    <span>Pág / Chunk @p.PageNumber</span>
+                    <span>@(L["JobDetails.PageChunkItem", p.PageNumber])</span>
                     <div style="display: flex; gap: 4px; align-items: center;">
                         @if (PendingTranslationEdits.ContainsKey(p.PageNumber))
                         {
                             <RadzenIcon Icon="edit" Style="color: #f59e0b; font-size: 0.85rem;"
-                                title="Editada en esta sesión" />
+                                title="@L["JobDetails.EditedThisSession"]" />
                         }
                         <RadzenIcon Icon="@(p.IsOcrSuccessful ? "check_circle" : "error")"
                             Style="@(p.IsOcrSuccessful ? "color: #10b981; font-size: 1rem;" : "color: #ef4444; font-size: 1rem;")" />

@@ -18,35 +18,35 @@
     <div style="display: flex; align-items: center; gap: 0.75rem;">
         <RadzenIcon Icon="find_in_page" Style="font-size: 2rem; color: #fbbf24;" />
         <RadzenText TextStyle="TextStyle.Body1" style="margin: 0;">
-            <strong>No se puede @(ActionName.ToLower()) el trabajo</strong>
+            <strong>@(L["Dialogs.InconsistentCannotAction", (string.IsNullOrEmpty(ActionName) ? L["Dialogs.ActionUse"] : ActionName).ToLower()])</strong>
         </RadzenText>
     </div>
 
     <div style="white-space: pre-line; font-size: 0.9rem; line-height: 1.5;">
-        La carpeta del trabajo <code>@JobId</code> no existe en disco.
+        @L["Dialogs.InconsistentFolderMissingBefore"] <code>@JobId</code> @L["Dialogs.InconsistentFolderMissingAfter"]
     </div>
 
     <RadzenCard Variant="Variant.Flat" class="rz-p-3"
                 Style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem;">
         <div style="margin-bottom: 0.5rem;">
-            <strong style="color: #fbbf24;">Causas posibles:</strong>
+            <strong style="color: #fbbf24;">@L["Dialogs.PossibleCauses"]</strong>
         </div>
         <ul style="margin: 0; padding-left: 1.2rem; line-height: 1.5;">
-            <li>La carpeta fue <strong>renombrada manualmente</strong> fuera de PolyglotCLI (ej: agregar sufijo <code>_old</code>, <code>_backup</code>)</li>
-            <li>La carpeta fue <strong>movida</strong> a otra ubicación</li>
-            <li>La carpeta fue <strong>borrada</strong> por otra herramienta (limpieza de disco, antivirus, etc.)</li>
+            <li>@L["Dialogs.CauseFolderWas"] <strong>@L["Dialogs.CauseRenamed"]</strong> @L["Dialogs.CauseRenamedDetail"] <code>_old</code>, <code>_backup</code>)</li>
+            <li>@L["Dialogs.CauseFolderWas"] <strong>@L["Dialogs.CauseMoved"]</strong> @L["Dialogs.CauseMovedDetail"]</li>
+            <li>@L["Dialogs.CauseFolderWas"] <strong>@L["Dialogs.CauseDeleted"]</strong> @L["Dialogs.CauseDeletedDetail"]</li>
         </ul>
     </RadzenCard>
 
     <div style="font-size: 0.85rem; line-height: 1.5;">
-        <strong style="color: #cbd5e1;">Ruta esperada:</strong>
+        <strong style="color: #cbd5e1;">@L["Dialogs.ExpectedPath"]</strong>
         <code style="display: block; margin-top: 0.25rem; padding: 0.4rem; background: rgba(0,0,0,0.3); border-radius: 4px; word-break: break-all; font-size: 0.78rem;">@ExpectedPath</code>
     </div>
 
     @if (SimilarDirs.Count > 0)
     {
         <div style="font-size: 0.85rem; line-height: 1.5;">
-            <strong style="color: #86efac;">Carpetas con nombres similares encontradas:</strong>
+            <strong style="color: #86efac;">@L["History.SimilarFoldersFound"]</strong>
             <ul style="margin: 0.4rem 0 0 0; padding-left: 1.2rem; line-height: 1.5;">
                 @foreach (var sd in SimilarDirs.Take(5))
                 {
@@ -56,7 +56,7 @@
                 }
                 @if (SimilarDirs.Count > 5)
                 {
-                    <li style="opacity: 0.7;">... y @(SimilarDirs.Count - 5) más</li>
+                    <li style="opacity: 0.7;">@(L["History.AndMore", SimilarDirs.Count - 5])</li>
                 }
             </ul>
         </div>
@@ -64,18 +64,18 @@
 
     <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" Variant="Variant.Flat"
                  Icon="lightbulb" class="rz-mt-2" style="font-size: 0.8rem;">
-        <strong>Para arreglarlo:</strong> renombrá la carpeta a
-        <code>@JobId</code> (sacale el sufijo <code>_old</code> o lo
-        que le hayas puesto) y volvé a intentar la acción.
+        <strong>@L["Dialogs.FixIt"]</strong> @L["Dialogs.FixItBefore"]
+        <code>@JobId</code> @L["Dialogs.FixItMiddle"] <code>_old</code>
+        @L["Dialogs.FixItAfter"]
     </RadzenAlert>
 
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-        <RadzenButton Text="Cancelar" Icon="close"
+        <RadzenButton Text="@L["Common.Cancel"]" Icon="close"
                       ButtonStyle="ButtonStyle.Secondary"
                       Click="@(() => DialogService.Close(null))" />
         @if (SimilarDirs.Count > 0)
         {
-            <RadzenButton Text="Abrir carpeta renombrada en el Explorador" Icon="folder_open"
+            <RadzenButton Text="@L["Dialogs.OpenRenamedFolder"]" Icon="folder_open"
                           ButtonStyle="ButtonStyle.Primary"
                           Click="@(() => DialogService.Close("open_explorer"))" />
         }
@@ -87,7 +87,7 @@
     public string JobId { get; set; } = string.Empty;
 
     [Parameter]
-    public string ActionName { get; set; } = "usar";
+    public string ActionName { get; set; } = string.Empty;
 
     [Parameter]
     public string ExpectedPath { get; set; } = string.Empty;

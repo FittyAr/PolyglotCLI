@@ -9,39 +9,39 @@
 
 <RadzenStack Gap="1rem">
     <RadzenText TextStyle="TextStyle.Body1">
-        Vas a cambiar el proveedor principal a <strong>@NewProvider</strong>.
-        ¿Querés usar el mismo proveedor también en estas secciones?
+        @L["Dialogs.CascadeIntroBefore"] <strong>@NewProvider</strong>.
+        @L["Dialogs.CascadeIntroAfter"]
     </RadzenText>
 
     <RadzenCard Variant="Variant.Flat" class="rz-p-3" style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25);">
         <RadzenStack Gap="0.75rem">
             <div>
                 <RadzenCheckBox @bind-Value="applyToOcr" Name="cascadeOcr" TValue="bool" />
-                <RadzenLabel Text="OCR Process" Component="cascadeOcr" class="rz-ml-2" />
+                <RadzenLabel Text="@L["Dialogs.CascadeOcr"]" Component="cascadeOcr" class="rz-ml-2" />
                 @if (!string.IsNullOrEmpty(CurrentOcr) && !string.Equals(CurrentOcr, NewProvider, StringComparison.OrdinalIgnoreCase))
                 {
                     <RadzenText TextStyle="TextStyle.Caption" style="display: block; margin-left: 26px; color: #94a3b8;">
-                        actualmente: @CurrentOcr
+                        @(L["Dialogs.CascadeCurrently", CurrentOcr])
                     </RadzenText>
                 }
             </div>
             <div>
                 <RadzenCheckBox @bind-Value="applyToTranslation" Name="cascadeTranslation" TValue="bool" />
-                <RadzenLabel Text="Translation" Component="cascadeTranslation" class="rz-ml-2" />
+                <RadzenLabel Text="@L["Dialogs.CascadeTranslation"]" Component="cascadeTranslation" class="rz-ml-2" />
                 @if (!string.IsNullOrEmpty(CurrentTranslation) && !string.Equals(CurrentTranslation, NewProvider, StringComparison.OrdinalIgnoreCase))
                 {
                     <RadzenText TextStyle="TextStyle.Caption" style="display: block; margin-left: 26px; color: #94a3b8;">
-                        actualmente: @CurrentTranslation
+                        @(L["Dialogs.CascadeCurrently", CurrentTranslation])
                     </RadzenText>
                 }
             </div>
             <div>
                 <RadzenCheckBox @bind-Value="applyToReview" Name="cascadeReview" TValue="bool" />
-                <RadzenLabel Text="Revision" Component="cascadeReview" class="rz-ml-2" />
+                <RadzenLabel Text="@L["Dialogs.CascadeReview"]" Component="cascadeReview" class="rz-ml-2" />
                 @if (!string.IsNullOrEmpty(CurrentReview) && !string.Equals(CurrentReview, NewProvider, StringComparison.OrdinalIgnoreCase))
                 {
                     <RadzenText TextStyle="TextStyle.Caption" style="display: block; margin-left: 26px; color: #94a3b8;">
-                        actualmente: @CurrentReview
+                        @(L["Dialogs.CascadeCurrently", CurrentReview])
                     </RadzenText>
                 }
             </div>
@@ -49,12 +49,12 @@
     </RadzenCard>
 
     <RadzenText TextStyle="TextStyle.Caption" style="color: #94a3b8;">
-        Si no marcás ninguna, solo se actualiza el proveedor principal.
+        @L["Dialogs.CascadeNoneHint"]
     </RadzenText>
 
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-        <RadzenButton Text="Cancelar" Icon="close" ButtonStyle="ButtonStyle.Secondary" Click="@Cancel" />
-        <RadzenButton Text="Aplicar" Icon="check" ButtonStyle="ButtonStyle.Primary" Click="@Apply" />
+        <RadzenButton Text="@L["Common.Cancel"]" Icon="close" ButtonStyle="ButtonStyle.Secondary" Click="@Cancel" />
+        <RadzenButton Text="@L["Dialogs.Apply"]" Icon="check" ButtonStyle="ButtonStyle.Primary" Click="@Apply" />
     </RadzenStack>
 </RadzenStack>
 

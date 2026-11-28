@@ -1,0 +1,39 @@
+{
+  "description": "PolyglotCLI übersetzt komplette Dokumente – PDF, Word (DOCX/DOC), OpenDocument (ODT) und reinen Text – mit den KI-Modellen Ihrer Wahl: mit lokalen Modellen auf Ihrem eigenen PC (LM Studio oder Ollama) oder mit Cloud-Anbietern wie OpenAI oder Google Gemini.\n\nPolyglotCLI ist für Bücher, Handbücher und lange Dokumente gemacht: Es arbeitet Seite für Seite und speichert jedes Ergebnis sofort. Wenn Sie die App schließen oder einen Auftrag abbrechen, können Sie ihn später genau dort fortsetzen, wo er stehen geblieben ist – ohne fertige Seiten erneut zu übersetzen (oder erneut dafür zu bezahlen).\n\nGescannte Dokumente? Wechseln Sie in den Bildmodus: Jede Seite wird gerendert, und ein Vision-Modell führt vor der Übersetzung die Texterkennung (OCR) durch – Überschriften, Listen und Absätze bleiben erhalten.\n\nDATENSCHUTZ AN ERSTER STELLE\nMit einem lokalen Modell verlassen Ihre Dokumente nie Ihren PC. Keine Konten, keine Telemetrie, keine eigenen Server: Dokumente werden nur an den von Ihnen konfigurierten KI-Anbieter gesendet, und API-Schlüssel werden verschlüsselt auf Ihrem Gerät gespeichert.\n\nVOLLE KONTROLLE ÜBER DAS ERGEBNIS\n• Seitenprüfung: Vergleichen Sie die Originalseite nebeneinander mit OCR und Übersetzung, und korrigieren Sie, was nötig ist.\n• Optionale Überarbeitung: Ein zweiter KI-Durchgang verfeinert die Übersetzung.\n• Prompt-Editor: Passen Sie die Anweisungen für OCR, Übersetzung und Überarbeitung an Ihren Stil oder Ihr Glossar an.\n• Export nach Markdown, Word (DOCX), PDF oder OpenDocument (ODT).\n• Auftragsverlauf mit Fortschritt, Fortsetzen und exportierbaren Paketen (.zpg), um auf einem anderen PC weiterzuarbeiten.\n\nVoraussetzungen: Zum Übersetzen benötigen Sie ein KI-Modell – entweder lokal (LM Studio oder Ollama, beide kostenlos) oder einen API-Schlüssel eines Cloud-Anbieters. Die Benutzeroberfläche ist in 10 Sprachen verfügbar und richtet sich automatisch nach Ihrer Windows-Sprache.\n\nPolyglotCLI ist Open-Source-Software: https://github.com/FittyAr/PolyglotCLI",
+  "whatsNew": "• Die Benutzeroberfläche ist jetzt in 10 Sprachen verfügbar: Englisch, Spanisch, Portugiesisch, Französisch, Deutsch, Italienisch, Russisch, Chinesisch (vereinfacht), Japanisch und Koreanisch.\n• Die App übernimmt automatisch Ihre Windows-Sprache, und Sie können sie unter Einstellungen > Allgemein ändern.",
+  "features": [
+    "Übersetzt PDF, Word (DOCX/DOC), OpenDocument (ODT) und reinen Text",
+    "OCR mit Vision-Modellen für gescannte Dokumente",
+    "Funktioniert mit lokalen Modellen (LM Studio, Ollama) oder in der Cloud (OpenAI, Gemini)",
+    "Datenschutz: Mit einem lokalen Modell verlassen Ihre Dokumente nie Ihren PC",
+    "Seitenweise Übersetzung mit fortlaufender Speicherung",
+    "Setzt unterbrochene Aufträge fort, ohne fertige Seiten neu zu übersetzen",
+    "Seitenprüfung: Original, OCR und Übersetzung nebeneinander",
+    "Optionaler zweiter KI-Durchgang zur Überarbeitung der Übersetzung",
+    "Prompt-Editor für OCR, Übersetzung und Überarbeitung",
+    "Export nach Markdown, DOCX, PDF und ODT",
+    "Auftragsverlauf und exportierbare Pakete für den Wechsel auf einen anderen PC",
+    "API-Schlüssel verschlüsselt auf Ihrem Gerät; keine Konten, keine Telemetrie"
+  ],
+  "shortDescription": "Übersetzen Sie komplette PDF-, Word-, ODT- und Textdokumente mit KI – mit lokalen Modellen (LM Studio, Ollama) oder Cloud-Anbietern (OpenAI, Google Gemini). Seitenweise und fortsetzbar, mit OCR für gescannte Dokumente und voller Privatsphäre mit lokalen Modellen.",
+  "systemRequirements": "Mindestens: Windows 10 Version 1809 oder höher (x64), 4 GB RAM.\nEmpfohlen: 8 GB RAM oder mehr. Für lokale KI-Modelle werden 16 GB RAM und eine dedizierte GPU empfohlen.\nEin KI-Modell ist erforderlich: LM Studio oder Ollama auf Ihrem PC oder ein API-Schlüssel eines Cloud-Anbieters (OpenAI, Google Gemini oder eine andere OpenAI-kompatible API).",
+  "keywords": [
+    "Dokumente übersetzen",
+    "PDF übersetzen",
+    "OCR",
+    "KI-Übersetzung",
+    "LM Studio",
+    "Ollama",
+    "Übersetzer"
+  ],
+  "captions": [
+    "Seitenprüfung: Vergleichen Sie die Originalseite mit der Übersetzung und korrigieren Sie, was nötig ist.",
+    "Dashboard: Wählen Sie Ihre Dokumente und den Modus (Text oder OCR), und verfolgen Sie den Fortschritt in Echtzeit.",
+    "Erzeugte Dateien: Ihre Übersetzung fertig als Markdown und Word, mit integrierter Vorschau.",
+    "Richten Sie lokale oder Cloud-Anbieter und das KI-Modell für jede Phase ein.",
+    "Prompt-Editor: Passen Sie die KI-Anweisungen an Ihren Stil und Ihr Glossar an.",
+    "Auftragsverlauf: Fortschritt, Fortsetzen und Export für jede Übersetzung."
+  ],
+  "copyright": "© 2026 FittyAr. MIT-Lizenz.",
+  "developedBy": "FittyAr"
+}

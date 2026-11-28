@@ -21,27 +21,24 @@ Inno Setup / .exe).
     <RadzenColumn Size="12" SizeMD="5">
         <RadzenFieldset Text="PolyglotCLI" class="rz-mt-2">
             <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                <img src="brand-logo.png" alt="PolyglotCLI logo"
+                <img src="brand-logo.png" alt="@L["About.LogoAlt"]"
                     style="width: 64px; height: 64px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);" />
                 <div>
                     <RadzenText TextStyle="TextStyle.H5" style="margin: 0;">PolyglotCLI</RadzenText>
                     <RadzenText TextStyle="TextStyle.Caption" style="opacity: 0.75;">
-                        Traductor de documentos potenciado por LLMs
+                        @L["About.Tagline"]
                     </RadzenText>
                 </div>
             </div>
 
             <RadzenText TextStyle="TextStyle.Body2" style="margin-bottom: 0.75rem;">
-                Aplicación web (Blazor Server) que traduce documentos PDF, DOCX, ODT e imágenes
-                página por página, usando proveedores LLM locales (Ollama, LM Studio, llama.cpp)
-                o en la nube (OpenAI, Gemini, Qwen, Kimi, MiniMax, etc.). Procesamiento incremental
-                con escritura inmediata a disco y visor integrado de páginas originales.
+                @L["About.Description"]
             </RadzenText>
 
             <table class="rz-grid-table rz-w-100" style="font-size: 0.9rem;">
                 <tbody>
                     <tr>
-                        <td style="opacity: 0.7; width: 40%;">Versión</td>
+                        <td style="opacity: 0.7; width: 40%;">@L["About.Version"]</td>
                         <td>
                             <code>@AppVersion</code>
                             @if (!string.IsNullOrEmpty(GitCommitShort))
@@ -51,26 +48,26 @@ Inno Setup / .exe).
                         </td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Target Framework</td>
+                        <td style="opacity: 0.7;">@L["About.TargetFramework"]</td>
                         <td><code>@TargetFramework</code></td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">.NET Runtime</td>
+                        <td style="opacity: 0.7;">@L["About.DotNetRuntime"]</td>
                         <td><code>@RuntimeVersion</code></td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Compilado</td>
+                        <td style="opacity: 0.7;">@L["About.BuildDate"]</td>
                         <td><code>@BuildDate</code></td>
                     </tr>
                 </tbody>
             </table>
         </RadzenFieldset>
 
-        <RadzenFieldset Text="Desarrollador" class="rz-mt-4">
+        <RadzenFieldset Text="@L["About.Developer"]" class="rz-mt-4">
             <table class="rz-grid-table rz-w-100" style="font-size: 0.9rem;">
                 <tbody>
                     <tr>
-                        <td style="opacity: 0.7; width: 40%;">Autor</td>
+                        <td style="opacity: 0.7; width: 40%;">@L["About.Author"]</td>
                         <td>
                             <a href="https://fitty.ar" target="_blank" rel="noopener"
                                 style="color: var(--rz-primary); text-decoration: none;">
@@ -79,7 +76,7 @@ Inno Setup / .exe).
                         </td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Sitio del proyecto</td>
+                        <td style="opacity: 0.7;">@L["About.ProjectSite"]</td>
                         <td>
                             <a href="https://fitty.ar/pages/polyglot-cli.html" target="_blank" rel="noopener"
                                 style="color: var(--rz-primary); text-decoration: none;">
@@ -88,7 +85,7 @@ Inno Setup / .exe).
                         </td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Repositorio</td>
+                        <td style="opacity: 0.7;">@L["About.Repository"]</td>
                         <td>
                             <a href="https://github.com/FittyAr/PolyglotCLI" target="_blank" rel="noopener"
                                 style="color: var(--rz-primary); text-decoration: none;">
@@ -97,16 +94,16 @@ Inno Setup / .exe).
                         </td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Copyright</td>
-                        <td>© 2026 FittyAr. Todos los derechos reservados.</td>
+                        <td style="opacity: 0.7;">@L["About.Copyright"]</td>
+                        <td>@L["About.CopyrightNotice"]</td>
                     </tr>
                 </tbody>
             </table>
         </RadzenFieldset>
 
-        <RadzenFieldset Text="Licencia" class="rz-mt-4">
+        <RadzenFieldset Text="@L["About.License"]" class="rz-mt-4">
             <RadzenText TextStyle="TextStyle.Body2" style="margin-bottom: 0.5rem;">
-                Este proyecto se distribuye bajo la <strong>MIT License</strong>.
+                @L["About.LicenseIntroPrefix"] <strong>MIT License</strong>@L["About.LicenseIntroSuffix"]
             </RadzenText>
             <pre style="background: rgba(0,0,0,0.15); padding: 0.75rem; border-radius: 6px;
                         font-size: 0.75rem; max-height: 180px; overflow: auto; white-space: pre-wrap;
@@ -116,8 +113,8 @@ Inno Setup / .exe).
 
     <!-- Columna derecha: stack y créditos -->
     <RadzenColumn Size="12" SizeMD="7">
-        <RadzenFieldset Text="Stack Tecnológico" class="rz-mt-2">
-            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Frontend</RadzenText>
+        <RadzenFieldset Text="@L["About.TechStack"]" class="rz-mt-2">
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">@L["About.StackFrontend"]</RadzenText>
             <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Blazor Server (.NET 10)" />
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Radzen.Blazor 11.1.7" />
@@ -125,7 +122,7 @@ Inno Setup / .exe).
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Bootstrap 5" />
             </div>
 
-            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Núcleo / Procesamiento</RadzenText>
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">@L["About.StackCore"]</RadzenText>
             <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Microsoft.SemanticKernel 1.78.0" />
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="UglyToad.PdfPig 1.7.0" />
@@ -136,13 +133,13 @@ Inno Setup / .exe).
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="HtmlToOpenXml 3.5.0" />
             </div>
 
-            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Texto y marcado</RadzenText>
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">@L["About.StackTextMarkup"]</RadzenText>
             <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Markdig 1.3.2" />
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="AngleSharp 1.5.2" />
             </div>
 
-            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Logging</RadzenText>
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">@L["About.StackLogging"]</RadzenText>
             <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Serilog 4.4.0" />
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Serilog.Sinks.File 7.0.0" />
@@ -150,7 +147,7 @@ Inno Setup / .exe).
             </div>
         </RadzenFieldset>
 
-        <RadzenFieldset Text="Proveedores LLM soportados" class="rz-mt-4">
+        <RadzenFieldset Text="@L["About.SupportedProviders"]" class="rz-mt-4">
             <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Ollama" />
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="LM Studio" />
@@ -160,7 +157,7 @@ Inno Setup / .exe).
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Qwen" />
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Kimi" />
                 <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="MiniMax" />
-                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Custom" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@L["About.ProviderCustom"]" />
             </div>
         </RadzenFieldset>
 
@@ -173,76 +170,76 @@ Inno Setup / .exe).
             (CurrentUser scope), así que NO se va a ver la key en
             claro aunque abras el archivo a mano.
         *@
-        <RadzenFieldset Text="Ubicaciones de archivos" class="rz-mt-4">
+        <RadzenFieldset Text="@L["About.FileLocations"]" class="rz-mt-4">
             <RadzenText TextStyle="TextStyle.Body2" class="rz-mb-3" style="opacity: 0.8;">
-                Paths resueltos para esta instalación. El botón <strong>copiar</strong>
-                lleva el path al portapapeles para pegarlo en el Explorador de archivos.
+                @L["About.FileLocationsIntroPrefix"] <strong>@L["About.FileLocationsCopyWord"]</strong>
+                @L["About.FileLocationsIntroSuffix"]
             </RadzenText>
             <table class="rz-grid-table rz-w-100" style="font-size: 0.9rem;">
                 <tbody>
                     <tr>
                         <td style="opacity: 0.7; width: 30%; vertical-align: top; padding-top: 0.6rem;">
-                            Configuración
+                            @L["About.PathConfig"]
                             <div style="opacity: 0.6; font-size: 0.78em;">config.json</div>
                         </td>
                         <td>
                             <code style="word-break: break-all; user-select: all;">@ConfigPath</code>
                             <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Light"
                                           Variant="Variant.Text" Size="ButtonSize.Small"
-                                          Click="@(() => CopyToClipboard(ConfigPath, "Configuración"))"
-                                          class="rz-ml-2" title="Copiar path" />
+                                          Click="@(() => CopyToClipboard(ConfigPath, L["About.PathConfig"]))"
+                                          class="rz-ml-2" title="@L["About.CopyPath"]" />
                         </td>
                     </tr>
                     <tr>
                         <td style="opacity: 0.7; vertical-align: top; padding-top: 0.6rem;">
-                            Prompts del sistema
-                            <div style="opacity: 0.6; font-size: 0.78em;">5 archivos .md editables</div>
+                            @L["About.SystemPrompts"]
+                            <div style="opacity: 0.6; font-size: 0.78em;">@L["About.EditableMdFiles"]</div>
                         </td>
                         <td>
                             <code style="word-break: break-all; user-select: all;">@PromptsPath</code>
                             <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Light"
                                           Variant="Variant.Text" Size="ButtonSize.Small"
-                                          Click="@(() => CopyToClipboard(PromptsPath, "Prompts"))"
-                                          class="rz-ml-2" title="Copiar path" />
+                                          Click="@(() => CopyToClipboard(PromptsPath, L["About.PathPromptsLabel"]))"
+                                          class="rz-ml-2" title="@L["About.CopyPath"]" />
                         </td>
                     </tr>
                     <tr>
                         <td style="opacity: 0.7; vertical-align: top; padding-top: 0.6rem;">
-                            Logs
-                            <div style="opacity: 0.6; font-size: 0.78em;">polyglot-*.log (rotación diaria)</div>
+                            @L["About.PathLogs"]
+                            <div style="opacity: 0.6; font-size: 0.78em;">polyglot-*.log (@L["About.DailyRotation"])</div>
                         </td>
                         <td>
                             <code style="word-break: break-all; user-select: all;">@LogsPath</code>
                             <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Light"
                                           Variant="Variant.Text" Size="ButtonSize.Small"
-                                          Click="@(() => CopyToClipboard(LogsPath, "Logs"))"
-                                          class="rz-ml-2" title="Copiar path" />
+                                          Click="@(() => CopyToClipboard(LogsPath, L["About.PathLogs"]))"
+                                          class="rz-ml-2" title="@L["About.CopyPath"]" />
                         </td>
                     </tr>
                     <tr>
                         <td style="opacity: 0.7; vertical-align: top; padding-top: 0.6rem;">
-                            Salida
-                            <div style="opacity: 0.6; font-size: 0.78em;">traducciones y exports generados</div>
+                            @L["About.PathOutput"]
+                            <div style="opacity: 0.6; font-size: 0.78em;">@L["About.PathOutputHint"]</div>
                         </td>
                         <td>
                             <code style="word-break: break-all; user-select: all;">@OutputPath</code>
                             <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Light"
                                           Variant="Variant.Text" Size="ButtonSize.Small"
-                                          Click="@(() => CopyToClipboard(OutputPath, "Salida"))"
-                                          class="rz-ml-2" title="Copiar path" />
+                                          Click="@(() => CopyToClipboard(OutputPath, L["About.PathOutput"]))"
+                                          class="rz-ml-2" title="@L["About.CopyPath"]" />
                         </td>
                     </tr>
                     <tr>
                         <td style="opacity: 0.7; vertical-align: top; padding-top: 0.6rem;">
-                            Jobs / Historial
-                            <div style="opacity: 0.6; font-size: 0.78em;">manifest.json, sources/, data/, outputs/ por job</div>
+                            @L["About.PathJobs"]
+                            <div style="opacity: 0.6; font-size: 0.78em;">@L["About.PathJobsHint"]</div>
                         </td>
                         <td>
                             <code style="word-break: break-all; user-select: all;">@JobsPath</code>
                             <RadzenButton Icon="content_copy" ButtonStyle="ButtonStyle.Light"
                                           Variant="Variant.Text" Size="ButtonSize.Small"
-                                          Click="@(() => CopyToClipboard(JobsPath, "Jobs"))"
-                                          class="rz-ml-2" title="Copiar path" />
+                                          Click="@(() => CopyToClipboard(JobsPath, L["About.PathJobsLabel"]))"
+                                          class="rz-ml-2" title="@L["About.CopyPath"]" />
                         </td>
                     </tr>
                 </tbody>
@@ -261,23 +258,22 @@ Inno Setup / .exe).
             {
                 <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" Variant="Variant.Flat"
                              Icon="warning" class="rz-mt-3" style="font-size: 0.8rem;">
-                    <strong>Modo dev activo</strong> — la variable de entorno
-                    <code>POLYGLOTCLI_USE_PROJECT_CONFIG</code> está definida, así que
-                    PolyglotCLI va a preferir un <code>config.json</code> del directorio
-                    actual sobre el de <code>%AppData%</code>. <strong>No se recomienda en
-                    producción</strong>: cualquier <code>config.json</code> plantado en la
-                    carpeta desde la que se corra la app va a ganar. Desactivala con
-                    <code>set POLYGLOTCLI_USE_PROJECT_CONFIG=</code> (cmd) o
+                    <strong>@L["About.DevModeTitle"]</strong> — @L["About.DevModeEnvVar"]
+                    <code>POLYGLOTCLI_USE_PROJECT_CONFIG</code> @L["About.DevModeIsSetPrefer"]
+                    <code>config.json</code> @L["About.DevModeFromCurrentDir"]
+                    <code>%AppData%</code>. <strong>@L["About.DevModeNotRecommended"]</strong>:
+                    @L["About.DevModeAny"] <code>config.json</code> @L["About.DevModePlanted"]
+                    <code>set POLYGLOTCLI_USE_PROJECT_CONFIG=</code> (cmd) @L["About.DevModeOr"]
                     <code>Remove-Item Env:POLYGLOTCLI_USE_PROJECT_CONFIG</code> (PowerShell).
                 </RadzenAlert>
             }
         </RadzenFieldset>
 
-        <RadzenFieldset Text="Créditos y enlaces" class="rz-mt-4">
+        <RadzenFieldset Text="@L["About.CreditsLinks"]" class="rz-mt-4">
             <table class="rz-grid-table rz-w-100" style="font-size: 0.9rem;">
                 <tbody>
                     <tr>
-                        <td style="opacity: 0.7; width: 30%;">Repositorio</td>
+                        <td style="opacity: 0.7; width: 30%;">@L["About.Repository"]</td>
                         <td>
                             <a href="https://github.com/FittyAr/PolyglotCLI" target="_blank" rel="noopener"
                                 style="color: var(--rz-primary); text-decoration: none;">
@@ -286,7 +282,7 @@ Inno Setup / .exe).
                         </td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Documentación</td>
+                        <td style="opacity: 0.7;">@L["About.Documentation"]</td>
                         <td>
                             <a href="https://github.com/FittyAr/PolyglotCLI/blob/master/README.md" target="_blank"
                                 rel="noopener" style="color: var(--rz-primary); text-decoration: none;">
@@ -295,16 +291,16 @@ Inno Setup / .exe).
                         </td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Diagrama de arquitectura</td>
+                        <td style="opacity: 0.7;">@L["About.ArchitectureDiagram"]</td>
                         <td>
                             <a href="https://github.com/FittyAr/PolyglotCLI/blob/master/docs/diagram/architecture_es.svg"
                                 target="_blank" rel="noopener" style="color: var(--rz-primary); text-decoration: none;">
-                                Architecture
+                                @L["About.ArchitectureLink"]
                             </a>
                         </td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Política de privacidad</td>
+                        <td style="opacity: 0.7;">@L["About.PrivacyPolicy"]</td>
                         <td>
                             <a href="https://github.com/FittyAr/PolyglotCLI/blob/master/docs/PRIVACY.md" target="_blank"
                                 rel="noopener" style="color: var(--rz-primary); text-decoration: none;">
@@ -313,8 +309,8 @@ Inno Setup / .exe).
                         </td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Prompts del sistema</td>
-                        <td><code>assets/prompts/</code> (5 archivos .md editables)</td>
+                        <td style="opacity: 0.7;">@L["About.SystemPrompts"]</td>
+                        <td><code>assets/prompts/</code> (@L["About.EditableMdFiles"])</td>
                     </tr>
                 </tbody>
             </table>
@@ -325,44 +321,44 @@ Inno Setup / .exe).
            discreto. No va acá dentro para no repetir la misma
            copy dos veces. *@
 
-        <RadzenFieldset Text="Actualizaciones" class="rz-mt-4">
+        <RadzenFieldset Text="@L["About.Updates"]" class="rz-mt-4">
             @* La UI de updates es responsabilidad de UpdateNotifier; este
             bloque solo muestra el estado actual y permite forzar un
             check manual. *@
             <table class="rz-grid-table rz-w-100" style="font-size: 0.9rem;">
                 <tbody>
                     <tr>
-                        <td style="opacity: 0.7; width: 35%;">Tipo de instalación</td>
+                        <td style="opacity: 0.7; width: 35%;">@L["About.InstallType"]</td>
                         <td>
                             @if (InstallEnvironment.IsMsixInstalled)
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="MSIX (Microsoft Store)" />
                                 <span style="opacity:0.7; margin-left:0.5rem;">
-                                    Las actualizaciones las gestiona Microsoft Store.
+                                    @L["About.InstallMsixHint"]
                                 </span>
                             }
                             else if (InstallEnvironment.IsInnoInstalled)
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Inno Setup (.exe)" />
                                 <span style="opacity:0.7; margin-left:0.5rem;">
-                                    Auto-actualizable desde GitHub.
+                                    @L["About.InstallInnoHint"]
                                 </span>
                             }
                             else
                             {
-                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Desarrollo / portable" />
+                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="@L["About.InstallDevPortable"]" />
                                 <span style="opacity:0.7; margin-left:0.5rem;">
-                                    Auto-update deshabilitado (no es una instalación estándar).
+                                    @L["About.InstallDevPortableHint"]
                                 </span>
                             }
                         </td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Última consulta</td>
+                        <td style="opacity: 0.7;">@L["About.LastCheck"]</td>
                         <td>@LastCheckDisplay</td>
                     </tr>
                     <tr>
-                        <td style="opacity: 0.7;">Última versión</td>
+                        <td style="opacity: 0.7;">@L["About.LatestVersion"]</td>
                         <td>
                             @if (string.IsNullOrEmpty(LatestVersionDisplay))
                             {
@@ -373,7 +369,7 @@ Inno Setup / .exe).
                                 <code>@LatestVersionDisplay</code>
                                 @if (IsUpdateAvailable)
                                 {
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="disponible" class="rz-ml-2" />
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@L["About.UpdateAvailableBadge"]" class="rz-ml-2" />
                                 }
                             }
                         </td>
@@ -382,13 +378,13 @@ Inno Setup / .exe).
             </table>
 
             <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; align-items: center;">
-                <RadzenButton Text="Buscar actualizaciones" Icon="refresh" ButtonStyle="ButtonStyle.Secondary"
-                    Click="@OnCheckClick" IsBusy="@_checking" BusyText="Buscando..."
+                <RadzenButton Text="@L["About.CheckForUpdates"]" Icon="refresh" ButtonStyle="ButtonStyle.Secondary"
+                    Click="@OnCheckClick" IsBusy="@_checking" BusyText="@L["About.CheckingForUpdates"]"
                     Disabled="@(!CanCheckUpdates)" />
                 @if (!CanCheckUpdates)
                 {
                     <span style="opacity:0.7; font-size: 0.8rem;">
-                        No disponible en este modo de instalación.
+                        @L["About.NotAvailableInInstallMode"]
                     </span>
                 }
             </div>
@@ -409,8 +405,8 @@ Inno Setup / .exe).
     private UpdateInfo? _updateInfo;
     private string LastCheckDisplay =>
     _updateInfo is null
-    ? "Nunca"
-    : (_updateInfo.CheckSucceeded ? "OK" : $"Error: {_updateInfo.ErrorMessage}");
+    ? L["About.Never"]
+    : (_updateInfo.CheckSucceeded ? L["About.LastCheckOk"] : L["About.LastCheckError", _updateInfo.ErrorMessage]);
     private string LatestVersionDisplay =>
     _updateInfo is null || !_updateInfo.CheckSucceeded ? string.Empty : _updateInfo.LatestVersion;
     private bool IsUpdateAvailable =>
@@ -461,8 +457,8 @@ Inno Setup / .exe).
             if (_updater is null)
             {
                 Notifier.Notify(NotificationSeverity.Warning,
-                "Servicio de updates no disponible",
-                "Esta instalación no soporta auto-actualización.",
+                L["About.UpdateServiceUnavailable"],
+                L["About.UpdateServiceUnavailableDetail"],
                 duration: 6000);
                 return;
             }
@@ -473,7 +469,7 @@ Inno Setup / .exe).
             {
                 // Reusar el dialog del notifier
                 var result = await DialogService.OpenAsync<UpdateAvailableDialog>(
-                title: $"Actualización disponible: {info.LatestVersion}",
+                title: L["About.UpdateAvailableTitle", info.LatestVersion],
                 parameters: new Dictionary<string, object?> { { "Info", info } },
                 options: new DialogOptions { Width = "560px" });
                 if (string.Equals(result as string, "dismiss", StringComparison.OrdinalIgnoreCase))
@@ -484,14 +480,14 @@ Inno Setup / .exe).
             else if (info.CheckSucceeded)
             {
                 Notifier.Notify(NotificationSeverity.Success,
-                "Sin actualizaciones",
-                $"Ya tenés la última versión ({info.CurrentVersion}).",
+                L["About.NoUpdates"],
+                L["About.NoUpdatesDetail", info.CurrentVersion],
                 duration: 5000);
             }
             else
             {
                 Notifier.Notify(NotificationSeverity.Error,
-                "No se pudo consultar GitHub",
+                L["About.GitHubCheckFailed"],
                 info.ErrorMessage,
                 duration: 7000);
             }
@@ -640,8 +636,8 @@ Inno Setup / .exe).
             Notifier.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Warning,
-                Summary = "Path vacío",
-                Detail = $"No hay un path de {label} para copiar.",
+                Summary = L["About.EmptyPath"],
+                Detail = L["About.EmptyPathDetail", label],
                 Duration = 3000
             });
             return;
@@ -653,7 +649,7 @@ Inno Setup / .exe).
             Notifier.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Success,
-                Summary = $"{label} copiado al portapapeles",
+                Summary = L["About.CopiedToClipboard", label],
                 Detail = text,
                 Duration = 3000
             });
@@ -666,8 +662,8 @@ Inno Setup / .exe).
             Notifier.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Warning,
-                Summary = "No se pudo copiar automáticamente",
-                Detail = $"Seleccioná el path manualmente. ({ex.GetType().Name})",
+                Summary = L["About.CopyFailed"],
+                Detail = L["About.CopyFailedDetail", ex.GetType().Name],
                 Duration = 4000
             });
         }

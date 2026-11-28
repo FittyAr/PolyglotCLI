@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using PolyglotCLI.Localization;
 
 namespace PolyglotCLI.Validation
 {
@@ -56,27 +57,27 @@ namespace PolyglotCLI.Validation
         public static ValidationResult<string> SanitizeFileName(string? name)
         {
             if (string.IsNullOrWhiteSpace(name))
-                return ValidationResult<string>.Failure("El nombre del archivo está vacío.");
+                return ValidationResult<string>.Failure(CoreText.Get("Core.FileNameEmpty", "The file name is empty."));
 
             if (name.Length > MaxFileNameLength)
                 return ValidationResult<string>.Failure(
-                    $"El nombre del archivo es demasiado largo ({name.Length} > {MaxFileNameLength}).");
+                    CoreText.Format("Core.FileNameTooLong", "The file name is too long ({0} > {1}).", name.Length, MaxFileNameLength));
 
             // No separadores de path en un nombre de archivo.
             if (name.Contains('/') || name.Contains('\\'))
                 return ValidationResult<string>.Failure(
-                    $"El nombre del archivo no puede contener separadores de path: '{name}'.");
+                    CoreText.Format("Core.FileNameHasSeparators", "The file name cannot contain path separators: '{0}'.", name));
 
             // No '..' como nombre completo (sería path traversal).
             if (name == "..")
-                return ValidationResult<string>.Failure("El nombre '..' no está permitido.");
+                return ValidationResult<string>.Failure(CoreText.Get("Core.FileNameDotDot", "The name '..' is not allowed."));
 
             // No caracteres de control (incluye NUL).
             for (int i = 0; i < name.Length; i++)
             {
                 if (IsControlChar(name[i]))
                     return ValidationResult<string>.Failure(
-                        $"El nombre del archivo contiene un carácter de control (posición {i}).");
+                        CoreText.Format("Core.FileNameControlChar", "The file name contains a control character (position {0}).", i));
             }
 
             // Windows no permite estos chars en nombres de archivo.
@@ -85,7 +86,7 @@ namespace PolyglotCLI.Validation
             {
                 if (name.Contains(c))
                     return ValidationResult<string>.Failure(
-                        $"El nombre del archivo contiene un carácter reservado '{c}'.");
+                        CoreText.Format("Core.FileNameReservedChar", "The file name contains a reserved character '{0}'.", c));
             }
 
             return ValidationResult<string>.Success(name);
@@ -98,28 +99,28 @@ namespace PolyglotCLI.Validation
         public static ValidationResult<string> SanitizeDirectoryPath(string? path, bool mustExist = false)
         {
             if (string.IsNullOrWhiteSpace(path))
-                return ValidationResult<string>.Failure("El path del directorio está vacío.");
+                return ValidationResult<string>.Failure(CoreText.Get("Core.DirectoryPathEmpty", "The folder path is empty."));
 
             if (path.Length > MaxPathLength)
                 return ValidationResult<string>.Failure(
-                    $"El path es demasiado largo ({path.Length} > {MaxPathLength}).");
+                    CoreText.Format("Core.PathTooLong", "The path is too long ({0} > {1}).", path.Length, MaxPathLength));
 
             // Caracteres de control
             for (int i = 0; i < path.Length; i++)
             {
                 if (IsControlChar(path[i]))
                     return ValidationResult<string>.Failure(
-                        $"El path contiene un carácter de control (posición {i}).");
+                        CoreText.Format("Core.PathControlChar", "The path contains a control character (position {0}).", i));
             }
 
             // Path traversal
             if (ContainsPathTraversal(path))
                 return ValidationResult<string>.Failure(
-                    $"El path contiene secuencias de path traversal (no se permite '..'): '{path}'.");
+                    CoreText.Format("Core.PathTraversal", "The path contains parent folder references ('..' is not allowed): '{0}'.", path));
 
             if (mustExist && !Directory.Exists(path))
                 return ValidationResult<string>.Failure(
-                    $"El directorio no existe: '{path}'.");
+                    CoreText.Format("Core.DirectoryNotFound", "The folder does not exist: '{0}'.", path));
 
             return ValidationResult<string>.Success(path);
         }
@@ -133,7 +134,7 @@ namespace PolyglotCLI.Validation
         public static ValidationResult<string> SanitizeFileExtension(string? ext)
         {
             if (string.IsNullOrWhiteSpace(ext))
-                return ValidationResult<string>.Failure("La extensión está vacía.");
+                return ValidationResult<string>.Failure(CoreText.Get("Core.ExtensionEmpty", "The extension is empty."));
 
             // Aceptamos tanto ".pdf" como "pdf" (con o sin punto).
             // Lo normalizamos para que siempre empiece con punto.
@@ -141,17 +142,17 @@ namespace PolyglotCLI.Validation
 
             if (normalized.Length > MaxExtensionLength)
                 return ValidationResult<string>.Failure(
-                    $"La extensión es demasiado larga ({normalized.Length} > {MaxExtensionLength}).");
+                    CoreText.Format("Core.ExtensionTooLong", "The extension is too long ({0} > {1}).", normalized.Length, MaxExtensionLength));
 
             if (normalized.Contains('/') || normalized.Contains('\\'))
                 return ValidationResult<string>.Failure(
-                    $"La extensión no puede contener separadores de path: '{ext}'.");
+                    CoreText.Format("Core.ExtensionHasSeparators", "The extension cannot contain path separators: '{0}'.", ext));
 
             for (int i = 0; i < normalized.Length; i++)
             {
                 if (IsControlChar(normalized[i]))
                     return ValidationResult<string>.Failure(
-                        $"La extensión contiene un carácter de control (posición {i}).");
+                        CoreText.Format("Core.ExtensionControlChar", "The extension contains a control character (position {0}).", i));
             }
 
             // Después del punto: alfanum + '_', '-', y '.' (para
@@ -161,7 +162,7 @@ namespace PolyglotCLI.Validation
                 char c = normalized[i];
                 if (!char.IsLetterOrDigit(c) && c != '_' && c != '-' && c != '.')
                     return ValidationResult<string>.Failure(
-                        $"La extensión contiene un carácter inválido '{c}' (solo se permiten letras, dígitos, '_', '-' y '.').");
+                        CoreText.Format("Core.ExtensionInvalidChar", "The extension contains an invalid character '{0}' (only letters, digits, '_', '-' and '.' are allowed).", c));
             }
 
             return ValidationResult<string>.Success(normalized);

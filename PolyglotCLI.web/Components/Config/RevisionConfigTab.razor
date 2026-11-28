@@ -4,31 +4,31 @@
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12">
         <RadzenCheckBox @bind-Value="AppConfig.EnableReview" Name="cfgReview" />
-        <RadzenLabel Text="Habilitar Revisión Post-Traducción con IA" Component="cfgReview" class="rz-ml-2" />
+        <RadzenLabel Text="@L["Config.EnableReview"]" Component="cfgReview" class="rz-ml-2" />
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Proveedor LLM para Revisión" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.ReviewProvider"]" class="rz-mb-2" />
         <RadzenDropDown Data="@providerOptions" @bind-Value="AppConfig.ReviewProvider" Change="@OnProviderChanged" class="rz-w-100" Disabled="@(!AppConfig.EnableReview)" />
     </RadzenColumn>
     <RadzenColumn Size="6">
         <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
             <div style="flex-grow: 1;">
-                <RadzenLabel Text="Modelo de Revisión" class="rz-mb-2" />
-                <RadzenDropDown @bind-Value="AppConfig.ReviewModel" Data="@currentModels" class="rz-w-100" Placeholder="Seleccionar o escribir modelo de revisión..." AllowClear="true" AllowFiltering="true" AllowCustom="true" Disabled="@(!AppConfig.EnableReview)" />
+                <RadzenLabel Text="@L["Config.ReviewModel"]" class="rz-mb-2" />
+                <RadzenDropDown @bind-Value="AppConfig.ReviewModel" Data="@currentModels" class="rz-w-100" Placeholder="@L["Config.ReviewModelPlaceholder"]" AllowClear="true" AllowFiltering="true" AllowCustom="true" Disabled="@(!AppConfig.EnableReview)" />
             </div>
-            <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@FetchModelsForProvider" Tooltip="Cargar modelos desde el servidor seleccionado" IsBusy="@isLoadingModels" Disabled="@(!AppConfig.EnableReview)" />
+            <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@FetchModelsForProvider" Tooltip="@L["Config.LoadModelsTooltip"]" IsBusy="@isLoadingModels" Disabled="@(!AppConfig.EnableReview)" />
         </div>
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Temperatura Revisión (0.0 - 1.0)" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.ReviewTemperature"]" class="rz-mb-2" />
         <RadzenNumeric @bind-Value="AppConfig.ReviewTemperature" TValue="double" Step="0.1" Min="@((decimal)0)" Max="@((decimal)1)" class="rz-w-100" Disabled="@(!AppConfig.EnableReview)" />
     </RadzenColumn>
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Timeout Revisión (segundos)" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.ReviewTimeout"]" class="rz-mb-2" />
         <RadzenNumeric @bind-Value="AppConfig.ReviewTimeoutSeconds" TValue="int" class="rz-w-100" Disabled="@(!AppConfig.EnableReview)" />
     </RadzenColumn>
 </RadzenRow>
@@ -119,7 +119,7 @@
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(NotificationSeverity.Error, "No se pudieron cargar los modelos", ex.Message, duration: 6000);
+            NotificationService.Notify(NotificationSeverity.Error, L["Config.LoadModelsFailed"], ex.Message, duration: 6000);
         }
         finally
         {

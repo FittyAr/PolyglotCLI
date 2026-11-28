@@ -116,6 +116,12 @@
         <Compile Include="..\PolyglotCLI.web\Services\JobDetails\**\*.cs" LinkBase="Services\JobDetails" />
         <Compile Include="..\PolyglotCLI.web\Services\UpdateHostedService.cs" Link="Services\UpdateHostedService.cs" />
         <Compile Include="..\PolyglotCLI.web\TranslationSession.cs" Link="TranslationSession.cs" />
+        <!-- Textos de la interfaz: el localizador y sus tablas JSON, con el
+             mismo nombre de recurso que en la app web (ver Localization/Loc.cs). -->
+        <Compile Include="..\PolyglotCLI.web\Localization\*.cs" LinkBase="Localization" />
+        <EmbeddedResource Include="..\PolyglotCLI.web\Localization\Strings\*.json"
+                          LinkBase="Localization\Strings"
+                          LogicalName="PolyglotCLI.web.Localization.Strings.%(Filename).json" />
         <RazorComponent Include="..\PolyglotCLI.web\Components\**\*.razor" Exclude="..\PolyglotCLI.web\Components\App.razor;..\PolyglotCLI.web\Components\Pages\Error.razor" LinkBase="Components" />
         <None Include="..\PolyglotCLI.web\Components\**\*.razor.css" Exclude="..\PolyglotCLI.web\Components\App.razor.css" LinkBase="Components" />
     </ItemGroup>

@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Maui.Storage;
+using PolyglotCLI.web.Localization;
 
 namespace PolyglotCLI.Maui.Services
 {
@@ -22,7 +23,7 @@ namespace PolyglotCLI.Maui.Services
             if (!Directory.Exists(jobDir))
             {
                 throw new DirectoryNotFoundException(
-                    $"La carpeta del trabajo '{job.JobId}' no existe en disco.");
+                    Loc.T("Host.JobFolderMissing", job.JobId));
             }
 
             string suggestedFileName = $"{job.JobId}{JobPackageService.PackageExtension}";
@@ -42,19 +43,19 @@ namespace PolyglotCLI.Maui.Services
                 {
                     if (result.Exception is OperationCanceledException)
                     {
-                        return "Guardado cancelado por el usuario.";
+                        return Loc.T("Host.SaveCancelled");
                     }
                     throw new InvalidOperationException(
-                        $"No se pudo guardar el archivo: {result.Exception?.Message ?? "operación cancelada"}",
+                        Loc.T("Host.SaveFailed", result.Exception?.Message ?? Loc.T("Host.OperationCancelled")),
                         result.Exception);
                 }
 
-                return $"Guardado en: {result.FilePath}";
+                return Loc.T("Host.SavedTo", result.FilePath);
             }
             catch (Exception ex)
             {
                 throw new InvalidOperationException(
-                    $"Error al guardar el archivo .zpg: {ex.Message}", ex);
+                    Loc.T("Host.SaveZpgError", ex.Message), ex);
             }
             finally
             {
@@ -68,7 +69,7 @@ namespace PolyglotCLI.Maui.Services
 
             var pickOptions = new PickOptions
             {
-                PickerTitle = "Selecciona un trabajo .zpg",
+                PickerTitle = Loc.T("Host.PickZpgTitle"),
                 FileTypes = new FilePickerFileType(
                     new Dictionary<DevicePlatform, IEnumerable<string>>
                     {
@@ -87,7 +88,7 @@ namespace PolyglotCLI.Maui.Services
             catch (Exception ex)
             {
                 throw new InvalidOperationException(
-                    "No se pudo abrir el selector de archivos. Comprueba los permisos de la aplicación.", ex);
+                    Loc.T("Host.FilePickerOpenFailed"), ex);
             }
 
             if (result == null)

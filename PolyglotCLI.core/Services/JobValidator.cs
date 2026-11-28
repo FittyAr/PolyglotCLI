@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using PolyglotCLI.Localization;
 using PolyglotCLI.Validation;
 
 namespace PolyglotCLI
@@ -16,25 +17,25 @@ namespace PolyglotCLI
             var urlResult = NetworkUrlValidator.SanitizeApiUrl(config.ApiUrl);
             if (!urlResult.IsValid)
             {
-                return (false, $"LM Studio API URL inválida: {urlResult.FirstError} (valor: '{config.ApiUrl}').");
+                return (false, CoreText.Format("Core.InvalidApiUrl", "Invalid API URL: {0} (value: '{1}').", urlResult.FirstError, config.ApiUrl));
             }
 
             // 2. Translation Model Name
             string translationModel = config.DefaultModel ?? "";
             if (string.IsNullOrEmpty(translationModel))
             {
-                return (false, "Translation Model Name cannot be empty.");
+                return (false, CoreText.Get("Core.TranslationModelRequired", "The translation model name cannot be empty."));
             }
 
             // 3. Target Language
             string targetLang = config.TargetLanguage ?? "";
             if (string.IsNullOrEmpty(targetLang))
             {
-                return (false, "Target Language cannot be empty.");
+                return (false, CoreText.Get("Core.TargetLanguageRequired", "The target language cannot be empty."));
             }
             if (!Regex.IsMatch(targetLang, @"^[\p{L}\s\-]+$"))
             {
-                return (false, "Target Language must contain only letters, spaces, or hyphens (e.g., 'English' or 'Brazilian-Portuguese').");
+                return (false, CoreText.Get("Core.TargetLanguageInvalid", "The target language can contain only letters, spaces or hyphens (e.g. 'English' or 'Brazilian-Portuguese')."));
             }
 
             // 4. Output Directory — chequeo mínimo de chars no
@@ -46,22 +47,22 @@ namespace PolyglotCLI
             string outDir = config.OutputDirectory ?? "";
             if (string.IsNullOrEmpty(outDir))
             {
-                return (false, "Output Directory cannot be empty.");
+                return (false, CoreText.Get("Core.OutputDirectoryRequired", "The output folder cannot be empty."));
             }
             char[] invalidChars = Path.GetInvalidPathChars();
             if (outDir.IndexOfAny(invalidChars) >= 0)
             {
-                return (false, "Output Directory contains invalid path characters.");
+                return (false, CoreText.Get("Core.OutputDirectoryInvalidChars", "The output folder contains invalid path characters."));
             }
 
             // 5. Directory to Scan
             if (string.IsNullOrEmpty(scanDir))
             {
-                return (false, "Directory to Scan cannot be empty.");
+                return (false, CoreText.Get("Core.ScanDirectoryRequired", "The folder to scan cannot be empty."));
             }
             if (!Directory.Exists(scanDir))
             {
-                return (false, $"The directory to scan '{scanDir}' does not exist on the system.");
+                return (false, CoreText.Format("Core.ScanDirectoryNotFound", "The folder to scan '{0}' does not exist.", scanDir));
             }
 
             return (true, null);
@@ -89,7 +90,7 @@ namespace PolyglotCLI
 
                 if (needsVision)
                 {
-                    return (false, "Vision/OCR Model Name cannot be empty.\nIt is required to translate images or PDFs in OCR mode.");
+                    return (false, CoreText.Get("Core.VisionModelRequired", "The vision/OCR model name cannot be empty.\nIt is required to translate images or PDFs in OCR mode."));
                 }
             }
             return (true, null);
@@ -99,11 +100,11 @@ namespace PolyglotCLI
         {
             if (string.IsNullOrEmpty(rawInput))
             {
-                return (false, "Please write some text in the Additional Prompt box first.");
+                return (false, CoreText.Get("Core.AdditionalPromptRequired", "Write some text in the additional translation instructions box first."));
             }
             if (string.IsNullOrEmpty(config.ApiUrl) || string.IsNullOrEmpty(config.DefaultModel))
             {
-                return (false, "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.");
+                return (false, CoreText.Get("Core.ApiNotConfigured", "Configure the API URL and the translation model in Settings first."));
             }
             return (true, null);
         }
@@ -112,11 +113,11 @@ namespace PolyglotCLI
         {
             if (selectedIndex < 0 || selectedIndex >= filesCount)
             {
-                return (false, "Please select/highlight a file in the documents list to analyze.");
+                return (false, CoreText.Get("Core.SelectFileToAnalyze", "Select a file in the documents list to analyze."));
             }
             if (string.IsNullOrEmpty(config.ApiUrl) || string.IsNullOrEmpty(config.DefaultModel))
             {
-                return (false, "LM Studio API URL and Translation Model Name must be configured in settings (press F8) first.");
+                return (false, CoreText.Get("Core.ApiNotConfigured", "Configure the API URL and the translation model in Settings first."));
             }
             return (true, null);
         }

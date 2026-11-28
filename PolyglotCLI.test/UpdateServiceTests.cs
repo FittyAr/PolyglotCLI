@@ -54,7 +54,7 @@ public class UpdateServiceTests : IDisposable
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
             svc.DownloadInstallerAsync(info, ct: TestContext.Current.CancellationToken).GetAwaiter().GetResult());
-        Assert.Contains("host de GitHub", ex.Message);
+        Assert.Contains("GitHub host", ex.Message);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class UpdateServiceTests : IDisposable
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
             svc.DownloadInstallerAsync(info, ct: TestContext.Current.CancellationToken).GetAwaiter().GetResult());
-        Assert.Contains("host de GitHub", ex.Message);
+        Assert.Contains("GitHub host", ex.Message);
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public class UpdateServiceTests : IDisposable
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             svc.DownloadInstallerAsync(info, ct: TestContext.Current.CancellationToken));
-        Assert.Contains("verificación SHA-256", ex.Message);
+        Assert.Contains("SHA-256 verification", ex.Message);
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public class UpdateServiceTests : IDisposable
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
             svc.LaunchSilentInstaller(fake));
-        Assert.Contains("no fue verificado", ex.Message);
+        Assert.Contains("has not been verified", ex.Message);
     }
 
     [Fact]

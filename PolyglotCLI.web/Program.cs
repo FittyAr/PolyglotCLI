@@ -1,4 +1,5 @@
 using PolyglotCLI.web.Components;
+using PolyglotCLI.web.Localization;
 using PolyglotCLI.web.Services;
 using PolyglotCLI.web.Services.JobDetails;
 using Radzen;
@@ -31,6 +32,10 @@ namespace PolyglotCLI.web
             AppLogger.Initialize(config);
             builder.Services.AddSingleton(config);
             builder.Services.AddSingleton(new ApplicationMode(isWebMode: true));
+
+            // Idioma de la interfaz (config o, si está vacío, el de Windows).
+            Loc.ApplyLanguage(config.UiLanguage);
+            builder.Services.AddSingleton(Loc.Instance);
 
             // Forzar la URL a localhost:5000
             builder.WebHost.UseUrls(LocalBaseUrl);
@@ -193,14 +198,14 @@ namespace PolyglotCLI.web
                 {
                     if (!req.HasFormContentType)
                     {
-                        return Results.BadRequest(new { error = "Se requiere multipart/form-data" });
+                        return Results.BadRequest(new { error = Loc.T("Host.MultipartRequired") });
                     }
 
                     var form = await req.ReadFormAsync();
                     var file = form.Files["file"];
                     if (file == null || file.Length == 0)
                     {
-                        return Results.BadRequest(new { error = "No se proporcionó archivo" });
+                        return Results.BadRequest(new { error = Loc.T("Host.NoFileProvided") });
                     }
 
                     string jobsRoot = TranslationOrchestrator.GetJobsDirectory();
@@ -229,9 +234,9 @@ namespace PolyglotCLI.web
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("==================================================");
-            Console.WriteLine("  Servidor PolyglotCLI iniciado en Modo Web");
-            Console.WriteLine($"  Abra su navegador en: {LocalBaseUrl}");
-            Console.WriteLine("  Presione Ctrl+C para detener el servidor");
+            Console.WriteLine("  " + Loc.T("Host.ConsoleServerStarted"));
+            Console.WriteLine("  " + Loc.T("Host.ConsoleOpenBrowser", LocalBaseUrl));
+            Console.WriteLine("  " + Loc.T("Host.ConsoleStopHint"));
             Console.WriteLine("==================================================");
             Console.ResetColor();
 

@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using PolyglotCLI.Localization;
 
 namespace PolyglotCLI.Update
 {
@@ -185,13 +186,13 @@ namespace PolyglotCLI.Update
         {
             if (info is null) throw new ArgumentNullException(nameof(info));
             if (string.IsNullOrEmpty(info.InstallerDownloadUrl))
-                throw new InvalidOperationException("La release no incluye un instalador .exe.");
+                throw new InvalidOperationException(CoreText.Get("Core.UpdateNoInstaller", "The release does not include an .exe installer."));
             if (!IsAllowedGitHubAssetUrl(info.InstallerDownloadUrl))
-                throw new InvalidOperationException("La URL del instalador no pertenece a un host de GitHub permitido.");
+                throw new InvalidOperationException(CoreText.Get("Core.UpdateUntrustedHost", "The installer URL is not on an allowed GitHub host."));
             // Sin digest publicado no hay forma de verificar el binario que
             // se ejecutaría como admin: se aborta ANTES de descargar.
             if (string.IsNullOrWhiteSpace(info.Digest))
-                throw new InvalidOperationException("La release no publica un digest SHA-256 del instalador; la actualización automática no puede verificarlo.");
+                throw new InvalidOperationException(CoreText.Get("Core.UpdateNoDigest", "The release does not publish a SHA-256 digest for the installer, so the automatic update cannot verify it."));
 
             string tempDir = Path.Combine(Path.GetTempPath(), "PolyglotCLI-Updates");
             Directory.CreateDirectory(tempDir);
@@ -246,8 +247,7 @@ namespace PolyglotCLI.Update
             {
                 try { File.Delete(outPath); } catch { /* best effort */ }
                 throw new InvalidOperationException(
-                    $"El instalador descargado no pasó la verificación SHA-256. " +
-                    $"Esperado={info.Digest}, calculado=sha256:{actual}");
+                    CoreText.Format("Core.UpdateDigestMismatch", "The downloaded installer failed SHA-256 verification. Expected={0}, computed=sha256:{1}", info.Digest, actual));
             }
             // Recordar el (path, digest) verificado para que
             // LaunchSilentInstaller pueda re-verificar antes de
@@ -304,9 +304,9 @@ namespace PolyglotCLI.Update
         public Process LaunchSilentInstaller(string installerPath)
         {
             if (string.IsNullOrEmpty(installerPath))
-                throw new ArgumentException("Ruta vacía.", nameof(installerPath));
+                throw new ArgumentException(CoreText.Get("Core.UpdateInstallerPathEmpty", "The installer path is empty."), nameof(installerPath));
             if (!File.Exists(installerPath))
-                throw new FileNotFoundException("Instalador no encontrado.", installerPath);
+                throw new FileNotFoundException(CoreText.Get("Core.UpdateInstallerNotFound", "Installer not found."), installerPath);
 
             // Re-verificación TOCTOU. Si el digest nunca fue registrado
             // (porque la release no traía uno, o porque el path no pasó
@@ -315,8 +315,7 @@ namespace PolyglotCLI.Update
             if (!_verifiedInstallers.TryGetValue(installerPath, out var expectedDigest))
             {
                 throw new InvalidOperationException(
-                    $"El instalador '{installerPath}' no fue verificado por DownloadInstallerAsync. " +
-                    "Por seguridad, sólo se ejecutan binarios que pasaron la verificación de digest en esta instancia.");
+                    CoreText.Format("Core.UpdateInstallerNotVerified", "The installer '{0}' has not been verified. For security, only installers whose digest was verified in this session are run.", installerPath));
             }
 
             // Se mantiene un handle abierto con FileShare.Read desde el
@@ -331,8 +330,7 @@ namespace PolyglotCLI.Update
                 try { File.Delete(installerPath); } catch { /* best effort */ }
                 _verifiedInstallers.Remove(installerPath);
                 throw new InvalidOperationException(
-                    $"El instalador fue modificado después de la verificación. " +
-                    $"Esperado={expectedDigest}, calculado=sha256:{actualHex}");
+                    CoreText.Format("Core.UpdateInstallerTampered", "The installer was modified after verification. Expected={0}, computed=sha256:{1}", expectedDigest, actualHex));
             }
 
             // Inno Setup: /VERYSILENT /SP- /CLOSEAPPLICATIONS /NORESTART
@@ -351,7 +349,7 @@ namespace PolyglotCLI.Update
                 WorkingDirectory = Path.GetDirectoryName(installerPath) ?? string.Empty
             };
             var proc = Process.Start(psi) ?? throw new InvalidOperationException(
-                "No se pudo iniciar el instalador (Process.Start devolvió null).");
+                CoreText.Get("Core.UpdateInstallerStartFailed", "The installer could not be started."));
             _verifiedInstallers.Remove(installerPath);
             return proc;
         }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using PolyglotCLI.Localization;
 
 namespace PolyglotCLI
 {
@@ -116,7 +117,7 @@ namespace PolyglotCLI
                 ChunkOverlapCharacters = config.ChunkOverlapCharacters
             };
 
-            updateStatus("Extracting text content from file...");
+            updateStatus(CoreText.Get("Core.ExtractingFileText", "Extracting text from the file..."));
 
             var extractor = new DocumentExtractorFactory().GetExtractor(filePath);
             // Contexto aislado: sin carpeta de job ni callbacks, así este
@@ -136,10 +137,10 @@ namespace PolyglotCLI
 
             if (string.IsNullOrEmpty(fileText))
             {
-                throw new Exception("The file content could not be read or is empty.");
+                throw new Exception(CoreText.Get("Core.FileContentEmpty", "The file content could not be read or is empty."));
             }
 
-            updateStatus("Analyzing context and generating prompt...");
+            updateStatus(CoreText.Get("Core.GeneratingContextPrompt", "Analyzing the context and generating the prompt..."));
 
             string systemPrompt = "You are an expert translation system prompt engineer. Analyze the following document text content to understand its context, main topic, style, tone, and specific domain terminology. " +
                                   "Based on this analysis, generate an optimal, detailed set of instructions (in English) that a translation model should follow when translating this document. The instructions should specify: " +
@@ -171,7 +172,7 @@ namespace PolyglotCLI
             }
             catch (Exception ex)
             {
-                throw new Exception($"Failed to load error analysis prompt: {ex.Message}");
+                throw new Exception(CoreText.Format("Core.ErrorAnalysisPromptLoadFailed", "Failed to load the error analysis prompt: {0}", ex.Message));
             }
 
             var config = AppConfig.Load();

@@ -1,25 +1,25 @@
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12">
         <RadzenCheckBox @bind-Value="AppConfig.SaveMarkdown" Name="cfgSaveMd" />
-        <RadzenLabel Text="Siempre generar documentos Markdown (.md)" Component="cfgSaveMd" class="rz-ml-2" />
+        <RadzenLabel Text="@L["Config.AlwaysSaveMarkdown"]" Component="cfgSaveMd" class="rz-ml-2" />
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12">
-        <RadzenLabel Text="Formato de Salida Adicional por Defecto" class="rz-mb-2" />
-        <RadzenDropDown @bind-Value="AppConfig.DefaultOutputFormat" Data="@OutputFormatOptions" class="rz-w-100" Placeholder="Ninguno" AllowClear="true" />
-        <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2" style="color: #b0bec5; display: block;">Nota: Los formatos de salida que no son MD se generan como post-procesamiento.</RadzenText>
+        <RadzenLabel Text="@L["Config.DefaultOutputFormat"]" class="rz-mb-2" />
+        <RadzenDropDown @bind-Value="AppConfig.DefaultOutputFormat" Data="@OutputFormatOptions" class="rz-w-100" Placeholder="@L["Config.None"]" AllowClear="true" />
+        <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2" style="color: #b0bec5; display: block;">@L["Config.OutputFormatsNote"]</RadzenText>
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12">
-        <RadzenLabel Text="Formatos de Salida Soportados (separados por coma)" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.SupportedOutputFormats"]" class="rz-mb-2" />
         <RadzenTextBox Value="@OutputFormatsInput" ValueChanged="@OnOutputFormatsInputChanged" class="rz-w-100" />
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12">
-        <RadzenLabel Text="Extensiones de Entrada Soportadas (separadas por coma)" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.SupportedInputExtensions"]" class="rz-mb-2" />
         <RadzenTextBox Value="@InputExtensionsInput" ValueChanged="@OnInputExtensionsInputChanged" class="rz-w-100" />
     </RadzenColumn>
 </RadzenRow>

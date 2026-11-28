@@ -20,11 +20,11 @@
 <RadzenStack Gap="1rem">
     <RadzenRow>
         <RadzenColumn Size="6">
-            <RadzenText TextStyle="TextStyle.Caption" style="opacity:0.7;">Versión instalada</RadzenText>
+            <RadzenText TextStyle="TextStyle.Caption" style="opacity:0.7;">@L["Dialogs.UpdateInstalledVersion"]</RadzenText>
             <RadzenText TextStyle="TextStyle.H6"><code>@Info.CurrentVersion</code></RadzenText>
         </RadzenColumn>
         <RadzenColumn Size="6">
-            <RadzenText TextStyle="TextStyle.Caption" style="opacity:0.7;">Última versión</RadzenText>
+            <RadzenText TextStyle="TextStyle.Caption" style="opacity:0.7;">@L["Dialogs.UpdateLatestVersion"]</RadzenText>
             <RadzenText TextStyle="TextStyle.H6" style="color: var(--rz-success);">
                 <code>@Info.LatestVersion</code>
             </RadzenText>
@@ -34,17 +34,17 @@
     @if (Info.PublishedAt is DateTime pub)
     {
         <RadzenText TextStyle="TextStyle.Caption" style="opacity:0.7;">
-            Publicada el @pub.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+            @(L["Dialogs.UpdatePublishedOn", pub.ToLocalTime().ToString("yyyy-MM-dd HH:mm")])
             @if (Info.InstallerSizeBytes > 0)
             {
-                <span> · Instalador: @FormatSize(Info.InstallerSizeBytes)</span>
+                <span> · @(L["Dialogs.UpdateInstallerSize", FormatSize(Info.InstallerSizeBytes)])</span>
             }
         </RadzenText>
     }
 
     @if (!string.IsNullOrWhiteSpace(Info.ReleaseNotes))
     {
-        <RadzenFieldset Text="Notas de la release">
+        <RadzenFieldset Text="@L["Dialogs.UpdateReleaseNotes"]">
             <pre style="white-space: pre-wrap; max-height: 220px; overflow: auto;
                         font-family: inherit; font-size: 0.85rem; margin: 0;">@Info.ReleaseNotes</pre>
         </RadzenFieldset>
@@ -52,19 +52,17 @@
 
     <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" Variant="Variant.Flat"
                  Icon="shield" style="font-size: 0.85rem;">
-        La actualización se descarga a una carpeta temporal y se ejecuta en
-        <strong>modo silencioso</strong>. El instalador detecta tu instalación
-        actual (Inno Setup), respeta los componentes que ya tenés
-        seleccionados (servidor, escritorio, o ambos) y mantiene tu
-        <code>config.json</code> intacto.
+        @L["Dialogs.UpdateSilentInfoBefore"]
+        <strong>@L["Dialogs.UpdateSilentMode"]</strong>@L["Dialogs.UpdateSilentInfoMiddle"]
+        <code>config.json</code> @L["Dialogs.UpdateSilentInfoAfter"]
     </RadzenAlert>
 
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-        <RadzenButton Text="Ignorar esta versión" Icon="close" ButtonStyle="ButtonStyle.Light"
+        <RadzenButton Text="@L["Dialogs.UpdateIgnoreVersion"]" Icon="close" ButtonStyle="ButtonStyle.Light"
                       Click="@(() => DialogService.Close("dismiss"))" />
-        <RadzenButton Text="Más tarde" Icon="schedule" ButtonStyle="ButtonStyle.Secondary"
+        <RadzenButton Text="@L["Dialogs.UpdateLater"]" Icon="schedule" ButtonStyle="ButtonStyle.Secondary"
                       Click="@(() => DialogService.Close("later"))" />
-        <RadzenButton Text="Actualizar ahora" Icon="system_update_alt" ButtonStyle="ButtonStyle.Success"
+        <RadzenButton Text="@L["Dialogs.UpdateNow"]" Icon="system_update_alt" ButtonStyle="ButtonStyle.Success"
                       Click="@OnUpdateClick" />
     </RadzenStack>
 </RadzenStack>
@@ -88,8 +86,8 @@
         if (TranslationSession.IsProcessing)
         {
             Notifier.Notify(NotificationSeverity.Warning,
-                "Traducción en curso",
-                "Esperá a que termine (o detenela) antes de actualizar.",
+                L["History.TranslationRunningTitle"],
+                L["Dialogs.UpdateWaitTranslation"],
                 duration: 7000);
             return;
         }
@@ -97,9 +95,9 @@
         // Cierra este dialog antes de abrir el de progreso.
         DialogService.Close();
 
-        var state = new ProgressState { Status = "Conectando con GitHub..." };
+        var state = new ProgressState { Status = L["Dialogs.UpdateConnecting"] };
         var progressDialog = DialogService.OpenAsync<ProgressDialog>(
-            title: $"Actualizando a {Info.LatestVersion}",
+            title: L["Dialogs.UpdatingTo", Info.LatestVersion],
             parameters: new Dictionary<string, object?> { { "State", state } },
             options: new DialogOptions
             {
@@ -114,7 +112,7 @@
             // actualizamos el texto de estado. Si en el futuro se quiere
             // uno con porcentaje real, basta con cambiar a un dialog
             // que acepte un valor numérico.
-            state.UpdateStatus($"Descargado {pct * 100:F0}% — guardando en carpeta temporal...");
+            state.UpdateStatus(L["Dialogs.UpdateDownloaded", pct * 100]);
         });
 
         string? installerPath;
@@ -125,12 +123,12 @@
         catch (Exception ex)
         {
             try { DialogService.Close(); } catch { }
-            Notifier.Notify(NotificationSeverity.Error, "Descarga fallida", ex.Message, duration: 8000);
+            Notifier.Notify(NotificationSeverity.Error, L["Dialogs.UpdateDownloadFailed"], ex.Message, duration: 8000);
             AppLogger.Error("UpdateAvailableDialog: fallo la descarga del instalador", ex);
             return;
         }
 
-        state.UpdateStatus("Iniciando instalador silencioso...");
+        state.UpdateStatus(L["Dialogs.UpdateLaunchingInstaller"]);
         try
         {
             _updater.LaunchSilentInstaller(installerPath);
@@ -139,7 +137,7 @@
         {
             try { DialogService.Close(); } catch { }
             Notifier.Notify(NotificationSeverity.Error,
-                "No se pudo iniciar el instalador",
+                L["Dialogs.UpdateInstallerLaunchFailed"],
                 ex.Message,
                 duration: 8000);
             AppLogger.Error("UpdateAvailableDialog: fallo al lanzar el instalador", ex);

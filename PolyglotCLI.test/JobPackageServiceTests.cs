@@ -168,7 +168,7 @@ namespace PolyglotCLI.test
             await using var input = File.OpenRead(emptyZipPath);
             var ex = await Assert.ThrowsAsync<InvalidJobPackageException>(async () =>
                 await JobPackageService.ImportJobPackageAsync(input, _jobsRoot));
-            Assert.Contains("vacío", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("empty", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]

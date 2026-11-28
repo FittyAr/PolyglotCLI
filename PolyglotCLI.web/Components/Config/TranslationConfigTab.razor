@@ -3,49 +3,49 @@
 
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Proveedor LLM para Traducción" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.TranslationProvider"]" class="rz-mb-2" />
         <RadzenDropDown Data="@providerOptions" @bind-Value="AppConfig.TranslationProvider" Change="@OnProviderChanged" class="rz-w-100" />
     </RadzenColumn>
     <RadzenColumn Size="6">
         <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
             <div style="flex-grow: 1;">
-                <RadzenLabel Text="Modelo de Traducción" class="rz-mb-2" />
-                <RadzenDropDown @bind-Value="AppConfig.DefaultModel" Data="@currentModels" class="rz-w-100" Placeholder="Seleccionar o escribir modelo de traducción..." AllowClear="true" AllowFiltering="true" AllowCustom="true" />
+                <RadzenLabel Text="@L["Config.TranslationModel"]" class="rz-mb-2" />
+                <RadzenDropDown @bind-Value="AppConfig.DefaultModel" Data="@currentModels" class="rz-w-100" Placeholder="@L["Config.TranslationModelPlaceholder"]" AllowClear="true" AllowFiltering="true" AllowCustom="true" />
             </div>
-            <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@FetchModelsForProvider" Tooltip="Cargar modelos desde el servidor seleccionado" IsBusy="@isLoadingModels" />
+            <RadzenButton Icon="sync" ButtonStyle="ButtonStyle.Secondary" Click="@FetchModelsForProvider" Tooltip="@L["Config.LoadModelsTooltip"]" IsBusy="@isLoadingModels" />
         </div>
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12">
-        <RadzenLabel Text="Temperatura Traducción (0.0 - 1.0)" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.TranslationTemperature"]" class="rz-mb-2" />
         <RadzenNumeric @bind-Value="AppConfig.Temperature" TValue="double" Step="0.1" Min="@((decimal)0)" Max="@((decimal)1)" class="rz-w-100" />
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12">
-        <RadzenLabel Text="Idioma Destino por Defecto" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.DefaultTargetLanguage"]" class="rz-mb-2" />
         <RadzenTextBox @bind-Value="AppConfig.TargetLanguage" class="rz-w-100" />
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Máx. Caracteres por Chunk" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.MaxCharsPerChunk"]" class="rz-mb-2" />
         <RadzenNumeric @bind-Value="AppConfig.MaxCharactersPerChunk" TValue="int" class="rz-w-100" />
     </RadzenColumn>
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Solapamiento de Chunks (caracteres)" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.ChunkOverlap"]" class="rz-mb-2" />
         <RadzenNumeric @bind-Value="AppConfig.ChunkOverlapCharacters" TValue="int" class="rz-w-100" />
     </RadzenColumn>
 </RadzenRow>
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="6">
-        <RadzenLabel Text="Timeout Traducción (segundos)" class="rz-mb-2" />
+        <RadzenLabel Text="@L["Config.TranslationTimeout"]" class="rz-mb-2" />
         <RadzenNumeric @bind-Value="AppConfig.TranslationTimeoutSeconds" TValue="int" class="rz-w-100" />
     </RadzenColumn>
     <RadzenColumn Size="6" class="rz-align-self-center">
         <RadzenCheckBox @bind-Value="AppConfig.PreserveFormat" Name="cfgPreserve" />
-        <RadzenLabel Text="Preservar formato original" Component="cfgPreserve" class="rz-ml-2" />
+        <RadzenLabel Text="@L["Config.PreserveFormat"]" Component="cfgPreserve" class="rz-ml-2" />
     </RadzenColumn>
 </RadzenRow>
 
@@ -135,7 +135,7 @@
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(NotificationSeverity.Error, "No se pudieron cargar los modelos", ex.Message, duration: 6000);
+            NotificationService.Notify(NotificationSeverity.Error, L["Config.LoadModelsFailed"], ex.Message, duration: 6000);
         }
         finally
         {

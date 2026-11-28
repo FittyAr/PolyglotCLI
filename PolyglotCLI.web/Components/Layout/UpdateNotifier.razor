@@ -53,9 +53,8 @@
             var key = new NotificationMessage
             {
                 Severity = NotificationSeverity.Info,
-                Summary = $"PolyglotCLI {info.LatestVersion} disponible",
-                Detail = $"Tenés instalada la {info.CurrentVersion}. ¿Querés actualizar ahora? " +
-                         "El instalador se descarga y se ejecuta en modo silencioso, conservando tu configuración.",
+                Summary = L["Layout.UpdateAvailableSummary", info.LatestVersion],
+                Detail = L["Layout.UpdateAvailableDetail", info.CurrentVersion],
                 Duration = 12000,
                 Payload = info
             };
@@ -66,7 +65,7 @@
             // forma estable, mostramos un dialog modal con la decisión.
             // Es más claro y permite al usuario leer las release notes.
             var result = await DialogService.OpenAsync<UpdateAvailableDialog>(
-                title: $"Actualización disponible: {info.LatestVersion}",
+                title: L["Layout.UpdateDialogTitle", info.LatestVersion],
                 parameters: new Dictionary<string, object?> { { "Info", info } },
                 options: new DialogOptions
                 {

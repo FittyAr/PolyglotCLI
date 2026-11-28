@@ -3,6 +3,7 @@ using Radzen;
 using PolyglotCLI;
 using PolyglotCLI.Maui.Services;
 using PolyglotCLI.web;
+using PolyglotCLI.web.Localization;
 using PolyglotCLI.web.Services.JobDetails;
 using BlazorPanzoom;
 using CommunityToolkit.Maui;
@@ -28,6 +29,10 @@ namespace PolyglotCLI.Maui
 			AppLogger.Initialize(config);
 			builder.Services.AddSingleton(config);
 			builder.Services.AddSingleton(new ApplicationMode(isWebMode: false));
+
+			// Idioma de la interfaz (config o, si está vacío, el de Windows).
+			Loc.ApplyLanguage(config.UiLanguage);
+			builder.Services.AddSingleton(Loc.Instance);
 
 			builder.Services.AddMauiBlazorWebView();
 			builder.Services.AddRadzenComponents();

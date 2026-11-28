@@ -12,6 +12,7 @@ using PolyglotCLI;
 using PolyglotCLI.Validation;
 using PolyglotCLI.web.Components.Config;
 using PolyglotCLI.web.Components.Dialogs;
+using PolyglotCLI.web.Localization;
 
 namespace PolyglotCLI.web.Components.Pages;
 
@@ -67,6 +68,11 @@ public partial class Config : ComponentBase, IDisposable
     private IDisposable? _locationHandler;
     private bool _handlerRegistered;
 
+    // Idioma de interfaz cargado al entrar a la página ("" = sistema).
+    // Si al guardar cambió, se aplica y se recarga la app para que todos
+    // los componentes se re-rendericen en el idioma nuevo.
+    private string _loadedUiLanguage = "";
+
     protected override async Task OnInitializedAsync()
     {
         AppConfig.Reload();
@@ -110,6 +116,7 @@ public partial class Config : ComponentBase, IDisposable
         // Capturamos el baseline después de Reload + carga inicial.
         // Cualquier cambio posterior se detecta comparando contra este JSON.
         _baselineJson = SerializeForCompare(AppConfig);
+        _loadedUiLanguage = AppConfig.UiLanguage ?? "";
     }
 
     protected override void OnAfterRender(bool firstRender)
@@ -133,7 +140,7 @@ public partial class Config : ComponentBase, IDisposable
         // El target siempre es distinto de la URL actual (RegisterLocationChangingHandler
         // solo se llama cuando hay cambio real de ubicación).
         var result = await DialogService.OpenAsync<UnsavedChangesDialog>(
-            title: "Cambios sin guardar",
+            title: L["Config.UnsavedChangesTitle"],
             options: new DialogOptions
             {
                 Width = "480px",
@@ -156,12 +163,20 @@ public partial class Config : ComponentBase, IDisposable
                     break;
 
                 case UnsavedChangesDialog.Choice.Save:
-                    await SaveConfig(AppConfig);
+                    var languageChanged = SaveConfigCore(AppConfig);
                     // Si SaveConfig reportó error, el baseline no se
                     // actualizó → todavía dirty → bloqueamos para que
                     // el usuario no pierda los cambios.
                     if (IsDirty())
                         context.PreventNavigation();
+                    else if (languageChanged)
+                    {
+                        // Cambió el idioma de interfaz: en vez de la
+                        // navegación SPA, recarga completa al destino
+                        // para que todo se re-renderice en el idioma nuevo.
+                        context.PreventNavigation();
+                        NavigationManager.NavigateTo(context.TargetLocation, forceLoad: true);
+                    }
                     break;
             }
         }
@@ -274,49 +289,49 @@ public partial class Config : ComponentBase, IDisposable
 
         var urlResult = NetworkUrlValidator.SanitizeApiUrl(args.ApiUrl);
         if (!urlResult.IsValid)
-            issues.Add($"URL del API: {urlResult.FirstError}");
+            issues.Add(L["Config.ValidationApiUrl", urlResult.FirstError]);
 
         var pathResult = FileSystemPathValidator.SanitizeDirectoryPath(args.OutputDirectory);
         if (!pathResult.IsValid)
-            issues.Add($"Directorio de salida: {pathResult.FirstError}");
+            issues.Add(L["Config.ValidationOutputDirectory", pathResult.FirstError]);
 
         pathResult = FileSystemPathValidator.SanitizeDirectoryPath(args.LastScanDirectory);
         if (!pathResult.IsValid)
-            issues.Add($"Último directorio escaneado: {pathResult.FirstError}");
+            issues.Add(L["Config.ValidationLastScanDirectory", pathResult.FirstError]);
 
         pathResult = FileSystemPathValidator.SanitizeDirectoryPath(args.LogDirectory);
         if (!pathResult.IsValid)
-            issues.Add($"Directorio de logs: {pathResult.FirstError}");
+            issues.Add(L["Config.ValidationLogDirectory", pathResult.FirstError]);
 
         if (!string.IsNullOrEmpty(args.DefaultModel))
         {
             var modelResult = ModelNameValidator.SanitizeModelName(args.DefaultModel);
             if (!modelResult.IsValid)
-                issues.Add($"Modelo default: {modelResult.FirstError}");
+                issues.Add(L["Config.ValidationDefaultModel", modelResult.FirstError]);
         }
         if (!string.IsNullOrEmpty(args.DefaultVisionModel))
         {
             var modelResult = ModelNameValidator.SanitizeModelName(args.DefaultVisionModel);
             if (!modelResult.IsValid)
-                issues.Add($"Modelo de visión: {modelResult.FirstError}");
+                issues.Add(L["Config.ValidationVisionModel", modelResult.FirstError]);
         }
         if (!string.IsNullOrEmpty(args.ReviewModel))
         {
             var modelResult = ModelNameValidator.SanitizeModelName(args.ReviewModel);
             if (!modelResult.IsValid)
-                issues.Add($"Modelo de revisión: {modelResult.FirstError}");
+                issues.Add(L["Config.ValidationReviewModel", modelResult.FirstError]);
         }
         if (!string.IsNullOrEmpty(args.AdditionalPrompt))
         {
             var promptResult = PromptValidator.SanitizePrompt(args.AdditionalPrompt);
             if (!promptResult.IsValid)
-                issues.Add($"Prompt adicional: {promptResult.FirstError}");
+                issues.Add(L["Config.ValidationAdditionalPrompt", promptResult.FirstError]);
         }
 
         if (issues.Count == 0) return;
 
         // Mostrar un notification con la lista de issues
-        var summary = $"La configuración tiene {issues.Count} campo(s) que podrían dar problemas";
+        var summary = L["Config.ValidationSummary", issues.Count];
         var detail = string.Join("\n", issues);
 
         NotificationService.Notify(new NotificationMessage
@@ -344,6 +359,7 @@ public partial class Config : ComponentBase, IDisposable
         dst.OutputDirectory = src.OutputDirectory;
         dst.LastScanDirectory = src.LastScanDirectory;
         dst.Debug = src.Debug;
+        dst.UiLanguage = src.UiLanguage;
         dst.AdditionalPrompt = src.AdditionalPrompt;
         dst.TranslationTimeoutSeconds = src.TranslationTimeoutSeconds;
         dst.PromptImproveTimeoutSeconds = src.PromptImproveTimeoutSeconds;
@@ -453,13 +469,13 @@ public partial class Config : ComponentBase, IDisposable
             AppConfig.SaveTestedProvider(AppConfig.Provider, AppConfig.ApiUrl, AppConfig.ApiKey, availableModels);
             // SaveTestedProvider muta el config → refrescamos el baseline.
             _baselineJson = SerializeForCompare(AppConfig);
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Carga y Registro Exitoso", Detail = $"Servidor '{AppConfig.Provider}' verificado con {availableModels.Count} modelos y registrado para usar en OCR, Traducción y Revisión." });
-            testConnectionResult = "Conexión exitosa";
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = L["Config.ModelsLoadedSummary"], Detail = L["Config.ModelsLoadedDetail", AppConfig.Provider, availableModels.Count] });
+            testConnectionResult = L["Config.ConnectionSucceeded"];
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Fallo de Conexión", Detail = ex.Message });
-            testConnectionResult = $"Fallo: {ex.Message}";
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = L["Config.ConnectionFailed"], Detail = ex.Message });
+            testConnectionResult = L["Config.ConnectionFailedResult", ex.Message];
         }
         finally
         {
@@ -467,7 +483,24 @@ public partial class Config : ComponentBase, IDisposable
         }
     }
 
-    protected async Task SaveConfig(PolyglotCLI.AppConfig args)
+    protected Task SaveConfig(PolyglotCLI.AppConfig args)
+    {
+        if (SaveConfigCore(args))
+        {
+            // Cambió el idioma de interfaz: recarga completa para que
+            // todos los componentes (menú, layout…) se re-rendericen.
+            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Guarda la configuración y los prompts. Devuelve true si el guardado
+    /// fue exitoso y cambió el idioma de interfaz respecto del cargado al
+    /// entrar (ya aplicado con <see cref="Loc.ApplyLanguage"/>); el que
+    /// llama decide cómo recargar.
+    /// </summary>
+    private bool SaveConfigCore(PolyglotCLI.AppConfig args)
     {
         try
         {
@@ -516,8 +549,8 @@ public partial class Config : ComponentBase, IDisposable
             _reviewPromptBaseline = reviewPromptText ?? "";
             _promptImproverPromptBaseline = promptImproverPromptText ?? "";
 
-            saveMessage = "Configuración guardada correctamente!";
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Éxito", Detail = "Configuración guardada correctamente." });
+            saveMessage = L["Config.SavedMessage"];
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = L["Common.Success"], Detail = L["Config.SavedDetail"] });
 
             // Refrescar baseline: lo que está en el modelo YA está
             // persistido en disco, así que el nuevo estado limpio.
@@ -526,11 +559,21 @@ public partial class Config : ComponentBase, IDisposable
             // El banner se limpia en segundo plano: no bloquear al que
             // llama (p.ej. el guard de navegación "Guardar y salir").
             _ = ClearSaveMessageLaterAsync();
+
+            var newUiLanguage = AppConfig.UiLanguage ?? "";
+            if (!string.Equals(newUiLanguage, _loadedUiLanguage, StringComparison.Ordinal))
+            {
+                _loadedUiLanguage = newUiLanguage;
+                Loc.ApplyLanguage(AppConfig.UiLanguage);
+                return true;
+            }
+            return false;
         }
         catch (Exception ex)
         {
-            saveMessage = $"Error al guardar: {ex.Message}";
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error al Guardar", Detail = ex.Message });
+            saveMessage = L["Config.SaveErrorMessage", ex.Message];
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = L["Config.SaveErrorSummary"], Detail = ex.Message });
+            return false;
         }
     }
 }

@@ -17,17 +17,17 @@
                     <div class="page-verifier-stage__title-group">
                         <RadzenIcon Icon="auto_stories" Style="color: #818cf8; font-size: 1.1rem;" />
                         <RadzenText TextStyle="TextStyle.Subtitle1" class="page-verifier-stage__title">
-                            Visualizando Página @SelectedPageData.PageNumber de @(PageDataList?.Count ?? 0)
+                            @(L["JobDetails.ViewingPage", SelectedPageData.PageNumber, PageDataList?.Count ?? 0])
                         </RadzenText>
                         @if (PendingTranslationEdits.Count > 0)
                         {
                             <span class="page-verifier-stage__pending-pill">
                                 <RadzenIcon Icon="edit_note" Style="font-size: 0.95rem;" />
-                                @PendingTranslationEdits.Count editada@(PendingTranslationEdits.Count == 1 ? "" : "s") en esta sesión
+                                @(PendingTranslationEdits.Count == 1 ? L["JobDetails.EditedCountOne", PendingTranslationEdits.Count] : L["JobDetails.EditedCountMany", PendingTranslationEdits.Count])
                             </span>
                         }
                     </div>
-                    <RadzenButton Text="Re-procesar esta página" Icon="autorenew" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" Click="@HandleReprocessPage" IsBusy="@IsReprocessingPage" BusyText="Procesando..." class="page-verifier-stage__reprocess-btn" Style="margin-left: auto;" />
+                    <RadzenButton Text="@L["JobDetails.ReprocessPage"]" Icon="autorenew" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" Click="@HandleReprocessPage" IsBusy="@IsReprocessingPage" BusyText="@L["JobDetails.Processing"]" class="page-verifier-stage__reprocess-btn" Style="margin-left: auto;" />
                 </div>
                 <RadzenRow Gap="0.75rem" class="page-verifier-stage__body" Style="flex: 1 1 0%; min-height: 0; display: flex; height: 100%;">
                     <RadzenColumn Size="6" Style="display: flex; flex-direction: column; min-height: 0; height: 100%;">
@@ -61,7 +61,7 @@
             {
                 <div style="display: flex; align-items: center; justify-content: center; flex: 1 1 0%; color: #b0bec5; flex-direction: column; gap: 8px; height: 100%; min-height: 0;">
                     <RadzenIcon Icon="find_in_page" Style="font-size: 3rem; color: #6366f1;" />
-                    <span>Selecciona un documento y una página del panel izquierdo para comenzar el análisis visual.</span>
+                    <span>@L["JobDetails.SelectDocumentAndPage"]</span>
                 </div>
             }
         </RadzenCard>

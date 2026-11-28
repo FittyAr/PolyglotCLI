@@ -5,29 +5,29 @@
 
     <RadzenTabs RenderMode="TabRenderMode.Client" class="rz-m-0" Style="flex: 1 1 0%; display: flex; flex-direction: column; min-height: 0;">
         <Tabs>
-            <RadzenTabsItem Text="Resumen y Progreso" Icon="assignment">
+            <RadzenTabsItem Text="@L["JobDetails.TabSummary"]" Icon="assignment">
                 <JobFilesSummaryTab Job="@State.Job" />
             </RadzenTabsItem>
 
-            <RadzenTabsItem Text="Verificador de Páginas " Icon="find_in_page">
+            <RadzenTabsItem Text="@L["JobDetails.TabPageVerifier"]" Icon="find_in_page">
                 <JobPageVerifierTab Job="@State.Job" JobDir="@State.JobDir" PendingTranslationEdits="@State.PendingTranslationEdits" />
             </RadzenTabsItem>
 
-            <RadzenTabsItem Text="Archivos Generados (.md / .docx)" Icon="folder_open">
+            <RadzenTabsItem Text="@L["JobDetails.TabGeneratedFiles"]" Icon="folder_open">
                 <JobGeneratedFilesTab JobDir="@State.JobDir" />
             </RadzenTabsItem>
 
-            <RadzenTabsItem Text="Imágenes Extraídas (PDF)" Icon="image">
+            <RadzenTabsItem Text="@L["JobDetails.TabExtractedImages"]" Icon="image">
                 <JobExtractedImagesTab JobDir="@State.JobDir" />
             </RadzenTabsItem>
 
-            <RadzenTabsItem Text="Bitácora de Logs" Icon="article">
+            <RadzenTabsItem Text="@L["JobDetails.TabLogs"]" Icon="article">
                 <JobLogsTab JobDir="@State.JobDir" />
             </RadzenTabsItem>
         </Tabs>
     </RadzenTabs>
 
     <div class="job-details-dialog-footer">
-        <RadzenButton Text="Cerrar" Click="@(() => DialogService.Close())" ButtonStyle="ButtonStyle.Secondary" />
+        <RadzenButton Text="@L["Common.Close"]" Click="@(() => DialogService.Close())" ButtonStyle="ButtonStyle.Secondary" />
     </div>
 </div>
