@@ -101,6 +101,11 @@ jobs:
           VERSION: ${{ steps.ver.outputs.version }}
           MS_STORE_IDENTITY_NAME: ${{ secrets.MS_STORE_IDENTITY_NAME }}
         run: |
+          # El publish anterior (Inno Setup) usa la misma carpeta obj (MAUI fija
+          # RuntimeIdentifier=win-x64) y deja cacheada la lista de recursos del
+          # PRI sin los logos de assets/msix/Assets: sin esta limpieza el
+          # resources.pri no indexa Assets/StoreLogo.png y el paso MSIX falla.
+          Remove-Item PolyglotCLI.Maui\obj\Release, PolyglotCLI.Maui\bin\Release -Recurse -Force -ErrorAction SilentlyContinue
           dotnet publish PolyglotCLI.Maui/PolyglotCLI.Maui.csproj -c Release -f net11.0-windows10.0.19041.0 `
               -r win-x64 --self-contained true -p:WindowsAppSDKSelfContained=true `
               -p:PolyglotMsix=true -p:ProjectPriFileName=resources.pri "-p:ProjectPriIndexName=$env:MS_STORE_IDENTITY_NAME" `
